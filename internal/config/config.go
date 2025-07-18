@@ -52,6 +52,11 @@ func (c *Config) GetDatabasePath() string {
 	return c.DatabasePath
 }
 
+// GetPersonalDatabasePath returns the path to the personal database file
+func (c *Config) GetPersonalDatabasePath() string {
+	return c.PersonalDBPath
+}
+
 // EnsureConfigDir creates the config directory if it doesn't exist
 func (c *Config) EnsureConfigDir() error {
 	return os.MkdirAll(c.ConfigDir, 0755)

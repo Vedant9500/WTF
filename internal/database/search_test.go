@@ -82,7 +82,7 @@ func TestCalculateScore(t *testing.T) {
 	}
 
 	queryWords := []string{"git", "commit"}
-	score := calculateScore(cmd, queryWords)
+	score := calculateScore(cmd, queryWords, nil) // No context boosts for basic test
 
 	if score <= 0 {
 		t.Errorf("Expected positive score, got %f", score)
@@ -93,5 +93,41 @@ func TestCalculateScore(t *testing.T) {
 	// Total should be at least 23
 	if score < 23 {
 		t.Errorf("Expected score >= 23, got %f", score)
+	}
+}
+
+func TestCalculateScoreWithContext(t *testing.T) {
+	cmd := &Command{
+		Command:     "git commit -m 'message'",
+		Description: "commit changes",
+		Keywords:    []string{"git", "version-control"},
+	}
+
+	queryWords := []string{"git", "commit"}
+	
+	// Test without context boosts
+	scoreWithoutContext := calculateScore(cmd, queryWords, nil)
+	
+	// Test with context boosts (simulating Git repository)
+	contextBoosts := map[string]float64{
+		"git":    2.0,
+		"commit": 1.5,
+	}
+	scoreWithContext := calculateScore(cmd, queryWords, contextBoosts)
+
+	if scoreWithContext <= scoreWithoutContext {
+		t.Errorf("Expected context boost to increase score. Without: %f, With: %f", 
+			scoreWithoutContext, scoreWithContext)
+	}
+
+	// The git keyword should get a 2.0x boost and commit should get 1.5x boost
+	// Original git score: 13 (10 from command + 3 from keyword)
+	// Boosted git score: 13 * 2.0 = 26
+	// Original commit score: 10 (from command)
+	// Boosted commit score: 10 * 1.5 = 15
+	// Total should be around 41
+	expectedMinScore := 40.0
+	if scoreWithContext < expectedMinScore {
+		t.Errorf("Expected context-boosted score >= %f, got %f", expectedMinScore, scoreWithContext)
 	}
 }

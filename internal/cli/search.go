@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"cmd-finder/internal/config"
+	"cmd-finder/internal/context"
 	"cmd-finder/internal/database"
 
 	"github.com/spf13/cobra"
@@ -42,9 +43,17 @@ Examples:
 			cfg.DatabasePath = dbPath
 		}
 
-		// Load database
+		// Analyze current directory context
+		analyzer := context.NewAnalyzer()
+		projectContext, err := analyzer.AnalyzeCurrentDirectory()
+		if err != nil && verbose {
+			fmt.Printf("Warning: Could not analyze directory context: %v\n", err)
+		}
+
+		// Load database (main + personal)
 		dbFilePath := cfg.GetDatabasePath()
-		db, err := database.LoadDatabase(dbFilePath)
+		personalDBPath := cfg.GetPersonalDatabasePath()
+		db, err := database.LoadDatabaseWithPersonal(dbFilePath, personalDBPath)
 		if err != nil {
 			fmt.Printf("Error loading database from %s: %v\n", dbFilePath, err)
 			fmt.Println("Make sure the commands.yml file exists in the current directory.")
@@ -53,11 +62,22 @@ Examples:
 
 		if verbose {
 			fmt.Printf("Loaded %d commands from database: %s\n", db.Size(), dbFilePath)
+			if projectContext != nil {
+				fmt.Printf("Context detected: %s\n", projectContext.GetContextDescription())
+			}
 		}
 		fmt.Printf("Searching for: %s\n\n", query)
 
-		// Perform search
-		results := db.Search(query, cfg.MaxResults)
+		// Prepare search options with context boosts
+		searchOptions := database.SearchOptions{
+			Limit: cfg.MaxResults,
+		}
+		if projectContext != nil {
+			searchOptions.ContextBoosts = projectContext.GetContextBoosts()
+		}
+
+		// Perform context-aware search
+		results := db.SearchWithOptions(query, searchOptions)
 
 		if len(results) == 0 {
 			fmt.Println("No commands found matching your query.")
