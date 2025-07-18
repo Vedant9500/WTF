@@ -5,7 +5,6 @@
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Go Version](https://img.shields.io/badge/go-1.24+-green)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
-![License](https://img.shields.io/badge/license-MIT-blue)
 
 *A powerful CLI tool to discover shell commands using natural language*
 
@@ -335,37 +334,6 @@ We welcome contributions! Here's how to get started:
 
 ---
 
-## 📋 Roadmap
-
-### Phase 1: Core Functionality ✅
-- [x] Natural language search engine
-- [x] Context-aware suggestions  
-- [x] Personal command notebook
-- [x] Interactive command wizards
-- [x] Pipeline search and visualization
-- [x] Cross-platform builds
-- [x] Comprehensive testing
-
-### Phase 2: Enhanced Features 🚧
-- [ ] Fuzzy search for typos
-- [ ] Command history tracking
-- [ ] Export/import personal databases
-- [ ] Plugin system
-- [ ] Web interface
-
-### Phase 3: Ecosystem 🎯
-- [ ] Package manager integration (Homebrew, Chocolatey)
-- [ ] IDE extensions (VS Code, JetBrains)
-- [ ] Shell completions (bash, zsh, fish)
-- [ ] Cloud sync for personal commands
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
 
 ## 🙏 Acknowledgments
 
@@ -377,9 +345,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**⭐ Star this repo if WTF helps you find the commands you need! ⭐**
-
-[Report Bug](https://github.com/your-username/WTF/issues) • [Request Feature](https://github.com/your-username/WTF/issues) • [Contribute](https://github.com/your-username/WTF/pulls)
 
 Made with ❤️ by developers who forget commands too
 
