@@ -7,20 +7,20 @@ import (
 
 // Config holds application configuration
 type Config struct {
-	DatabasePath    string
-	PersonalDBPath  string
-	MaxResults      int
-	CacheEnabled    bool
-	ConfigDir       string
+	DatabasePath   string
+	PersonalDBPath string
+	MaxResults     int
+	CacheEnabled   bool
+	ConfigDir      string
 }
 
 // DefaultConfig returns default configuration
 func DefaultConfig() *Config {
 	homeDir, _ := os.UserHomeDir()
 	configDir := filepath.Join(homeDir, ".config", "cmd-finder")
-	
+
 	return &Config{
-		DatabasePath:   "commands.yml",           // Default to current directory
+		DatabasePath:   "commands.yml", // Default to current directory
 		PersonalDBPath: filepath.Join(configDir, "personal.yml"),
 		MaxResults:     5,
 		CacheEnabled:   true,
@@ -34,20 +34,20 @@ func (c *Config) GetDatabasePath() string {
 	if _, err := os.Stat(c.DatabasePath); err == nil {
 		return c.DatabasePath
 	}
-	
+
 	// Fallback options
 	fallbacks := []string{
 		"commands.yml",
 		filepath.Join("internal", "database", "commands.yml"),
 		"commands_fixed.yml", // Legacy support
 	}
-	
+
 	for _, path := range fallbacks {
 		if _, err := os.Stat(path); err == nil {
 			return path
 		}
 	}
-	
+
 	// Return configured path anyway (will error gracefully later)
 	return c.DatabasePath
 }

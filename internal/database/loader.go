@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"cmd-finder/internal/errors"
+
 	"gopkg.in/yaml.v3"
 )
 

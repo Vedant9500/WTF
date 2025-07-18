@@ -1,10 +1,12 @@
-# cmd-finder
+# WTF (What's The Function) 
 
 A CLI tool to find shell commands using natural language queries.
 
 ## Overview
 
-cmd-finder helps you discover shell commands by searching through a curated database of common command-line tools and their usage examples. Simply describe what you want to do in natural language, and cmd-finder will suggest relevant commands.
+WTF helps you discover shell commands by searching through a curated database of common command-line tools and their usage examples. Simply describe what you want to do in natural language, and WTF will suggest relevant commands.
+
+**Why "WTF"?** When you can't remember a command, you think "What's The Function I need?" - that's exactly what this tool helps you find! 😄
 
 ## Installation
 
@@ -12,13 +14,15 @@ cmd-finder helps you discover shell commands by searching through a curated data
 
 ```bash
 git clone <repository-url>
-cd cmd-finder
+cd WTF
 make build
 ```
 
 ### Direct Build
 ```bash
-go build -o cmd-finder
+go build -o wtf
+# or on Windows:
+go build -o wtf.exe
 ```
 
 ## Usage
@@ -27,48 +31,66 @@ go build -o cmd-finder
 
 ```bash
 # Search for commands (multiple ways)
-./cmd-finder "compress a directory"
-./cmd-finder search "find files by name"
-./cmd-finder "git commit changes"
+./wtf "compress a directory"
+./wtf search "find files by name"
+./wtf "git commit changes"
 ```
 
 ### Advanced Options
 
 ```bash
 # Limit number of results
-./cmd-finder "docker commands" --limit 3
+./wtf "docker commands" --limit 3
 
 # Verbose output with keywords and scores
-./cmd-finder "tar compress" --verbose
+./wtf "tar compress" --verbose
 
 # Use custom database file
-./cmd-finder "git" --database /path/to/custom.yml
+./wtf "git" --database /path/to/custom.yml
 
 # Get help
-./cmd-finder --help
-./cmd-finder search --help
+./wtf --help
+./wtf search --help
 
 # Check version
-./cmd-finder --version
+./wtf --version
 ```
 
-### Setting up an Alias
+### Setting up Custom Command Aliases (FR2)
 
-To use a custom command like `hey` instead of `cmd-finder`, add this to your shell configuration:
+WTF makes it super easy to use any command name you prefer:
 
-#### Bash/Zsh (~/.bashrc or ~/.zshrc)
+#### 🚀 **One-Command Setup (All Platforms)**
+
 ```bash
-alias hey='/path/to/cmd-finder'
+# Simple setup - WTF handles everything automatically
+wtf setup hey        # Creates 'hey' command
+wtf setup miko       # Creates 'miko' command  
+wtf setup cmd        # Creates 'cmd' command
+
+# Then use your custom command:
+hey "compress files"
+miko "git commands"
 ```
 
-#### Fish (~/.config/fish/config.fish)
-```fish
-alias hey='/path/to/cmd-finder'
+#### 🪟 **Windows - Instant Setup**
+
+```cmd
+# For current session (super simple):
+doskey hey=wtf.exe $*
+
+# Now use immediately:
+hey "find large files"
 ```
 
-Then you can use:
+#### 🐧 **Linux/Mac - Classic Aliases**
+
 ```bash
-hey search "compress files"
+# Quick alias:
+alias hey='wtf'
+
+# Make permanent:
+echo "alias hey='wtf'" >> ~/.bashrc
 ```
 
 ## Database

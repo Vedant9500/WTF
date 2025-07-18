@@ -1,3 +1,44 @@
-requirement.md
-tasks.md
-design.md
+# Build artifacts
+build/
+*.exe
+*.bin
+dist/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary alias files (created by wtf setup)
+*.bat
+hey
+miko
+cmd
+find-cmd
+
+# Go specific
+*.out
+*.test
+coverage.txt
+
+# Personal database files
+personal.yml
+custom.yml
+
+# Logs
+*.log
+
+# Development artifacts
+commands_fixed.yml
+temp/

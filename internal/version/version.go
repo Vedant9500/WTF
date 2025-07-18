@@ -2,12 +2,12 @@ package version
 
 // Version information (can be overridden at build time)
 var (
-	Version = "1.0.0-dev"
+	Version = "0.0.1-alpha"
 	Build   = "dev"
 	GitHash = "unknown"
 )
 
 // BuildInfo returns formatted build information
 func BuildInfo() string {
-	return "cmd-finder version " + Version + " (build: " + Build + ", git: " + GitHash + ")"
+	return "WTF (What's The Function) version " + Version + " (build: " + Build + ", git: " + GitHash + ")"
 }

@@ -6,6 +6,7 @@ import (
 
 	"cmd-finder/internal/config"
 	"cmd-finder/internal/database"
+
 	"github.com/spf13/cobra"
 )
 
@@ -15,19 +16,23 @@ var searchCmd = &cobra.Command{
 	Long: `Search the command database using natural language queries.
 	
 Examples:
-  cmd-finder search "compress a directory"
-  cmd-finder search "find files by name"
-  cmd-finder search "git commit changes"
-  cmd-finder search --limit 10 "docker commands"`,
+  wtf search "compress a directory"
+  wtf search "find files by name"
+  wtf search "git commit changes"
+  wtf search --limit 10 "docker commands"
+  
+  # Or use directly without 'search':
+  wtf "compress a directory"
+  hey "find files by name"  # if you set up 'hey' as an alias`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		query := strings.Join(args, " ")
-		
+
 		// Get flags
 		limit, _ := cmd.Flags().GetInt("limit")
 		verbose, _ := cmd.Flags().GetBool("verbose")
 		dbPath, _ := cmd.Flags().GetString("database")
-		
+
 		// Load configuration
 		cfg := config.DefaultConfig()
 		if limit > 0 {
@@ -36,7 +41,7 @@ Examples:
 		if dbPath != "" {
 			cfg.DatabasePath = dbPath
 		}
-		
+
 		// Load database
 		dbFilePath := cfg.GetDatabasePath()
 		db, err := database.LoadDatabase(dbFilePath)
@@ -45,20 +50,20 @@ Examples:
 			fmt.Println("Make sure the commands.yml file exists in the current directory.")
 			return
 		}
-		
+
 		if verbose {
 			fmt.Printf("Loaded %d commands from database: %s\n", db.Size(), dbFilePath)
 		}
 		fmt.Printf("Searching for: %s\n\n", query)
-		
+
 		// Perform search
 		results := db.Search(query, cfg.MaxResults)
-		
+
 		if len(results) == 0 {
 			fmt.Println("No commands found matching your query.")
 			return
 		}
-		
+
 		// Display results
 		fmt.Printf("Found %d matching command(s):\n\n", len(results))
 		for i, result := range results {
