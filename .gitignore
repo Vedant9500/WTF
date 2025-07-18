@@ -46,6 +46,9 @@ custom.yml
 commands_fixed.yml
 .tmp/
 releases/
+ACTION_PLAN.md
+ROADMAP.md
+FEATURES.md
 
 # Air live reload  
 .air.toml.local

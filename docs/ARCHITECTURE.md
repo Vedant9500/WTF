@@ -37,9 +37,7 @@ WTF/
 ├── assets/               # Static assets and data
 │   └── commands.yml      # Main command database
 ├── docs/                 # Project documentation
-│   ├── design.md         # Original design document
-│   ├── requirements.md   # Project requirements
-│   ├── tasks.md          # Development tasks and progress
+│   ├── ARCHITECTURE.md   # Project Architecture
 │   └── ALIASES.md        # Alias setup documentation
 ├── configs/              # Configuration files
 ├── build/                # Build artifacts (generated)
