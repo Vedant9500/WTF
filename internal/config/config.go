@@ -20,7 +20,7 @@ func DefaultConfig() *Config {
 	configDir := filepath.Join(homeDir, ".config", "cmd-finder")
 
 	return &Config{
-		DatabasePath:   "commands.yml", // Default to current directory
+		DatabasePath:   "assets/commands.yml", // Default to assets directory
 		PersonalDBPath: filepath.Join(configDir, "personal.yml"),
 		MaxResults:     5,
 		CacheEnabled:   true,
@@ -37,7 +37,9 @@ func (c *Config) GetDatabasePath() string {
 
 	// Fallback options
 	fallbacks := []string{
-		"commands.yml",
+		"assets/commands.yml", // New organized location
+		filepath.Join("assets", "commands.yml"),
+		"commands.yml", // Backward compatibility
 		filepath.Join("internal", "database", "commands.yml"),
 		"commands_fixed.yml", // Legacy support
 	}

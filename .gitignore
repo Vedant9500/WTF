@@ -1,8 +1,9 @@
 # Build artifacts
 build/
+dist/
+tmp/
 *.exe
 *.bin
-dist/
 
 # OS generated files
 .DS_Store
@@ -31,6 +32,8 @@ find-cmd
 *.out
 *.test
 coverage.txt
+coverage.html
+build-errors.log
 
 # Personal database files
 personal.yml
@@ -39,6 +42,10 @@ custom.yml
 # Logs
 *.log
 
-# Development artifacts
+# Development artifacts (moved to docs/)
 commands_fixed.yml
-temp/
+.tmp/
+releases/
+
+# Air live reload  
+.air.toml.local

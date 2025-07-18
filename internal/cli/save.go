@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"cmd-finder/internal/config"
-	"cmd-finder/internal/database"
+	"github.com/Vedant9500/WTF/internal/config"
+	"github.com/Vedant9500/WTF/internal/database"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"

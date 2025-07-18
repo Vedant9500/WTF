@@ -1,10 +1,20 @@
 # Build variables
-BINARY_NAME=wtf
-BUILD_DIR=build
-VERSION=1.0.0-dev
+BINARY_N# Build for multiple platforms
+.PHONY: build-all
+build-all:
+	@echo "Building $(BINARY_NAME) v$(VERSION) for all platforms..."
+	@mkdir -p $(BUILD_DIR)
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
+	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_PATH)
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PATH)
+	@echo "Cross-platform builds completed!"ILD_DIR=build
+VERSION=1.0.0
 GIT_HASH=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME=$(shell date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "unknown")
-LDFLAGS=-ldflags "-X cmd-finder/internal/version.Version=$(VERSION) -X cmd-finder/internal/version.GitHash=$(GIT_HASH) -X cmd-finder/internal/version.Build=$(BUILD_TIME)"
+LDFLAGS=-ldflags "-X github.com/Vedant9500/WTF/internal/version.Version=$(VERSION) -X github.com/Vedant9500/WTF/internal/version.GitHash=$(GIT_HASH) -X github.com/Vedant9500/WTF/internal/version.Build=$(BUILD_TIME)"
+MAIN_PATH=./cmd/wtf
 
 # Default target
 .PHONY: all
@@ -13,20 +23,40 @@ all: test build
 # Build the application
 .PHONY: build
 build:
-	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) .
+	@echo "Building $(BINARY_NAME) v$(VERSION)..."
+	@mkdir -p $(BUILD_DIR)
+	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)/cmd/wtf
 
 # Build the application with optimizations for release
 .PHONY: build-release
 build-release:
-	go build $(LDFLAGS) -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME) .
+	@echo "Building optimized release $(BINARY_NAME) v$(VERSION)..."
+	@mkdir -p $(BUILD_DIR)
+	go build $(LDFLAGS) -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)/cmd/wtf
 
 # Build for multiple platforms
 .PHONY: build-all
 build-all:
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 .
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 .
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 .
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe .
+	@echo "Building $(BINARY_NAME) v$(VERSION) for all platforms..."
+	@mkdir -p $(BUILD_DIR)
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/wtf
+	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/wtf
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/wtf
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/wtf
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/wtf
+	@echo "Cross-platform builds completed!"
+
+# Create release packages
+.PHONY: release
+release: clean test build-all
+	@echo "Creating release packages..."
+	@mkdir -p $(BUILD_DIR)/releases
+	cd $(BUILD_DIR) && tar -czf releases/$(BINARY_NAME)-$(VERSION)-linux-amd64.tar.gz $(BINARY_NAME)-linux-amd64
+	cd $(BUILD_DIR) && tar -czf releases/$(BINARY_NAME)-$(VERSION)-linux-arm64.tar.gz $(BINARY_NAME)-linux-arm64
+	cd $(BUILD_DIR) && tar -czf releases/$(BINARY_NAME)-$(VERSION)-darwin-amd64.tar.gz $(BINARY_NAME)-darwin-amd64
+	cd $(BUILD_DIR) && tar -czf releases/$(BINARY_NAME)-$(VERSION)-darwin-arm64.tar.gz $(BINARY_NAME)-darwin-arm64
+	cd $(BUILD_DIR) && zip releases/$(BINARY_NAME)-$(VERSION)-windows-amd64.zip $(BINARY_NAME)-windows-amd64.exe
+	@echo "Release packages created in $(BUILD_DIR)/releases/"
 
 # Run the application
 .PHONY: run
@@ -36,7 +66,34 @@ run:
 # Test the application
 .PHONY: test
 test:
+	@echo "Running tests..."
 	go test ./...
+
+# Test with coverage
+.PHONY: test-coverage
+test-coverage:
+	@echo "Running tests with coverage..."
+	go test ./... -cover -coverprofile=coverage.out
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+# Test with verbose output
+.PHONY: test-verbose
+test-verbose:
+	@echo "Running tests with verbose output..."
+	go test ./... -v -cover
+
+# Run benchmarks
+.PHONY: benchmark
+benchmark:
+	@echo "Running benchmarks..."
+	go test ./... -bench=. -benchmem
+
+# Install to local Go bin
+.PHONY: install
+install:
+	@echo "Installing $(BINARY_NAME) to GOPATH/bin..."
+	go install $(LDFLAGS) $(MAIN_PATH)/cmd/wtf
 
 # Clean build artifacts
 .PHONY: clean
@@ -59,31 +116,45 @@ dev-search:
 prepare-release: clean test build-all
 	@echo "Release artifacts ready in $(BUILD_DIR)/"
 
+# Check version and build info
+.PHONY: version
+version:
+	@echo "Version: $(VERSION)"
+	@echo "Git Hash: $(GIT_HASH)"
+	@echo "Build Time: $(BUILD_TIME)"
+
 # Help
 .PHONY: help
 help:
-	@echo "WTF (What's The Function) - Build System"
-	@echo "========================================"
+	@echo "WTF (What's The Function) - Build System v$(VERSION)"
+	@echo "==================================================="
 	@echo ""
 	@echo "Development:"
 	@echo "  build           - Build for current platform"
 	@echo "  build-release   - Build optimized release version"
 	@echo "  run             - Run the application"
 	@echo "  test            - Run tests"
+	@echo "  test-coverage   - Run tests with coverage report"
+	@echo "  test-verbose    - Run tests with verbose output"
+	@echo "  benchmark       - Run performance benchmarks"
 	@echo "  dev-search      - Quick search (use: make dev-search QUERY='your query')"
 	@echo ""
 	@echo "Release:"
 	@echo "  build-all       - Build for all platforms (Linux, macOS, Windows)"
+	@echo "  release         - Create release packages for all platforms"
 	@echo "  prepare-release - Clean, test, and build for all platforms"
+	@echo "  install         - Install to local Go bin"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  clean           - Clean build artifacts"
 	@echo "  deps            - Install dependencies"
+	@echo "  version         - Show version information"
 	@echo "  help            - Show this help"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make build"
+	@echo "  make test-coverage"
 	@echo "  make dev-search QUERY='compress files'"
-	@echo "  make prepare-release"
+	@echo "  make release"
 	@echo ""
 	@echo "After building, users can run: wtf setup hey"

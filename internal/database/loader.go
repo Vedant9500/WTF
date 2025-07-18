@@ -3,7 +3,7 @@ package database
 import (
 	"os"
 
-	"cmd-finder/internal/errors"
+	"github.com/Vedant9500/WTF/internal/errors"
 
 	"gopkg.in/yaml.v3"
 )

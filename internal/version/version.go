@@ -2,8 +2,8 @@ package version
 
 // Version information (can be overridden at build time)
 var (
-	Version = "0.0.1-alpha"
-	Build   = "dev"
+	Version = "1.0.0"
+	Build   = "release"
 	GitHash = "unknown"
 )
 

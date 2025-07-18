@@ -1,4 +1,4 @@
-module cmd-finder
+module github.com/Vedant9500/WTF
 
 go 1.24.5
 

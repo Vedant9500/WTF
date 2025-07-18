@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"cmd-finder/internal/version"
+	"github.com/Vedant9500/WTF/internal/version"
 
 	"github.com/spf13/cobra"
 )

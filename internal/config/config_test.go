@@ -17,8 +17,8 @@ func TestDefaultConfig(t *testing.T) {
 		t.Error("Expected CacheEnabled to be true")
 	}
 
-	if cfg.DatabasePath != "commands.yml" {
-		t.Errorf("Expected DatabasePath 'commands.yml', got '%s'", cfg.DatabasePath)
+	if cfg.DatabasePath != "assets/commands.yml" {
+		t.Errorf("Expected DatabasePath 'assets/commands.yml', got '%s'", cfg.DatabasePath)
 	}
 }
 
