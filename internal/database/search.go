@@ -15,6 +15,8 @@ type SearchResult struct {
 type SearchOptions struct {
 	Limit         int
 	ContextBoosts map[string]float64
+	PipelineOnly  bool    // Focus only on pipeline commands
+	PipelineBoost float64 // Boost factor for pipeline commands
 }
 
 // Search performs a basic keyword-based search
@@ -56,6 +58,59 @@ func (db *Database) SearchWithOptions(query string, options SearchOptions) []Sea
 	return results
 }
 
+// SearchWithPipelineOptions performs search with pipeline-specific enhancements
+func (db *Database) SearchWithPipelineOptions(query string, options SearchOptions) []SearchResult {
+	if options.Limit <= 0 {
+		options.Limit = 5 // default limit
+	}
+
+	queryWords := strings.Fields(strings.ToLower(query))
+	var results []SearchResult
+
+	for i := range db.Commands {
+		cmd := &db.Commands[i]
+
+		// If PipelineOnly is true, skip non-pipeline commands
+		if options.PipelineOnly && !cmd.Pipeline && !isPipelineCommand(cmd.Command) {
+			continue
+		}
+
+		score := calculateScore(cmd, queryWords, options.ContextBoosts)
+
+		// Apply pipeline boost
+		if (cmd.Pipeline || isPipelineCommand(cmd.Command)) && options.PipelineBoost > 0 {
+			score *= options.PipelineBoost
+		}
+
+		if score > 0 {
+			results = append(results, SearchResult{
+				Command: cmd,
+				Score:   score,
+			})
+		}
+	}
+
+	// Sort by score (highest first)
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Score > results[j].Score
+	})
+
+	// Return top results
+	if len(results) > options.Limit {
+		results = results[:options.Limit]
+	}
+
+	return results
+}
+
+// isPipelineCommand checks if a command is likely a pipeline
+func isPipelineCommand(command string) bool {
+	return strings.Contains(command, "|") ||
+		strings.Contains(strings.ToLower(command), "pipe") ||
+		strings.Contains(command, "&&") ||
+		strings.Contains(command, ">>")
+}
+
 // calculateScore computes relevance score for a command based on query words and context
 func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]float64) float64 {
 	var score float64
@@ -63,7 +118,7 @@ func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]
 	// Convert command text to lowercase for matching
 	cmdLower := strings.ToLower(cmd.Command)
 	descLower := strings.ToLower(cmd.Description)
-	
+
 	// Convert keywords to lowercase
 	var keywordsLower []string
 	for _, keyword := range cmd.Keywords {

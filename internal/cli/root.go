@@ -33,6 +33,9 @@ func init() {
 	rootCmd.AddCommand(aliasCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(saveCmd)
+	rootCmd.AddCommand(wizardCmd)
+	rootCmd.AddCommand(pipelineCmd)
+	rootCmd.AddCommand(savePipelineCmd)
 
 	// Add global flags
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
