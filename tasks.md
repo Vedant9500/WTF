@@ -6,11 +6,14 @@ This document breaks down the project into small, actionable steps.
 
 * [ ] **Task 1.1: Setup Project**: Initialize a Go module and project structure. Set up Git repository.
 * [ ] **Task 1.2: Define Database Schema**: Create the final YAML structure for command entries.
-* [ ] **Task 1.3: Create Initial Database**: Manually write 20+ common commands into a `commands.yml` file.
-* [ ] **Task 1.4: Implement CLI Parser**: Set up `cobra` to handle a basic search query.
-* [ ] **Task 1.5: Build Basic Search**: Implement a simple, non-weighted search based on keyword matching.
-* [ ] **Task 1.6: Display Results**: Format and print the search results to the console.
-* [ ] **Task 1.7: Write Core README**: Document the purpose, installation (from source), and basic usage, including how to set up a shell alias.
+* [ ] **Task 1.3: Research Command Sources**: Evaluate existing command databases (tldr, cheat.sh, navi) and determine the best sources for initial data population.
+* [ ] **Task 1.4: Build Data Fetcher**: Create scripts to fetch command data from selected sources (e.g., tldr-pages GitHub repo, cheat.sh API).
+* [ ] **Task 1.5: Create Data Converter**: Implement conversion logic to transform fetched data into our YAML schema format.
+* [ ] **Task 1.6: Generate Initial Database**: Process and merge data from multiple sources, handle deduplication, and create the initial `commands.yml` file with 100+ commands.
+* [ ] **Task 1.7: Implement CLI Parser**: Set up `cobra` to handle a basic search query.
+* [ ] **Task 1.8: Build Basic Search**: Implement a simple, non-weighted search based on keyword matching.
+* [ ] **Task 1.9: Display Results**: Format and print the search results to the console.
+* [ ] **Task 1.10: Write Core README**: Document the purpose, installation (from source), and basic usage, including how to set up a shell alias.
 
 ---
 
