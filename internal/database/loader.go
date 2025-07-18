@@ -1,9 +1,9 @@
 package database
 
 import (
-	"fmt"
 	"os"
 
+	"cmd-finder/internal/errors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -11,12 +11,12 @@ import (
 func LoadDatabase(filename string) (*Database, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read database file: %w", err)
+		return nil, errors.NewDatabaseError("read", filename, err)
 	}
 
 	var commands []Command
 	if err := yaml.Unmarshal(data, &commands); err != nil {
-		return nil, fmt.Errorf("failed to parse %s: %w", filename, err)
+		return nil, errors.NewDatabaseError("parse", filename, err)
 	}
 
 	return &Database{

@@ -1,15 +1,24 @@
 # Build variables
 BINARY_NAME=cmd-finder
 BUILD_DIR=build
+VERSION=1.0.0-dev
+GIT_HASH=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_TIME=$(shell date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "unknown")
+LDFLAGS=-ldflags "-X cmd-finder/internal/version.Version=$(VERSION) -X cmd-finder/internal/version.GitHash=$(GIT_HASH) -X cmd-finder/internal/version.Build=$(BUILD_TIME)"
 
 # Default target
 .PHONY: all
-all: build
+all: test build
 
 # Build the application
 .PHONY: build
 build:
-	go build -o $(BUILD_DIR)/$(BINARY_NAME) .
+	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) .
+
+# Build the application with optimizations for release
+.PHONY: build-release
+build-release:
+	go build $(LDFLAGS) -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME) .
 
 # Build for multiple platforms
 .PHONY: build-all

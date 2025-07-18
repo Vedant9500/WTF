@@ -13,6 +13,11 @@ cmd-finder helps you discover shell commands by searching through a curated data
 ```bash
 git clone <repository-url>
 cd cmd-finder
+make build
+```
+
+### Direct Build
+```bash
 go build -o cmd-finder
 ```
 
@@ -21,10 +26,30 @@ go build -o cmd-finder
 ### Basic Search
 
 ```bash
-# Search for commands
-./cmd-finder search "compress a directory"
+# Search for commands (multiple ways)
+./cmd-finder "compress a directory"
 ./cmd-finder search "find files by name"
-./cmd-finder search "git commit changes"
+./cmd-finder "git commit changes"
+```
+
+### Advanced Options
+
+```bash
+# Limit number of results
+./cmd-finder "docker commands" --limit 3
+
+# Verbose output with keywords and scores
+./cmd-finder "tar compress" --verbose
+
+# Use custom database file
+./cmd-finder "git" --database /path/to/custom.yml
+
+# Get help
+./cmd-finder --help
+./cmd-finder search --help
+
+# Check version
+./cmd-finder --version
 ```
 
 ### Setting up an Alias
@@ -59,14 +84,23 @@ The tool uses a curated database of 1,200+ commands sourced from the [cheat/chea
 
 ## Development Status
 
-This project is currently in development. Implemented features:
+**Phase 1 (MVP) - ✅ COMPLETED**
 
-- ✅ Command database with 1,200+ entries
-- ✅ Basic CLI structure
-- 🚧 Search functionality (coming soon)
-- 🚧 Context-aware suggestions
+- ✅ Command database with 1,218+ entries
+- ✅ Robust CLI structure with Cobra framework
+- ✅ Advanced search functionality with relevance scoring
+- ✅ Configuration system with multiple database support
+- ✅ Comprehensive error handling
+- ✅ Command-line flags (--verbose, --limit, --database)
+- ✅ Version management
+- ✅ Test coverage for core components
+- ✅ Cross-platform build system
+
+**Coming Soon (Phase 2):**
+- 🚧 Context-aware suggestions (git repos, dockerfiles)
+- 🚧 Personal command notebook (`save` command)
 - 🚧 Interactive command builder
-- 🚧 Personal command notebook
+- 🚧 Fuzzy search for typos
 
 ## Contributing
 
