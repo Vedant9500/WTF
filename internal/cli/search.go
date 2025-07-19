@@ -71,18 +71,19 @@ Examples:
 		}
 		fmt.Printf("Searching for: %s\n\n", query)
 
-		// Prepare search options with context boosts and fuzzy search
+		// Prepare search options with context boosts, fuzzy search, and NLP
 		searchOptions := database.SearchOptions{
 			Limit:          cfg.MaxResults,
 			UseFuzzy:       true, // Enable fuzzy search for better typo handling
 			FuzzyThreshold: -30,  // Reasonable threshold for fuzzy matches
+			UseNLP:         true, // Enable natural language processing
 		}
 		if projectContext != nil {
 			searchOptions.ContextBoosts = projectContext.GetContextBoosts()
 		}
 
-		// Perform context-aware search with fuzzy capabilities
-		results := db.SearchWithFuzzy(query, searchOptions)
+		// Perform context-aware search with NLP and fuzzy capabilities
+		results := db.SearchWithNLP(query, searchOptions)
 		searchDuration := time.Since(startTime)
 
 		// Record search in history

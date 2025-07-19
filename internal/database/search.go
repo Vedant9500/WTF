@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Vedant9500/WTF/internal/nlp"
 	"github.com/sahilm/fuzzy"
 )
 
@@ -21,6 +22,7 @@ type SearchOptions struct {
 	PipelineBoost  float64 // Boost factor for pipeline commands
 	UseFuzzy       bool    // Enable fuzzy search for typos
 	FuzzyThreshold int     // Minimum fuzzy score threshold
+	UseNLP         bool    // Enable natural language processing
 }
 
 // Search performs a basic keyword-based search
@@ -137,26 +139,36 @@ func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]
 
 		wordScore := 0.0
 
-		// Exact match in command (highest weight)
+		// HIGHEST PRIORITY: Exact match in command name
 		if strings.Contains(cmdLower, word) {
-			wordScore += 10.0
+			// Even higher boost if it's a direct command match
+			if strings.HasPrefix(cmdLower, word) || cmdLower == word {
+				wordScore += 15.0 // Increased from 10.0
+			} else {
+				wordScore += 10.0
+			}
 		}
 
-		// Exact match in description (high weight)
+		// HIGH PRIORITY: Domain-specific command matching
+		if isDomainSpecificMatch(word, cmd) {
+			wordScore += 12.0 // New: boost for domain-specific relevance
+		}
+
+		// MEDIUM-HIGH PRIORITY: Exact match in description
 		if strings.Contains(descLower, word) {
-			wordScore += 5.0
+			wordScore += 6.0 // Increased from 5.0
 		}
 
-		// Exact match in keywords (medium weight)
+		// MEDIUM PRIORITY: Exact match in keywords
 		for _, keyword := range keywordsLower {
 			if keyword == word {
-				wordScore += 3.0
+				wordScore += 4.0 // Increased from 3.0
 				break
 			}
 		}
 
-		// Partial match in keywords (low weight)
-		if wordScore == 0 { // Only if no exact match found
+		// LOW PRIORITY: Partial match in keywords (only if no exact match)
+		if wordScore == 0 {
 			for _, keyword := range keywordsLower {
 				if strings.Contains(keyword, word) {
 					wordScore += 1.0
@@ -175,6 +187,9 @@ func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]
 		score += wordScore
 	}
 
+	// Apply category-based relevance boost
+	score *= getCategoryRelevanceBoost(cmd, queryWords)
+
 	// Apply niche-based context boost
 	if contextBoosts != nil && cmd.Niche != "" {
 		nicheLower := strings.ToLower(cmd.Niche)
@@ -184,6 +199,72 @@ func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]
 	}
 
 	return score
+}
+
+// isDomainSpecificMatch checks if a query word has high domain relevance to a command
+func isDomainSpecificMatch(word string, cmd *Command) bool {
+	cmdLower := strings.ToLower(cmd.Command)
+
+	// Define domain-specific mappings for better relevance
+	domainMappings := map[string][]string{
+		"compress":   {"tar", "gzip", "zip", "bzip", "7z", "compress", "archive"},
+		"extract":    {"tar", "unzip", "gunzip", "extract", "unarchive"},
+		"directory":  {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
+		"file":       {"cp", "mv", "rm", "touch", "cat", "less", "more"},
+		"search":     {"grep", "find", "locate", "ag", "rg"},
+		"download":   {"wget", "curl", "fetch", "download"},
+		"git":        {"git", "clone", "commit", "push", "pull", "branch"},
+		"package":    {"apt", "yum", "dnf", "pkg", "brew", "pip", "npm"},
+		"process":    {"ps", "kill", "top", "htop", "jobs"},
+		"network":    {"ping", "ssh", "scp", "rsync", "nc", "nmap"},
+		"edit":       {"vim", "nano", "emacs", "edit", "sed", "awk"},
+		"permission": {"chmod", "chown", "chgrp", "sudo"},
+	}
+
+	// Check if the command belongs to the word's domain
+	if commands, exists := domainMappings[word]; exists {
+		for _, domainCmd := range commands {
+			if strings.Contains(cmdLower, domainCmd) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// getCategoryRelevanceBoost applies category-based relevance scoring
+func getCategoryRelevanceBoost(cmd *Command, queryWords []string) float64 {
+	boost := 1.0
+
+	// Check if query suggests specific command categories
+	for _, word := range queryWords {
+		switch word {
+		case "compress", "archive", "zip", "tar":
+			if strings.Contains(strings.ToLower(cmd.Command), "tar") ||
+				strings.Contains(strings.ToLower(cmd.Command), "zip") ||
+				strings.Contains(strings.ToLower(cmd.Command), "gzip") {
+				boost *= 1.5
+			}
+		case "directory", "folder", "mkdir":
+			if strings.Contains(strings.ToLower(cmd.Command), "mkdir") ||
+				strings.Contains(strings.ToLower(cmd.Command), "dir") {
+				boost *= 1.5
+			}
+		case "search", "find":
+			if strings.Contains(strings.ToLower(cmd.Command), "grep") ||
+				strings.Contains(strings.ToLower(cmd.Command), "find") {
+				boost *= 1.3
+			}
+		case "download", "get":
+			if strings.Contains(strings.ToLower(cmd.Command), "wget") ||
+				strings.Contains(strings.ToLower(cmd.Command), "curl") {
+				boost *= 1.4
+			}
+		}
+	}
+
+	return boost
 }
 
 // SearchWithFuzzy performs hybrid search combining exact matching and fuzzy search
@@ -371,4 +452,124 @@ func isCommonWord(word string) bool {
 		"using": true, "file": true, "files": true, "directory": true, "directories": true,
 	}
 	return commonWords[word]
+}
+
+// SearchWithNLP performs natural language search with advanced query processing
+func (db *Database) SearchWithNLP(query string, options SearchOptions) []SearchResult {
+	if !options.UseNLP {
+		// Fall back to regular search if NLP is disabled
+		return db.SearchWithFuzzy(query, options)
+	}
+
+	// Process query with NLP
+	processor := nlp.NewQueryProcessor()
+	processedQuery := processor.ProcessQuery(query)
+
+	// Use enhanced keywords for search
+	enhancedKeywords := processedQuery.GetEnhancedKeywords()
+	enhancedQuery := strings.Join(enhancedKeywords, " ")
+
+	// Perform search with enhanced query
+	searchOptions := options
+	searchOptions.UseNLP = false // Prevent infinite recursion
+
+	results := db.SearchWithFuzzy(enhancedQuery, searchOptions)
+
+	// Apply intent-based scoring boost
+	for i := range results {
+		intentBoost := calculateIntentBoost(results[i].Command, processedQuery)
+		results[i].Score *= intentBoost
+	}
+
+	// Re-sort by updated scores
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Score > results[j].Score
+	})
+
+	return results
+}
+
+// calculateIntentBoost applies scoring boost based on detected intent
+func calculateIntentBoost(cmd *Command, pq *nlp.ProcessedQuery) float64 {
+	boost := 1.0
+	cmdLower := strings.ToLower(cmd.Command)
+	descLower := strings.ToLower(cmd.Description)
+
+	// Apply intent-specific boosts with stronger differentiation
+	switch pq.Intent {
+	case nlp.IntentFind:
+		if strings.Contains(cmdLower, "find") || strings.Contains(cmdLower, "search") ||
+			strings.Contains(cmdLower, "ls") || strings.Contains(cmdLower, "grep") {
+			boost *= 2.0 // Increased from 1.5
+		}
+
+	case nlp.IntentCreate:
+		if strings.Contains(cmdLower, "mkdir") || strings.Contains(cmdLower, "touch") ||
+			strings.Contains(cmdLower, "create") || strings.Contains(cmdLower, "make") {
+			boost *= 2.0 // Increased from 1.5
+		}
+		// Penalize package creation tools for simple "create directory" queries
+		if strings.Contains(cmdLower, "makepkg") &&
+			!strings.Contains(descLower, "package") {
+			boost *= 0.3 // Strong penalty for mismatched tools
+		}
+
+	case nlp.IntentDelete:
+		if strings.Contains(cmdLower, "rm") || strings.Contains(cmdLower, "del") ||
+			strings.Contains(cmdLower, "delete") || strings.Contains(cmdLower, "remove") {
+			boost *= 2.0 // Increased from 1.5
+		}
+
+	case nlp.IntentInstall:
+		if strings.Contains(cmdLower, "install") || strings.Contains(cmdLower, "add") ||
+			strings.Contains(cmdLower, "setup") || strings.Contains(descLower, "install") {
+			boost *= 2.0 // Increased from 1.5
+		}
+
+	case nlp.IntentRun:
+		if strings.Contains(cmdLower, "run") || strings.Contains(cmdLower, "exec") ||
+			strings.Contains(cmdLower, "start") || strings.Contains(cmdLower, "launch") {
+			boost *= 2.0 // Increased from 1.5
+		}
+
+	case nlp.IntentConfigure:
+		if strings.Contains(cmdLower, "config") || strings.Contains(cmdLower, "set") ||
+			strings.Contains(cmdLower, "configure") || strings.Contains(descLower, "config") {
+			boost *= 2.0 // Increased from 1.5
+		}
+	}
+
+	// Apply action-based boosts with stronger weights for exact matches
+	for _, action := range pq.Actions {
+		if strings.Contains(cmdLower, action) {
+			boost *= 1.5 // Increased from 1.2 for command matches
+		} else if strings.Contains(descLower, action) {
+			boost *= 1.3 // Increased from 1.2 for description matches
+		}
+
+		// Special handling for compression actions
+		if action == "compress" || action == "archive" {
+			if strings.Contains(cmdLower, "tar") ||
+				strings.Contains(cmdLower, "zip") ||
+				strings.Contains(cmdLower, "gzip") {
+				boost *= 2.5 // Strong boost for compression tools
+			}
+			// Penalize search tools for compression queries
+			if strings.Contains(cmdLower, "find") ||
+				strings.Contains(cmdLower, "locate") {
+				boost *= 0.2 // Strong penalty
+			}
+		}
+	}
+
+	// Apply target-based boosts with stronger weights
+	for _, target := range pq.Targets {
+		if strings.Contains(cmdLower, target) {
+			boost *= 1.4 // Increased from 1.2 for command matches
+		} else if strings.Contains(descLower, target) {
+			boost *= 1.2 // Same for description matches
+		}
+	}
+
+	return boost
 }
