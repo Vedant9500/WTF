@@ -2640,7 +2640,7 @@
   pipeline: false
 - command: "cp"
   description: "Copy files and directories."
-  keywords: ["cp", "copy", "files", "and", "directories"]
+  keywords: ["cp", "copy", "files", "and", "directories", "copy file", "duplicate", "copy to", "copy from", "file copy", "copy a file"]
   niche: "general"
   pipeline: false
 - command: "cppcheck . 2> cppcheck.log"
