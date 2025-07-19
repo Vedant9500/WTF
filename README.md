@@ -342,10 +342,3 @@ We welcome contributions! Here's how to get started:
 - **Go Community** - Amazing ecosystem and tools
 
 ---
-
-<div align="center">
-
-
-Made with ❤️ by developers who forget commands too
-
-</div>
