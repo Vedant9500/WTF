@@ -205,6 +205,11 @@ func (a *Analyzer) AnalyzeDirectory(dir string) (*Context, error) {
 	// Remove duplicates from project types
 	ctx.ProjectTypes = removeDuplicateProjectTypes(ctx.ProjectTypes)
 
+	// If no specific project types were detected, mark as generic
+	if len(ctx.ProjectTypes) == 0 {
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeGeneric)
+	}
+
 	return ctx, nil
 }
 
