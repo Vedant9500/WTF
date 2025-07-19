@@ -3,6 +3,8 @@ package database
 import (
 	"sort"
 	"strings"
+	
+	"github.com/sahilm/fuzzy"
 )
 
 // SearchResult represents a command with its relevance score
@@ -17,6 +19,8 @@ type SearchOptions struct {
 	ContextBoosts map[string]float64
 	PipelineOnly  bool    // Focus only on pipeline commands
 	PipelineBoost float64 // Boost factor for pipeline commands
+	UseFuzzy      bool    // Enable fuzzy search for typos
+	FuzzyThreshold int    // Minimum fuzzy score threshold
 }
 
 // Search performs a basic keyword-based search
@@ -180,4 +184,191 @@ func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]
 	}
 
 	return score
+}
+
+// SearchWithFuzzy performs hybrid search combining exact matching and fuzzy search
+func (db *Database) SearchWithFuzzy(query string, options SearchOptions) []SearchResult {
+	if options.Limit <= 0 {
+		options.Limit = 5
+	}
+
+	// First try exact search
+	exactResults := db.SearchWithOptions(query, SearchOptions{
+		Limit:         options.Limit * 2, // Get more for better selection
+		ContextBoosts: options.ContextBoosts,
+		PipelineOnly:  options.PipelineOnly,
+		PipelineBoost: options.PipelineBoost,
+		UseFuzzy:      false, // Disable fuzzy for exact search
+	})
+
+	// If we have good exact results, return them
+	if len(exactResults) >= options.Limit && exactResults[0].Score > 0.5 {
+		if len(exactResults) > options.Limit {
+			exactResults = exactResults[:options.Limit]
+		}
+		return exactResults
+	}
+
+	// If exact search doesn't yield good results, try fuzzy search
+	if options.UseFuzzy {
+		fuzzyResults := db.performFuzzySearch(query, options)
+		
+		// Combine and deduplicate results
+		combinedResults := db.combineAndDeduplicateResults(exactResults, fuzzyResults, options.Limit)
+		return combinedResults
+	}
+
+	// Return exact results if fuzzy is disabled
+	if len(exactResults) > options.Limit {
+		exactResults = exactResults[:options.Limit]
+	}
+	return exactResults
+}
+
+// performFuzzySearch conducts fuzzy search on the database
+func (db *Database) performFuzzySearch(query string, options SearchOptions) []SearchResult {
+	// Create search targets combining command and description
+	targets := make([]string, len(db.Commands))
+	for i, cmd := range db.Commands {
+		targets[i] = cmd.Command + " " + cmd.Description
+	}
+
+	// Perform fuzzy search
+	matches := fuzzy.Find(query, targets)
+
+	var results []SearchResult
+	for i, match := range matches {
+		if i >= options.Limit*2 { // Get more for better selection
+			break
+		}
+		
+		// Apply fuzzy threshold
+		if options.FuzzyThreshold > 0 && match.Score < options.FuzzyThreshold {
+			continue
+		}
+
+		// Convert fuzzy score to our scoring system
+		// Fuzzy scores are negative (better matches have higher negative values)
+		// Convert to positive score between 0-1
+		normalizedScore := float64(match.Score+100) / 100.0
+		if normalizedScore < 0 {
+			normalizedScore = 0
+		}
+		if normalizedScore > 1 {
+			normalizedScore = 1
+		}
+
+		results = append(results, SearchResult{
+			Command: &db.Commands[match.Index],
+			Score:   normalizedScore,
+		})
+	}
+
+	return results
+}
+
+// combineAndDeduplicateResults merges exact and fuzzy results, removing duplicates
+func (db *Database) combineAndDeduplicateResults(exactResults, fuzzyResults []SearchResult, limit int) []SearchResult {
+	seen := make(map[string]bool)
+	var combined []SearchResult
+
+	// Add exact results first (they have higher priority)
+	for _, result := range exactResults {
+		key := result.Command.Command + "|" + result.Command.Description
+		if !seen[key] {
+			seen[key] = true
+			combined = append(combined, result)
+		}
+	}
+
+	// Add fuzzy results that aren't already included
+	for _, result := range fuzzyResults {
+		key := result.Command.Command + "|" + result.Command.Description
+		if !seen[key] {
+			seen[key] = true
+			// Slightly reduce fuzzy scores to prioritize exact matches
+			result.Score *= 0.8
+			combined = append(combined, result)
+		}
+	}
+
+	// Sort by score
+	sort.Slice(combined, func(i, j int) bool {
+		return combined[i].Score > combined[j].Score
+	})
+
+	// Return top results
+	if len(combined) > limit {
+		combined = combined[:limit]
+	}
+
+	return combined
+}
+
+// GetSuggestions provides "Did you mean?" suggestions for potential typos
+func (db *Database) GetSuggestions(query string, maxSuggestions int) []string {
+	if maxSuggestions <= 0 {
+		maxSuggestions = 3
+	}
+
+	// Extract unique words from commands and descriptions
+	wordSet := make(map[string]bool)
+	for _, cmd := range db.Commands {
+		// Split command into words
+		cmdWords := strings.Fields(cmd.Command)
+		for _, word := range cmdWords {
+			cleanWord := strings.ToLower(strings.Trim(word, "-_.[]{}()"))
+			if len(cleanWord) > 2 { // Ignore very short words
+				wordSet[cleanWord] = true
+			}
+		}
+		
+		// Split description into words
+		descWords := strings.Fields(cmd.Description)
+		for _, word := range descWords {
+			cleanWord := strings.ToLower(strings.Trim(word, ".,!?;:()[]{}\"'"))
+			if len(cleanWord) > 2 && !isCommonWord(cleanWord) {
+				wordSet[cleanWord] = true
+			}
+		}
+	}
+
+	// Convert to slice for fuzzy matching
+	words := make([]string, 0, len(wordSet))
+	for word := range wordSet {
+		words = append(words, word)
+	}
+
+	// Find fuzzy matches for the query
+	matches := fuzzy.Find(query, words)
+	
+	var suggestions []string
+	for i, match := range matches {
+		if i >= maxSuggestions {
+			break
+		}
+		// Only suggest if the match is reasonably good
+		if match.Score >= -20 { // Adjust threshold as needed
+			suggestions = append(suggestions, words[match.Index])
+		}
+	}
+
+	return suggestions
+}
+
+// isCommonWord filters out very common English words that aren't useful for suggestions
+func isCommonWord(word string) bool {
+	commonWords := map[string]bool{
+		"the": true, "a": true, "an": true, "and": true, "or": true, "but": true,
+		"in": true, "on": true, "at": true, "to": true, "for": true, "of": true,
+		"with": true, "by": true, "is": true, "are": true, "was": true, "were": true,
+		"be": true, "been": true, "have": true, "has": true, "had": true, "do": true,
+		"does": true, "did": true, "will": true, "would": true, "could": true, "should": true,
+		"this": true, "that": true, "these": true, "those": true, "it": true, "its": true,
+		"you": true, "your": true, "all": true, "any": true, "can": true, "from": true,
+		"not": true, "no": true, "if": true, "when": true, "where": true, "how": true,
+		"what": true, "which": true, "who": true, "why": true, "use": true, "used": true,
+		"using": true, "file": true, "files": true, "directory": true, "directories": true,
+	}
+	return commonWords[word]
 }

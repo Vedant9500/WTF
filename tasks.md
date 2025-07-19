@@ -17,12 +17,12 @@ This document breaks down the project into small, actionable steps.
 
 ---
 
-## Phase 2: Enhancing Search & UX 🧠
+## Phase 2: Enhancing Search & UX 🧠 ✅ COMPLETE
 
-* [ ] **Task 2.1: Text Processing**: Integrate stemming and stop-word removal into the search logic.
-* [ ] **Task 2.2: Scoring Algorithm**: Implement a weighted scoring system to improve result relevance.
-* [ ] **Task 2.3: Fuzzy Search**: Add a fuzzy search library to handle user typos gracefully.
-* [ ] **Task 2.4: Personal Notebook (`save`)**:
+* [x] **Task 2.1: Text Processing**: Integrate stemming and stop-word removal into the search logic.
+* [x] **Task 2.2: Scoring Algorithm**: Implement a weighted scoring system to improve result relevance.
+* [x] **Task 2.3: Fuzzy Search**: Add a fuzzy search library to handle user typos gracefully.
+* [x] **Task 2.4: Personal Notebook (`save`)**:
     * Implement the `save` subcommand to append a new command to a personal YAML file.
     * Ensure the main search function loads commands from both the default and personal databases.
 

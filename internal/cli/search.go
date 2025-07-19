@@ -3,10 +3,12 @@ package cli
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Vedant9500/WTF/internal/config"
 	"github.com/Vedant9500/WTF/internal/context"
 	"github.com/Vedant9500/WTF/internal/database"
+	"github.com/Vedant9500/WTF/internal/history"
 
 	"github.com/spf13/cobra"
 )
@@ -27,6 +29,7 @@ Examples:
   hey "find files by name"  # if you set up 'hey' as an alias`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		startTime := time.Now()
 		query := strings.Join(args, " ")
 
 		// Get flags
@@ -68,19 +71,45 @@ Examples:
 		}
 		fmt.Printf("Searching for: %s\n\n", query)
 
-		// Prepare search options with context boosts
+		// Prepare search options with context boosts and fuzzy search
 		searchOptions := database.SearchOptions{
-			Limit: cfg.MaxResults,
+			Limit:          cfg.MaxResults,
+			UseFuzzy:       true,  // Enable fuzzy search for better typo handling
+			FuzzyThreshold: -30,   // Reasonable threshold for fuzzy matches
 		}
 		if projectContext != nil {
 			searchOptions.ContextBoosts = projectContext.GetContextBoosts()
 		}
 
-		// Perform context-aware search
-		results := db.SearchWithOptions(query, searchOptions)
+		// Perform context-aware search with fuzzy capabilities
+		results := db.SearchWithFuzzy(query, searchOptions)
+		searchDuration := time.Since(startTime)
+
+		// Record search in history
+		historyPath := history.DefaultHistoryPath()
+		searchHistory := history.NewSearchHistory(historyPath, 100)
+		_ = searchHistory.Load() // Ignore errors for history loading
+		
+		contextDesc := ""
+		if projectContext != nil {
+			contextDesc = projectContext.GetContextDescription()
+		}
+		
+		searchHistory.AddEntry(query, len(results), contextDesc, searchDuration)
+		_ = searchHistory.Save() // Ignore errors for history saving
 
 		if len(results) == 0 {
 			fmt.Println("No commands found matching your query.")
+			
+			// Provide suggestions for potential typos
+			suggestions := db.GetSuggestions(query, 3)
+			if len(suggestions) > 0 {
+				fmt.Printf("\nDid you mean:\n")
+				for _, suggestion := range suggestions {
+					fmt.Printf("  • %s\n", suggestion)
+				}
+				fmt.Printf("\nTry: wtf \"%s\"\n", suggestions[0])
+			}
 			return
 		}
 
@@ -102,6 +131,10 @@ Examples:
 				fmt.Printf("   Relevance Score: %.1f\n", result.Score)
 			}
 			fmt.Println()
+		}
+		
+		if verbose {
+			fmt.Printf("Search completed in %v\n", searchDuration)
 		}
 	},
 }
