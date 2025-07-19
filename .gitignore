@@ -42,13 +42,14 @@ custom.yml
 # Logs
 *.log
 
-# Development artifacts (moved to docs/)
+# Development artifacts 
 commands_fixed.yml
 .tmp/
 releases/
 ACTION_PLAN.md
 ROADMAP.md
 FEATURES.md
+tasks.md
 DONE.md
 
 # Air live reload  

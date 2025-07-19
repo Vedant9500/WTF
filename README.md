@@ -15,6 +15,7 @@
 ## ✨ Features
 
 🔍 **Natural Language Search** - Find commands by describing what you want to do  
+📚 **Massive Command Database** - 3,845+ commands sourced from TLDR pages  
 🧠 **Context-Aware Suggestions** - Smart recommendations based on your current directory  
 📝 **Personal Command Notebook** - Save and organize your custom commands  
 🎯 **Interactive Command Builder** - Step-by-step wizards for complex commands  
@@ -62,6 +63,15 @@ wtf "git commit changes"
 wtf setup hey
 hey "docker commands"
 ```
+
+### 📚 Database Source
+
+WTF leverages the excellent **[TLDR Pages](https://github.com/tldr-pages/tldr)** project as its primary command database. TLDR (Too Long; Didn't Read) is a community-driven project that provides simplified, example-focused help pages for command-line tools.
+
+- **3,845+ Commands**: Comprehensive coverage of common CLI tools
+- **Community Curated**: Maintained by developers worldwide
+- **Example-Focused**: Practical usage patterns, not just syntax
+- **Always Updated**: Fresh content from the TLDR community
 
 ---
 
@@ -210,15 +220,15 @@ echo "alias hey='wtf'" >> ~/.bashrc
 
 ### Database Configuration
 
-WTF comes with 1,200+ curated commands and supports custom databases:
+WTF comes with 3,845+ curated commands sourced from TLDR pages and supports custom databases:
 
 ```bash
 # Use custom database
 wtf --database /path/to/custom.yml
 
 # Database locations:
-# Default: embedded in binary
-# Personal: ~/.config/cmd-finder/personal.yml (auto-created)
+# Default: assets/commands.yml (3,845+ commands from TLDR)
+# Personal: ~/.config/wtf/personal.yml (auto-created)
 # Custom: any YAML file following the schema
 ```
 
@@ -337,7 +347,7 @@ We welcome contributions! Here's how to get started:
 
 ## 🙏 Acknowledgments
 
-- **[cheat/cheatsheets](https://github.com/cheat/cheatsheets)** - Primary command database source
+- **[TLDR Pages](https://github.com/tldr-pages/tldr)** - Primary command database source (3,845+ commands)
 - **[Cobra](https://github.com/spf13/cobra)** - Excellent CLI framework
 - **Go Community** - Amazing ecosystem and tools
 
