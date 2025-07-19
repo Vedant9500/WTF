@@ -1,0 +1,214 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Linux builds
+          - goos: linux
+            goarch: amd64
+            name: wtf-linux-amd64
+            ext: ""
+          - goos: linux
+            goarch: arm64
+            name: wtf-linux-arm64
+            ext: ""
+          - goos: linux
+            goarch: 386
+            name: wtf-linux-386
+            ext: ""
+          
+          # macOS builds
+          - goos: darwin
+            goarch: amd64
+            name: wtf-darwin-amd64
+            ext: ""
+          - goos: darwin
+            goarch: arm64
+            name: wtf-darwin-arm64
+            ext: ""
+          
+          # Windows builds
+          - goos: windows
+            goarch: amd64
+            name: wtf-windows-amd64
+            ext: ".exe"
+          - goos: windows
+            goarch: 386
+            name: wtf-windows-386
+            ext: ".exe"
+          - goos: windows
+            goarch: arm64
+            name: wtf-windows-arm64
+            ext: ".exe"
+          
+          # FreeBSD builds
+          - goos: freebsd
+            goarch: amd64
+            name: wtf-freebsd-amd64
+            ext: ""
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.24'
+        check-latest: true
+
+    - name: Get dependencies
+      run: go mod download
+
+    - name: Get version from tag
+      id: version
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+        else
+          VERSION=$(git describe --tags --always --dirty)
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Building version: $VERSION"
+
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        # Set build variables
+        PACKAGE="github.com/Vedant9500/WTF"
+        BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        GIT_HASH=$(git rev-parse --short HEAD)
+        VERSION="${{ steps.version.outputs.VERSION }}"
+        
+        # Build flags
+        LDFLAGS="-s -w -X ${PACKAGE}/internal/version.Version=${VERSION} -X ${PACKAGE}/internal/version.GitHash=${GIT_HASH} -X ${PACKAGE}/internal/version.Build=${BUILD_TIME}"
+        
+        # Create build directory
+        mkdir -p build
+        
+        # Build the binary
+        go build -ldflags="$LDFLAGS" -o "build/${{ matrix.name }}${{ matrix.ext }}" ./cmd/wtf
+        
+        # Verify the build
+        file "build/${{ matrix.name }}${{ matrix.ext }}"
+        ls -la build/
+
+    - name: Create archive
+      run: |
+        cd build
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          # For Windows, create a zip file
+          zip "${{ matrix.name }}.zip" "${{ matrix.name }}${{ matrix.ext }}"
+          echo "ARCHIVE_NAME=${{ matrix.name }}.zip" >> $GITHUB_ENV
+          echo "ARCHIVE_PATH=build/${{ matrix.name }}.zip" >> $GITHUB_ENV
+        else
+          # For Unix-like systems, create a tar.gz file
+          tar -czf "${{ matrix.name }}.tar.gz" "${{ matrix.name }}${{ matrix.ext }}"
+          echo "ARCHIVE_NAME=${{ matrix.name }}.tar.gz" >> $GITHUB_ENV
+          echo "ARCHIVE_PATH=build/${{ matrix.name }}.tar.gz" >> $GITHUB_ENV
+        fi
+        ls -la
+
+    - name: Generate checksums
+      run: |
+        cd build
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          sha256sum "${{ matrix.name }}.zip" > "${{ matrix.name }}.zip.sha256"
+        else
+          sha256sum "${{ matrix.name }}.tar.gz" > "${{ matrix.name }}.tar.gz.sha256"
+        fi
+
+    - name: Upload to release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+          ${{ env.ARCHIVE_PATH }}
+          ${{ env.ARCHIVE_PATH }}.sha256
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Create a comprehensive release with checksums summary
+  create-checksums:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: ./release-assets
+
+    - name: Create checksums summary
+      run: |
+        echo "# WTF Release Checksums" > CHECKSUMS.md
+        echo "" >> CHECKSUMS.md
+        echo "## SHA256 Checksums" >> CHECKSUMS.md
+        echo "" >> CHECKSUMS.md
+        echo '```' >> CHECKSUMS.md
+        
+        # Get all checksum files from the release
+        curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+             "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}" \
+             | jq -r '.assets[] | select(.name | endswith(".sha256")) | .browser_download_url' \
+             | while read url; do
+               curl -s "$url"
+             done >> CHECKSUMS.md
+        
+        echo '```' >> CHECKSUMS.md
+        echo "" >> CHECKSUMS.md
+        echo "## Installation Instructions" >> CHECKSUMS.md
+        echo "" >> CHECKSUMS.md
+        echo "### Linux/macOS:" >> CHECKSUMS.md
+        echo '```bash' >> CHECKSUMS.md
+        echo "# Download for your platform:" >> CHECKSUMS.md
+        echo "curl -L -o wtf.tar.gz https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/wtf-linux-amd64.tar.gz" >> CHECKSUMS.md
+        echo "" >> CHECKSUMS.md
+        echo "# Verify checksum:" >> CHECKSUMS.md
+        echo "curl -L https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/wtf-linux-amd64.tar.gz.sha256 | sha256sum -c" >> CHECKSUMS.md
+        echo "" >> CHECKSUMS.md
+        echo "# Extract and install:" >> CHECKSUMS.md
+        echo "tar -xzf wtf.tar.gz" >> CHECKSUMS.md
+        echo "chmod +x wtf-linux-amd64" >> CHECKSUMS.md
+        echo "sudo mv wtf-linux-amd64 /usr/local/bin/wtf" >> CHECKSUMS.md
+        echo '```' >> CHECKSUMS.md
+        echo "" >> CHECKSUMS.md
+        echo "### Windows:" >> CHECKSUMS.md
+        echo '```powershell' >> CHECKSUMS.md
+        echo "# Download wtf-windows-amd64.zip from the releases page" >> CHECKSUMS.md
+        echo "# Extract and add to PATH" >> CHECKSUMS.md
+        echo '```' >> CHECKSUMS.md
+
+    - name: Upload checksums summary
+      uses: softprops/action-gh-release@v1
+      with:
+        files: CHECKSUMS.md
+        append_body: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -158,3 +158,13 @@ help:
 	@echo "  make release"
 	@echo ""
 	@echo "After building, users can run: wtf setup hey"
+
+# Release target
+.PHONY: release
+release:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Usage: make release VERSION=v1.1.0"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/release.sh
+	@scripts/release.sh $(VERSION)
