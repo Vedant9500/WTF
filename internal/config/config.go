@@ -35,13 +35,15 @@ func (c *Config) GetDatabasePath() string {
 		return c.DatabasePath
 	}
 
-	// Fallback options
+	// Fallback options (check in order of preference)
 	fallbacks := []string{
-		"assets/commands.yml", // New organized location
+		"/usr/local/share/wtf/commands.yml", // System-wide installation
+		"/usr/share/wtf/commands.yml",       // Alternative system location
+		"assets/commands.yml",               // Local development
 		filepath.Join("assets", "commands.yml"),
-		"commands.yml", // Backward compatibility
+		"commands.yml",                      // Backward compatibility
 		filepath.Join("internal", "database", "commands.yml"),
-		"commands_fixed.yml", // Legacy support
+		"commands_fixed.yml",                // Legacy support
 	}
 
 	for _, path := range fallbacks {

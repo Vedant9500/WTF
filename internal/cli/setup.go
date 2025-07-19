@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -114,9 +115,10 @@ func setupUnix(aliasName, execPath string) error {
 }
 
 func containsAlias(content, aliasName string) bool {
-	return fmt.Sprintf("alias %s=", aliasName) != "" &&
-		(fmt.Sprintf("alias %s=", aliasName) != "" &&
-			len(content) > 0) // Simplified check
+	aliasPattern := fmt.Sprintf("alias %s=", aliasName)
+	return len(content) > 0 && 
+		   (strings.Contains(content, aliasPattern) || 
+		    strings.Contains(content, fmt.Sprintf("alias %s ", aliasName)))
 }
 
 func init() {

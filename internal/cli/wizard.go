@@ -57,7 +57,12 @@ func showAvailableWizards() {
 func readInput(prompt string) string {
 	fmt.Print(prompt)
 	reader := bufio.NewReader(os.Stdin)
-	input, _ := reader.ReadString('\n')
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		// Handle EOF or other errors gracefully
+		fmt.Println("\nOperation cancelled.")
+		os.Exit(0)
+	}
 	return strings.TrimSpace(input)
 }
 
@@ -67,26 +72,50 @@ func readChoice(prompt string, options []string) int {
 		fmt.Printf("%d. %s\n", i+1, option)
 	}
 
-	for {
+	maxAttempts := 3
+	for attempt := 0; attempt < maxAttempts; attempt++ {
 		choice := readInput("Enter choice (number): ")
+		if choice == "" {
+			fmt.Println("Operation cancelled.")
+			os.Exit(0)
+		}
+		
 		if num, err := strconv.Atoi(choice); err == nil && num >= 1 && num <= len(options) {
 			return num - 1
 		}
-		fmt.Printf("Invalid choice. Please enter 1-%d: ", len(options))
+		
+		if attempt < maxAttempts-1 {
+			fmt.Printf("Invalid choice. Please enter 1-%d: ", len(options))
+		}
 	}
+	
+	fmt.Println("Too many invalid attempts. Exiting wizard.")
+	os.Exit(1)
+	return -1 // Never reached
 }
 
 func readYesNo(prompt string) bool {
-	for {
+	maxAttempts := 3
+	for attempt := 0; attempt < maxAttempts; attempt++ {
 		response := strings.ToLower(readInput(prompt + " (y/n): "))
+		if response == "" {
+			fmt.Println("Operation cancelled.")
+			os.Exit(0)
+		}
 		if response == "y" || response == "yes" {
 			return true
 		}
 		if response == "n" || response == "no" {
 			return false
 		}
-		fmt.Print("Please enter 'y' or 'n': ")
+		if attempt < maxAttempts-1 {
+			fmt.Print("Please enter 'y' or 'n': ")
+		}
 	}
+	
+	fmt.Println("Too many invalid attempts. Exiting wizard.")
+	os.Exit(1)
+	return false // Never reached
 }
 
 func runTarWizard() {
