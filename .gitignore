@@ -49,6 +49,7 @@ releases/
 ACTION_PLAN.md
 ROADMAP.md
 FEATURES.md
+DONE.md
 
 # Air live reload  
 .air.toml.local
