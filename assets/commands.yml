@@ -6073,7 +6073,7 @@
   keywords: ["chage", "change", "user", "account", "and", "password", "expiry", "information"]
   niche: "system"
   pipeline: false
-- command: "ls"
+- command: "chcon"
   description: "Change SELinux security context of a file or files/directories. See also: `secon`, `restorecon`, `semanage-fcontext`."
   keywords: ["chcon", "change", "selinux", "security", "context", "file", "files/directories", "see"]
   niche: "system"
@@ -12525,7 +12525,7 @@
   pipeline: false
 - command: "mkdir"
   description: "Create a directory."
-  keywords: ["mkdir", "create", "directory"]
+  keywords: ["mkdir", "create", "directory", "make", "folder", "new", "dir", "make directory", "create folder", "make folder"]
   niche: "system"
   pipeline: false
 - command: "msedge"
@@ -16718,15 +16718,21 @@
   platform: [linux, macos]
   pipeline: false
 
+- command: "ls"
+  description: "List information about files and directories"
+  keywords: ["ls", "list", "files", "directories", "show", "contents", "directory", "folder", "dir", "files and folders", "list files", "show files"]
+  platform: [linux, macos]
+  pipeline: false
+
 - command: "ls -a <dir>"
   description: "display everything in <dir>, including hidden files"
-  keywords: ["ls", "display", "everything", "<dir>", "including", "hidden", "files"]
+  keywords: ["ls", "display", "everything", "<dir>", "including", "hidden", "files", "show", "all", "list", "folder", "directory"]
   platform: [linux, macos]
   pipeline: false
 
 - command: "ls -lh <dir>"
   description: "display all files, along with the size (with unit suffixes) and timestamp"
-  keywords: ["ls", "display", "all", "files", "along", "size", "(with", "unit", "suffixes)", "timestamp"]
+  keywords: ["ls", "display", "all", "files", "along", "size", "(with", "unit", "suffixes)", "timestamp", "detailed", "list", "long", "format", "show", "folder", "directory"]
   platform: [linux, macos]
   pipeline: false
 
@@ -17026,19 +17032,19 @@
 
 - command: "mkdir -p foo/bar/baz"
   description: "create nested directories"
-  keywords: ["mkdir", "create", "nested", "directories"]
+  keywords: ["mkdir", "create", "nested", "directories", "make", "folder", "recursive", "parent", "make directories", "create folders", "make folders"]
   platform: [linux, macos]
   pipeline: false
 
 - command: "mkdir -p foo/{bar,baz}"
   description: "create foo/bar and foo/baz directories"
-  keywords: ["mkdir", "create", "foo/bar", "foo/baz", "directories"]
+  keywords: ["mkdir", "create", "foo/bar", "foo/baz", "directories", "multiple", "folders", "make", "folder", "several", "batch create"]
   platform: [linux, macos]
   pipeline: false
 
 - command: "mkdir -p foo/{bar,baz/{zip,zap}}"
   description: "create the foo/bar, foo/baz, foo/baz/zip and foo/baz/zap directories"
-  keywords: ["mkdir", "create", "foo/bar", "foo/baz", "foo/baz/zip", "foo/baz/zap", "directories"]
+  keywords: ["mkdir", "create", "foo/bar", "foo/baz", "foo/baz/zip", "foo/baz/zap", "directories", "complex", "nested", "multiple", "folders", "make", "folder"]
   platform: [linux, macos]
   pipeline: false
 
