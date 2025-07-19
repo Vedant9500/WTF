@@ -194,9 +194,9 @@ func buildStopWords() map[string]bool {
 		"to", "was", "will", "with", "the", "this", "but", "they", "have",
 		"had", "what", "said", "each", "which", "she", "do", "how", "their",
 		"if", "up", "out", "many", "then", "them", "these", "so", "some", "her",
-		"would", "like", "into", "him", "time", "two", "more", "no",
-		"way", "could", "my", "than", "first", "been", "who", "oil", "sit",
-		"now", "down", "day", "did", "may", "part",
+		"would", "make", "like", "into", "him", "time", "two", "more", "go", "no",
+		"way", "could", "my", "than", "first", "been", "call", "who", "oil", "sit",
+		"now", "find", "down", "day", "did", "get", "come", "made", "may", "part",
 	}
 
 	stopWords := make(map[string]bool)
@@ -254,12 +254,11 @@ func buildActionWords() map[string][]string {
 		"display": {"show", "display", "list"},
 
 		// Creating
-		"create":   {"create", "make"},
-		"make":     {"create", "make"},
-		"mkdir":    {"create", "mkdir"},
-		"build":    {"build", "create"},
-		"generate": {"create", "generate"},
-		"new":      {"create", "new"},
+		"create":   {"create", "make", "build"},
+		"make":     {"create", "make", "build"},
+		"build":    {"build", "create", "make"},
+		"generate": {"create", "make", "build"},
+		"new":      {"create", "make", "build"},
 
 		// Modifying
 		"edit":   {"edit", "modify", "change"},

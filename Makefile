@@ -1,13 +1,5 @@
 # Build variables
-BINARY_NAME=wtf
-BUILD_DIR=build
-VERSION=1.1.0
-GIT_HASH=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-BUILD_TIME=$(shell date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "unknown")
-LDFLAGS=-ldflags "-X github.com/Vedant9500/WTF/internal/version.Version=$(VERSION) -X github.com/Vedant9500/WTF/internal/version.GitHash=$(GIT_HASH) -X github.com/Vedant9500/WTF/internal/version.Build=$(BUILD_TIME)"
-MAIN_PATH=./cmd/wtf
-
-# Build for multiple platforms
+BINARY_N# Build for multiple platforms
 .PHONY: build-all
 build-all:
 	@echo "Building $(BINARY_NAME) v$(VERSION) for all platforms..."
@@ -17,7 +9,12 @@ build-all:
 	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
 	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
 	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PATH)
-	@echo "Cross-platform builds completed!"
+	@echo "Cross-platform builds completed!"ILD_DIR=build
+VERSION=1.0.0
+GIT_HASH=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_TIME=$(shell date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "unknown")
+LDFLAGS=-ldflags "-X github.com/Vedant9500/WTF/internal/version.Version=$(VERSION) -X github.com/Vedant9500/WTF/internal/version.GitHash=$(GIT_HASH) -X github.com/Vedant9500/WTF/internal/version.Build=$(BUILD_TIME)"
+MAIN_PATH=./cmd/wtf
 
 # Default target
 .PHONY: all
@@ -28,14 +25,14 @@ all: test build
 build:
 	@echo "Building $(BINARY_NAME) v$(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
-	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)/cmd/wtf
 
 # Build the application with optimizations for release
 .PHONY: build-release
 build-release:
 	@echo "Building optimized release $(BINARY_NAME) v$(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
-	go build $(LDFLAGS) -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	go build $(LDFLAGS) -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)/cmd/wtf
 
 # Build for multiple platforms
 .PHONY: build-all
