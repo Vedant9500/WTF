@@ -30,7 +30,7 @@ Examples:
 		// Initialize search history
 		historyPath := history.DefaultHistoryPath()
 		searchHistory := history.NewSearchHistory(historyPath, 100)
-		
+
 		err := searchHistory.Load()
 		if err != nil {
 			fmt.Printf("Error loading search history: %v\n", err)
@@ -77,7 +77,7 @@ Examples:
 			fmt.Println("🔥 Most Frequent Searches")
 			fmt.Println("=" + strings.Repeat("=", 24))
 			for i, qf := range topQueries {
-				fmt.Printf("%d. \"%s\" (%d times, last used: %s)\n", 
+				fmt.Printf("%d. \"%s\" (%d times, last used: %s)\n",
 					i+1, qf.Query, qf.Count, qf.LastUsed.Format("Jan 2 15:04"))
 			}
 			return
@@ -87,7 +87,7 @@ Examples:
 		if len(args) > 0 {
 			pattern := strings.Join(args, " ")
 			entries := searchHistory.GetEntriesByPattern(pattern)
-			
+
 			if len(entries) == 0 {
 				fmt.Printf("No searches found matching: %s\n", pattern)
 				return
@@ -95,16 +95,16 @@ Examples:
 
 			fmt.Printf("🔍 Searches matching \"%s\"\n", pattern)
 			fmt.Println("=" + strings.Repeat("=", len(pattern)+20))
-			
+
 			for i, entry := range entries {
 				if i >= limit {
 					break
 				}
-				
+
 				timeAgo := formatTimeAgo(time.Since(entry.Timestamp))
-				fmt.Printf("%d. \"%s\" (%d results, %s)\n", 
+				fmt.Printf("%d. \"%s\" (%d results, %s)\n",
 					i+1, entry.Query, entry.ResultsCount, timeAgo)
-				
+
 				if entry.Context != "" {
 					fmt.Printf("   Context: %s\n", entry.Context)
 				}
@@ -125,7 +125,7 @@ Examples:
 		for i, query := range recentQueries {
 			fmt.Printf("%d. %s\n", i+1, query)
 		}
-		
+
 		fmt.Printf("\nTo run a search again: wtf \"%s\"\n", recentQueries[0])
 		fmt.Println("For more options: wtf history --help")
 	},

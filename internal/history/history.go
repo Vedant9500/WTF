@@ -12,11 +12,11 @@ import (
 
 // SearchEntry represents a single search in the history
 type SearchEntry struct {
-	Query       string    `json:"query"`
-	Timestamp   time.Time `json:"timestamp"`
-	ResultsCount int      `json:"results_count"`
-	Context     string    `json:"context,omitempty"`     // Project context if any
-	Duration    int64     `json:"duration,omitempty"`    // Search duration in milliseconds
+	Query        string    `json:"query"`
+	Timestamp    time.Time `json:"timestamp"`
+	ResultsCount int       `json:"results_count"`
+	Context      string    `json:"context,omitempty"`  // Project context if any
+	Duration     int64     `json:"duration,omitempty"` // Search duration in milliseconds
 }
 
 // SearchHistory manages the search history
@@ -31,7 +31,7 @@ func NewSearchHistory(filePath string, maxSize int) *SearchHistory {
 	if maxSize <= 0 {
 		maxSize = 100 // Default max size
 	}
-	
+
 	return &SearchHistory{
 		Entries:  make([]SearchEntry, 0),
 		MaxSize:  maxSize,
@@ -99,11 +99,11 @@ func (sh *SearchHistory) Save() error {
 // AddEntry adds a new search entry to the history
 func (sh *SearchHistory) AddEntry(query string, resultsCount int, context string, duration time.Duration) {
 	entry := SearchEntry{
-		Query:       query,
-		Timestamp:   time.Now(),
+		Query:        query,
+		Timestamp:    time.Now(),
 		ResultsCount: resultsCount,
-		Context:     context,
-		Duration:    duration.Milliseconds(),
+		Context:      context,
+		Duration:     duration.Milliseconds(),
 	}
 
 	// Check if this is a duplicate of the most recent entry
@@ -145,7 +145,7 @@ func (sh *SearchHistory) GetRecentQueries(limit int) []string {
 // GetEntriesByPattern returns entries matching a pattern
 func (sh *SearchHistory) GetEntriesByPattern(pattern string) []SearchEntry {
 	var matches []SearchEntry
-	
+
 	for _, entry := range sh.Entries {
 		if containsIgnoreCase(entry.Query, pattern) {
 			matches = append(matches, entry)
@@ -179,9 +179,9 @@ func (sh *SearchHistory) GetTopQueries(limit int) []QueryFrequency {
 	var queryFreqs []QueryFrequency
 	for query, count := range frequency {
 		queryFreqs = append(queryFreqs, QueryFrequency{
-			Query:     query,
-			Count:     count,
-			LastUsed:  lastSeen[query],
+			Query:    query,
+			Count:    count,
+			LastUsed: lastSeen[query],
 		})
 	}
 
@@ -238,12 +238,12 @@ func (sh *SearchHistory) GetStats() HistoryStats {
 
 // HistoryStats represents usage statistics
 type HistoryStats struct {
-	TotalSearches        int       `json:"total_searches"`
-	UniqueQueries        int       `json:"unique_queries"`
-	AvgResultsPerSearch  float64   `json:"avg_results_per_search"`
-	AvgSearchDuration    float64   `json:"avg_search_duration_ms"`
-	OldestEntry          time.Time `json:"oldest_entry"`
-	NewestEntry          time.Time `json:"newest_entry"`
+	TotalSearches       int       `json:"total_searches"`
+	UniqueQueries       int       `json:"unique_queries"`
+	AvgResultsPerSearch float64   `json:"avg_results_per_search"`
+	AvgSearchDuration   float64   `json:"avg_search_duration_ms"`
+	OldestEntry         time.Time `json:"oldest_entry"`
+	NewestEntry         time.Time `json:"newest_entry"`
 }
 
 // getUniqueQueries returns a map of unique queries

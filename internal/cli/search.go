@@ -74,8 +74,8 @@ Examples:
 		// Prepare search options with context boosts and fuzzy search
 		searchOptions := database.SearchOptions{
 			Limit:          cfg.MaxResults,
-			UseFuzzy:       true,  // Enable fuzzy search for better typo handling
-			FuzzyThreshold: -30,   // Reasonable threshold for fuzzy matches
+			UseFuzzy:       true, // Enable fuzzy search for better typo handling
+			FuzzyThreshold: -30,  // Reasonable threshold for fuzzy matches
 		}
 		if projectContext != nil {
 			searchOptions.ContextBoosts = projectContext.GetContextBoosts()
@@ -89,18 +89,18 @@ Examples:
 		historyPath := history.DefaultHistoryPath()
 		searchHistory := history.NewSearchHistory(historyPath, 100)
 		_ = searchHistory.Load() // Ignore errors for history loading
-		
+
 		contextDesc := ""
 		if projectContext != nil {
 			contextDesc = projectContext.GetContextDescription()
 		}
-		
+
 		searchHistory.AddEntry(query, len(results), contextDesc, searchDuration)
 		_ = searchHistory.Save() // Ignore errors for history saving
 
 		if len(results) == 0 {
 			fmt.Println("No commands found matching your query.")
-			
+
 			// Provide suggestions for potential typos
 			suggestions := db.GetSuggestions(query, 3)
 			if len(suggestions) > 0 {
@@ -132,7 +132,7 @@ Examples:
 			}
 			fmt.Println()
 		}
-		
+
 		if verbose {
 			fmt.Printf("Search completed in %v\n", searchDuration)
 		}

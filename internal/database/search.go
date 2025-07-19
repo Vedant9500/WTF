@@ -3,7 +3,7 @@ package database
 import (
 	"sort"
 	"strings"
-	
+
 	"github.com/sahilm/fuzzy"
 )
 
@@ -15,12 +15,12 @@ type SearchResult struct {
 
 // SearchOptions holds options for search behavior
 type SearchOptions struct {
-	Limit         int
-	ContextBoosts map[string]float64
-	PipelineOnly  bool    // Focus only on pipeline commands
-	PipelineBoost float64 // Boost factor for pipeline commands
-	UseFuzzy      bool    // Enable fuzzy search for typos
-	FuzzyThreshold int    // Minimum fuzzy score threshold
+	Limit          int
+	ContextBoosts  map[string]float64
+	PipelineOnly   bool    // Focus only on pipeline commands
+	PipelineBoost  float64 // Boost factor for pipeline commands
+	UseFuzzy       bool    // Enable fuzzy search for typos
+	FuzzyThreshold int     // Minimum fuzzy score threshold
 }
 
 // Search performs a basic keyword-based search
@@ -212,7 +212,7 @@ func (db *Database) SearchWithFuzzy(query string, options SearchOptions) []Searc
 	// If exact search doesn't yield good results, try fuzzy search
 	if options.UseFuzzy {
 		fuzzyResults := db.performFuzzySearch(query, options)
-		
+
 		// Combine and deduplicate results
 		combinedResults := db.combineAndDeduplicateResults(exactResults, fuzzyResults, options.Limit)
 		return combinedResults
@@ -241,7 +241,7 @@ func (db *Database) performFuzzySearch(query string, options SearchOptions) []Se
 		if i >= options.Limit*2 { // Get more for better selection
 			break
 		}
-		
+
 		// Apply fuzzy threshold
 		if options.FuzzyThreshold > 0 && match.Score < options.FuzzyThreshold {
 			continue
@@ -322,7 +322,7 @@ func (db *Database) GetSuggestions(query string, maxSuggestions int) []string {
 				wordSet[cleanWord] = true
 			}
 		}
-		
+
 		// Split description into words
 		descWords := strings.Fields(cmd.Description)
 		for _, word := range descWords {
@@ -341,7 +341,7 @@ func (db *Database) GetSuggestions(query string, maxSuggestions int) []string {
 
 	// Find fuzzy matches for the query
 	matches := fuzzy.Find(query, words)
-	
+
 	var suggestions []string
 	for i, match := range matches {
 		if i >= maxSuggestions {

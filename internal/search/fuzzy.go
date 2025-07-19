@@ -3,8 +3,8 @@ package search
 import (
 	"strings"
 
-	"github.com/sahilm/fuzzy"
 	"github.com/Vedant9500/WTF/internal/database"
+	"github.com/sahilm/fuzzy"
 )
 
 // FuzzySearcher handles fuzzy matching for commands
@@ -47,7 +47,7 @@ func (fs *FuzzySearcher) Search(query string, limit int) []FuzzyMatch {
 		if i >= limit {
 			break
 		}
-		
+
 		results = append(results, FuzzyMatch{
 			Command: &fs.commands[match.Index],
 			Score:   match.Score,
@@ -78,7 +78,7 @@ func (fs *FuzzySearcher) SearchCommand(query string, limit int) []FuzzyMatch {
 		if i >= limit {
 			break
 		}
-		
+
 		results = append(results, FuzzyMatch{
 			Command: &fs.commands[match.Index],
 			Score:   match.Score,
@@ -109,7 +109,7 @@ func (fs *FuzzySearcher) SearchDescription(query string, limit int) []FuzzyMatch
 		if i >= limit {
 			break
 		}
-		
+
 		results = append(results, FuzzyMatch{
 			Command: &fs.commands[match.Index],
 			Score:   match.Score,
@@ -135,7 +135,7 @@ func (fs *FuzzySearcher) SuggestCorrections(query string, maxSuggestions int) []
 				wordSet[strings.ToLower(word)] = true
 			}
 		}
-		
+
 		// Split description into words
 		descWords := strings.Fields(cmd.Description)
 		for _, word := range descWords {
@@ -154,7 +154,7 @@ func (fs *FuzzySearcher) SuggestCorrections(query string, maxSuggestions int) []
 
 	// Find fuzzy matches for the query
 	matches := fuzzy.Find(query, words)
-	
+
 	var suggestions []string
 	for i, match := range matches {
 		if i >= maxSuggestions {
