@@ -1,3 +1,11 @@
+// Package context provides intelligent project context detection and analysis.
+//
+// This package analyzes the current working directory to detect:
+//   - Project types (Git, Docker, Node.js, Python, Go, Rust, Java, etc.)
+//   - Build systems (Maven, Gradle, CMake, Make)
+//   - Infrastructure tools (Kubernetes, Terraform, Ansible)
+//   - Package managers and their scripts
+//   - Development environment context for search relevance boosting
 package context
 
 import (

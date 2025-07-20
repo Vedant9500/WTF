@@ -79,16 +79,16 @@ func readChoice(prompt string, options []string) int {
 			fmt.Println("Operation cancelled.")
 			os.Exit(0)
 		}
-		
+
 		if num, err := strconv.Atoi(choice); err == nil && num >= 1 && num <= len(options) {
 			return num - 1
 		}
-		
+
 		if attempt < maxAttempts-1 {
 			fmt.Printf("Invalid choice. Please enter 1-%d: ", len(options))
 		}
 	}
-	
+
 	fmt.Println("Too many invalid attempts. Exiting wizard.")
 	os.Exit(1)
 	return -1 // Never reached
@@ -112,7 +112,7 @@ func readYesNo(prompt string) bool {
 			fmt.Print("Please enter 'y' or 'n': ")
 		}
 	}
-	
+
 	fmt.Println("Too many invalid attempts. Exiting wizard.")
 	os.Exit(1)
 	return false // Never reached

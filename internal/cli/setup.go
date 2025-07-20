@@ -116,9 +116,9 @@ func setupUnix(aliasName, execPath string) error {
 
 func containsAlias(content, aliasName string) bool {
 	aliasPattern := fmt.Sprintf("alias %s=", aliasName)
-	return len(content) > 0 && 
-		   (strings.Contains(content, aliasPattern) || 
-		    strings.Contains(content, fmt.Sprintf("alias %s ", aliasName)))
+	return len(content) > 0 &&
+		(strings.Contains(content, aliasPattern) ||
+			strings.Contains(content, fmt.Sprintf("alias %s ", aliasName)))
 }
 
 func init() {

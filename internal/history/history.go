@@ -1,3 +1,11 @@
+// Package history provides search history tracking and analytics.
+//
+// This package manages persistent storage of user search queries with:
+//   - JSON-based history persistence
+//   - Search analytics and statistics
+//   - Query frequency tracking
+//   - Performance metrics collection
+//   - Configurable history size limits
 package history
 
 import (

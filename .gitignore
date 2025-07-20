@@ -1,3 +1,4 @@
+PKGBUILD  
 # Build artifacts
 build/
 dist/
@@ -25,7 +26,6 @@ Thumbs.db
 *.bat
 hey
 miko
-cmd
 find-cmd
 
 # Go specific
@@ -47,11 +47,6 @@ commands_fixed.yml
 .tmp/
 releases/
 ACTION_PLAN.md
-ROADMAP.md
-FEATURES.md
-tasks.md
-DONE.md
-CHANGELOG.md    
 
 # Air live reload  
 .air.toml.local

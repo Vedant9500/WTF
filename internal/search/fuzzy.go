@@ -1,3 +1,11 @@
+// Package search provides advanced search capabilities for command discovery.
+//
+// This package implements fuzzy search functionality using the Levenshtein distance
+// algorithm to handle typos and approximate matches. It provides:
+//   - Command name fuzzy matching
+//   - Description fuzzy matching
+//   - Combined search across commands and descriptions
+//   - Configurable match scoring and limits
 package search
 
 import (

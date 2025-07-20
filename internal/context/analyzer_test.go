@@ -12,11 +12,11 @@ func TestAnalyzer_AnalyzeDirectory(t *testing.T) {
 	analyzer := NewAnalyzer()
 
 	tests := []struct {
-		name          string
-		files         []string
-		expectedTypes []ProjectType
-		expectedLang  string
-		expectedGit   bool
+		name           string
+		files          []string
+		expectedTypes  []ProjectType
+		expectedLang   string
+		expectedGit    bool
 		expectedDocker bool
 	}{
 		{
@@ -50,11 +50,11 @@ func TestAnalyzer_AnalyzeDirectory(t *testing.T) {
 			expectedLang:  "go",
 		},
 		{
-			name:          "Multi-type project",
-			files:         []string{".git/", "Dockerfile", "package.json"},
-			expectedTypes: []ProjectType{ProjectTypeGit, ProjectTypeDocker, ProjectTypeNode},
-			expectedLang:  "javascript",
-			expectedGit:   true,
+			name:           "Multi-type project",
+			files:          []string{".git/", "Dockerfile", "package.json"},
+			expectedTypes:  []ProjectType{ProjectTypeGit, ProjectTypeDocker, ProjectTypeNode},
+			expectedLang:   "javascript",
+			expectedGit:    true,
 			expectedDocker: true,
 		},
 		{
@@ -164,8 +164,8 @@ func TestContext_GetContextBoosts(t *testing.T) {
 			name:         "Multi-type project",
 			projectTypes: []ProjectType{ProjectTypeGit, ProjectTypeNode},
 			expectedBoost: map[string]float64{
-				"git": 2.0,
-				"npm": 2.0,
+				"git":  2.0,
+				"npm":  2.0,
 				"node": 1.8,
 			},
 		},

@@ -104,10 +104,10 @@ func TestCalculateScoreWithContext(t *testing.T) {
 	}
 
 	queryWords := []string{"git", "commit"}
-	
+
 	// Test without context boosts
 	scoreWithoutContext := calculateScore(cmd, queryWords, nil)
-	
+
 	// Test with context boosts (simulating Git repository)
 	contextBoosts := map[string]float64{
 		"git":    2.0,
@@ -116,7 +116,7 @@ func TestCalculateScoreWithContext(t *testing.T) {
 	scoreWithContext := calculateScore(cmd, queryWords, contextBoosts)
 
 	if scoreWithContext <= scoreWithoutContext {
-		t.Errorf("Expected context boost to increase score. Without: %f, With: %f", 
+		t.Errorf("Expected context boost to increase score. Without: %f, With: %f",
 			scoreWithoutContext, scoreWithContext)
 	}
 
