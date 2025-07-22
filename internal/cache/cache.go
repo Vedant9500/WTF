@@ -90,6 +90,6 @@ func (c *Cache) Cleanup() {
 func (c *Cache) Size() int {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	
+
 	return len(c.items)
 }

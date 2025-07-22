@@ -320,7 +320,7 @@ func (db *Database) performFuzzySearch(query string, options SearchOptions) []Se
 	// Create search targets combining command and description
 	targets := make([]string, len(db.Commands))
 	var builder strings.Builder
-	
+
 	for i, cmd := range db.Commands {
 		builder.Reset()
 		builder.WriteString(cmd.Command)

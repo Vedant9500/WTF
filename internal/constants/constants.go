@@ -6,26 +6,26 @@ import "time"
 // Search scoring constants
 const (
 	ScoreDirectCommandMatch  = 15.0
-	ScoreCommandMatch        = 10.0  
+	ScoreCommandMatch        = 10.0
 	ScoreDescriptionMatch    = 6.0
 	ScoreKeywordExactMatch   = 4.0
 	ScoreKeywordPartialMatch = 1.0
 	ScoreDomainSpecificMatch = 12.0
-	
+
 	// Intent boost multipliers
-	IntentBoostMultiplier = 2.0
-	ActionBoostExact      = 1.5
+	IntentBoostMultiplier  = 2.0
+	ActionBoostExact       = 1.5
 	ActionBoostDescription = 1.3
-	TargetBoostExact      = 1.4
+	TargetBoostExact       = 1.4
 	TargetBoostDescription = 1.2
-	
+
 	// Category boost multipliers
-	CategoryBoostCompression = 1.5
-	CategoryBoostDirectory   = 1.5
-	CategoryBoostSearch      = 1.3
-	CategoryBoostDownload    = 1.4
+	CategoryBoostCompression        = 1.5
+	CategoryBoostDirectory          = 1.5
+	CategoryBoostSearch             = 1.3
+	CategoryBoostDownload           = 1.4
 	CategoryBoostSpecialCompression = 2.5
-	CategoryBoostSearchPenalty = 0.2
+	CategoryBoostSearchPenalty      = 0.2
 )
 
 // Search defaults
