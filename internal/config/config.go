@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -26,6 +27,20 @@ func DefaultConfig() *Config {
 		CacheEnabled:   true,
 		ConfigDir:      configDir,
 	}
+}
+
+// Validate checks if the configuration is valid
+func (c *Config) Validate() error {
+	if c.MaxResults <= 0 {
+		return fmt.Errorf("MaxResults must be positive, got %d", c.MaxResults)
+	}
+	if c.MaxResults > 100 {
+		return fmt.Errorf("MaxResults too large, got %d (max: 100)", c.MaxResults)
+	}
+	if c.DatabasePath == "" {
+		return fmt.Errorf("DatabasePath cannot be empty")
+	}
+	return nil
 }
 
 // GetDatabasePath returns the database path, checking if file exists

@@ -8,6 +8,14 @@ import (
 	"github.com/sahilm/fuzzy"
 )
 
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // SearchResult represents a command with its relevance score
 type SearchResult struct {
 	Command *Command
@@ -39,7 +47,8 @@ func (db *Database) SearchWithOptions(query string, options SearchOptions) []Sea
 	}
 
 	queryWords := strings.Fields(strings.ToLower(query))
-	var results []SearchResult
+	// Pre-allocate slice with estimated capacity to avoid multiple allocations
+	results := make([]SearchResult, 0, min(len(db.Commands), options.Limit*3))
 
 	for i := range db.Commands {
 		score := calculateScore(&db.Commands[i], queryWords, options.ContextBoosts)
@@ -121,14 +130,14 @@ func isPipelineCommand(command string) bool {
 func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]float64) float64 {
 	var score float64
 
-	// Convert command text to lowercase for matching
+	// Convert command text to lowercase for matching (cache these conversions)
 	cmdLower := strings.ToLower(cmd.Command)
 	descLower := strings.ToLower(cmd.Description)
 
-	// Convert keywords to lowercase
-	var keywordsLower []string
-	for _, keyword := range cmd.Keywords {
-		keywordsLower = append(keywordsLower, strings.ToLower(keyword))
+	// Convert keywords to lowercase once and cache
+	keywordsLower := make([]string, len(cmd.Keywords))
+	for i, keyword := range cmd.Keywords {
+		keywordsLower[i] = strings.ToLower(keyword)
 	}
 
 	for _, word := range queryWords {
@@ -310,8 +319,14 @@ func (db *Database) SearchWithFuzzy(query string, options SearchOptions) []Searc
 func (db *Database) performFuzzySearch(query string, options SearchOptions) []SearchResult {
 	// Create search targets combining command and description
 	targets := make([]string, len(db.Commands))
+	var builder strings.Builder
+	
 	for i, cmd := range db.Commands {
-		targets[i] = cmd.Command + " " + cmd.Description
+		builder.Reset()
+		builder.WriteString(cmd.Command)
+		builder.WriteByte(' ')
+		builder.WriteString(cmd.Description)
+		targets[i] = builder.String()
 	}
 
 	// Perform fuzzy search

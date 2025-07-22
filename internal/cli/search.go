@@ -9,6 +9,7 @@ import (
 	"github.com/Vedant9500/WTF/internal/context"
 	"github.com/Vedant9500/WTF/internal/database"
 	"github.com/Vedant9500/WTF/internal/history"
+	"github.com/Vedant9500/WTF/internal/validation"
 
 	"github.com/spf13/cobra"
 )
@@ -32,24 +33,45 @@ Examples:
 		startTime := time.Now()
 		query := strings.Join(args, " ")
 
-		// Get flags
-		limit, _ := cmd.Flags().GetInt("limit")
-		verbose, _ := cmd.Flags().GetBool("verbose")
-		dbPath, _ := cmd.Flags().GetString("database")
+		// Validate and sanitize query
+		cleanQuery, err := validation.ValidateQuery(query)
+		if err != nil {
+			fmt.Printf("Invalid query: %v\n", err)
+			return
+		}
+		query = cleanQuery
+
+		// Get flags once at the beginning
+		flags := struct {
+			limit   int
+			verbose bool
+			dbPath  string
+		}{}
+		flags.limit, _ = cmd.Flags().GetInt("limit")
+		flags.verbose, _ = cmd.Flags().GetBool("verbose")
+		flags.dbPath, _ = cmd.Flags().GetString("database")
+
+		// Validate limit
+		validLimit, err := validation.ValidateLimit(flags.limit)
+		if err != nil {
+			fmt.Printf("Invalid limit: %v\n", err)
+			return
+		}
+		flags.limit = validLimit
 
 		// Load configuration
 		cfg := config.DefaultConfig()
-		if limit > 0 {
-			cfg.MaxResults = limit
+		if flags.limit > 0 {
+			cfg.MaxResults = flags.limit
 		}
-		if dbPath != "" {
-			cfg.DatabasePath = dbPath
+		if flags.dbPath != "" {
+			cfg.DatabasePath = flags.dbPath
 		}
 
 		// Analyze current directory context
 		analyzer := context.NewAnalyzer()
 		projectContext, err := analyzer.AnalyzeCurrentDirectory()
-		if err != nil && verbose {
+		if err != nil && flags.verbose {
 			fmt.Printf("Warning: Could not analyze directory context: %v\n", err)
 		}
 
@@ -63,7 +85,7 @@ Examples:
 			return
 		}
 
-		if verbose {
+		if flags.verbose {
 			fmt.Printf("Loaded %d commands from database: %s\n", db.Size(), dbFilePath)
 			if projectContext != nil {
 				fmt.Printf("Context detected: %s\n", projectContext.GetContextDescription())
@@ -119,22 +141,22 @@ Examples:
 		for i, result := range results {
 			fmt.Printf("%d. %s\n", i+1, result.Command.Command)
 			fmt.Printf("   Description: %s\n", result.Command.Description)
-			if len(result.Command.Keywords) > 0 && verbose {
+			if len(result.Command.Keywords) > 0 && flags.verbose {
 				fmt.Printf("   Keywords: %s\n", strings.Join(result.Command.Keywords, ", "))
 			}
 			if result.Command.Niche != "" {
 				fmt.Printf("   Category: %s\n", result.Command.Niche)
 			}
-			if len(result.Command.Platform) > 0 && verbose {
+			if len(result.Command.Platform) > 0 && flags.verbose {
 				fmt.Printf("   Platforms: %s\n", strings.Join(result.Command.Platform, ", "))
 			}
-			if verbose {
+			if flags.verbose {
 				fmt.Printf("   Relevance Score: %.1f\n", result.Score)
 			}
 			fmt.Println()
 		}
 
-		if verbose {
+		if flags.verbose {
 			fmt.Printf("Search completed in %v\n", searchDuration)
 		}
 	},
