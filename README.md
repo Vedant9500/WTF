@@ -4,6 +4,7 @@
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Go Version](https://img.shields.io/badge/go-1.24+-green)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Vedant9500/WTF)](https://goreportcard.com/report/github.com/Vedant9500/WTF)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 
 *A powerful CLI tool to discover shell commands using natural language*
