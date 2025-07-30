@@ -3,6 +3,7 @@ package database
 import (
 	"sort"
 	"strings"
+	"runtime"
 
 	"github.com/Vedant9500/WTF/internal/nlp"
 	"github.com/sahilm/fuzzy"
@@ -40,32 +41,50 @@ func (db *Database) Search(query string, limit int) []SearchResult {
 	})
 }
 
-// SearchWithOptions performs search with advanced options including context awareness
+// SearchWithOptions performs search with advanced options including context awareness and platform filtering
 func (db *Database) SearchWithOptions(query string, options SearchOptions) []SearchResult {
 	if options.Limit <= 0 {
 		options.Limit = 5 // default limit
 	}
 
 	queryWords := strings.Fields(strings.ToLower(query))
-	// Pre-allocate slice with estimated capacity to avoid multiple allocations
 	results := make([]SearchResult, 0, min(len(db.Commands), options.Limit*3))
 
+	currentPlatform := getCurrentPlatform()
+
 	for i := range db.Commands {
-		score := calculateScore(&db.Commands[i], queryWords, options.ContextBoosts)
+		cmd := &db.Commands[i]
+		// Platform filtering/penalty: if cmd.Platform is set and currentPlatform is not in it, penalize or skip
+		if len(cmd.Platform) > 0 {
+			found := false
+			for _, p := range cmd.Platform {
+				if strings.EqualFold(p, currentPlatform) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				// Penalize score heavily (or skip entirely)
+				continue // To only show platform-compatible commands, uncomment this line
+				// Or, to just penalize:
+				// score := calculateScore(cmd, queryWords, options.ContextBoosts) * 0.1
+				// if score > 0 { results = append(results, SearchResult{Command: cmd, Score: score}) }
+				// continue
+			}
+		}
+		score := calculateScore(cmd, queryWords, options.ContextBoosts)
 		if score > 0 {
 			results = append(results, SearchResult{
-				Command: &db.Commands[i],
+				Command: cmd,
 				Score:   score,
 			})
 		}
 	}
 
-	// Sort by score (highest first)
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Score > results[j].Score
 	})
 
-	// Return top results
 	if len(results) > options.Limit {
 		results = results[:options.Limit]
 	}
@@ -587,4 +606,18 @@ func calculateIntentBoost(cmd *Command, pq *nlp.ProcessedQuery) float64 {
 	}
 
 	return boost
+}
+
+// getCurrentPlatform returns the platform string used in the command database for the current OS
+func getCurrentPlatform() string {
+	switch runtime.GOOS {
+	case "windows":
+		return "windows"
+	case "darwin":
+		return "macos"
+	case "linux":
+		return "linux"
+	default:
+		return runtime.GOOS
+	}
 }
