@@ -2,6 +2,7 @@ package database
 
 import (
 	"os"
+	"strings"
 
 	"github.com/Vedant9500/WTF/internal/errors"
 
@@ -18,6 +19,16 @@ func LoadDatabase(filename string) (*Database, error) {
 	var commands []Command
 	if err := yaml.Unmarshal(data, &commands); err != nil {
 		return nil, errors.NewDatabaseError("parse", filename, err)
+	}
+
+	// Populate lowercased cache fields for performance
+	for i := range commands {
+		commands[i].CommandLower = strings.ToLower(commands[i].Command)
+		commands[i].DescriptionLower = strings.ToLower(commands[i].Description)
+		commands[i].KeywordsLower = make([]string, len(commands[i].Keywords))
+		for j, kw := range commands[i].Keywords {
+			commands[i].KeywordsLower[j] = strings.ToLower(kw)
+		}
 	}
 
 	return &Database{

@@ -149,15 +149,10 @@ func isPipelineCommand(command string) bool {
 func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]float64) float64 {
 	var score float64
 
-	// Convert command text to lowercase for matching (cache these conversions)
-	cmdLower := strings.ToLower(cmd.Command)
-	descLower := strings.ToLower(cmd.Description)
-
-	// Convert keywords to lowercase once and cache
-	keywordsLower := make([]string, len(cmd.Keywords))
-	for i, keyword := range cmd.Keywords {
-		keywordsLower[i] = strings.ToLower(keyword)
-	}
+	// Use cached lowercased fields for matching
+	cmdLower := cmd.CommandLower
+	descLower := cmd.DescriptionLower
+	keywordsLower := cmd.KeywordsLower
 
 	for _, word := range queryWords {
 		// Skip very short words

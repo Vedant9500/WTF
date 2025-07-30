@@ -8,6 +8,11 @@ type Command struct {
 	Niche       string   `yaml:"niche,omitempty"`
 	Platform    []string `yaml:"platform,omitempty"`
 	Pipeline    bool     `yaml:"pipeline"`
+
+	// Cached lowercased fields for performance
+	CommandLower     string   `yaml:"-"`
+	DescriptionLower string   `yaml:"-"`
+	KeywordsLower    []string `yaml:"-"`
 }
 
 // Database holds all commands and provides search functionality
