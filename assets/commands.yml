@@ -2,6 +2,7 @@
   description: "Download objects and refs from a remote repository"
   keywords: ["git", "fetch", "remote", "download", "repository"]
   niche: "version-control"
+  platform: [linux, macos, windows]
   pipeline: false
 - command: "git pull"
   description: "Fetch from and integrate with another repository or local branch"
@@ -15418,7 +15419,7 @@
   description: "stage all changes for commit"
   keywords: ["git", "vcs", "stage", "all", "changes", "commit"]
   niche: "version-control"
-  platform: [linux, macos]
+  platform: [linux, macos, windows]
   pipeline: false
 
 - command: "git stash"
@@ -15455,19 +15456,20 @@
   niche: "version-control"
   platform: [linux, macos]
   pipeline: false
+  
 
 - command: "git commit -m <message>"
   description: "commit staged changes"
   keywords: ["git", "vcs", "commit", "staged", "changes"]
   niche: "version-control"
-  platform: [linux, macos]
+  platform: [linux, macos, windows]
   pipeline: false
 
 - command: "git commit --amend"
   description: "edit previous commit message"
   keywords: ["git", "vcs", "edit", "previous", "commit", "message"]
   niche: "version-control"
-  platform: [linux, macos]
+  platform: [linux, macos, windows]
   pipeline: false
 
 - command: "git filter-branch --env-filter "

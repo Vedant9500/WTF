@@ -64,12 +64,18 @@ func (db *Database) SearchWithOptions(query string, options SearchOptions) []Sea
 				}
 			}
 			if !found {
-				// Penalize score heavily (or skip entirely)
-				continue // To only show platform-compatible commands, uncomment this line
-				// Or, to just penalize:
-				// score := calculateScore(cmd, queryWords, options.ContextBoosts) * 0.1
-				// if score > 0 { results = append(results, SearchResult{Command: cmd, Score: score}) }
-				// continue
+				// Check if this is a cross-platform tool that should work everywhere
+				if isCrossPlatformTool(cmd.Command) {
+					// Don't skip cross-platform tools, just apply a small penalty
+					// This allows git, docker, etc. to show up on all platforms
+					score := calculateScore(cmd, queryWords, options.ContextBoosts) * 0.9
+					if score > 0 {
+						results = append(results, SearchResult{Command: cmd, Score: score})
+					}
+					continue
+				}
+				// For platform-specific tools, skip entirely
+				continue
 			}
 		}
 		score := calculateScore(cmd, queryWords, options.ContextBoosts)
@@ -615,4 +621,96 @@ func getCurrentPlatform() string {
 	default:
 		return runtime.GOOS
 	}
+}
+
+// isCrossPlatformTool checks if a command is from a cross-platform tool that should work on all platforms
+func isCrossPlatformTool(command string) bool {
+	// List of cross-platform tools that work on Windows, macOS, and Linux
+	crossPlatformTools := []string{
+		"git",        // Git version control
+		"docker",     // Docker containers
+		"node",       // Node.js
+		"npm",        // Node package manager
+		"yarn",       // Yarn package manager
+		"python",     // Python interpreter
+		"pip",        // Python package manager
+		"go",         // Go programming language
+		"cargo",      // Rust package manager
+		"rustc",      // Rust compiler
+		"java",       // Java
+		"javac",      // Java compiler
+		"mvn",        // Maven
+		"gradle",     // Gradle
+		"curl",       // HTTP client (available on Windows via Git Bash, WSL, or native)
+		"wget",       // HTTP downloader (available on Windows via Git Bash, WSL)
+		"ssh",        // SSH client (available on Windows 10+)
+		"scp",        // Secure copy (available on Windows 10+)
+		"rsync",      // File synchronization (available on Windows via WSL, Git Bash)
+		"mv",         // Move/rename files (available on Windows via Git Bash, WSL, MSYS2)
+		"cp",         // Copy files (available on Windows via Git Bash, WSL, MSYS2)
+		"rm",         // Remove files (available on Windows via Git Bash, WSL, MSYS2)
+		"ls",         // List files (available on Windows via Git Bash, WSL, MSYS2)
+		"cat",        // Display file contents (available on Windows via Git Bash, WSL, MSYS2)
+		"grep",       // Text search (available on Windows via Git Bash, WSL, MSYS2)
+		"find",       // Find files (available on Windows via Git Bash, WSL, MSYS2)
+		"sed",        // Stream editor (available on Windows via Git Bash, WSL, MSYS2)
+		"awk",        // Text processing (available on Windows via Git Bash, WSL, MSYS2)
+		"code",       // VS Code
+		"vim",        // Vim editor (available on Windows)
+		"nano",       // Nano editor (available on Windows via WSL, Git Bash)
+		"tar",        // Archive tool (available on Windows 10+)
+		"gzip",       // Compression (available on Windows via Git Bash, WSL)
+		"unzip",      // Archive extraction
+		"zip",        // Archive creation
+		"7z",         // 7-Zip
+		"ffmpeg",     // Media processing
+		"imagemagick", // Image processing
+		"convert",    // ImageMagick convert
+		"heroku",     // Heroku CLI
+		"aws",        // AWS CLI
+		"gcloud",     // Google Cloud CLI
+		"az",         // Azure CLI
+		"kubectl",    // Kubernetes CLI
+		"helm",       // Helm package manager
+		"terraform",  // Infrastructure as code
+		"ansible",    // Configuration management
+		"vagrant",    // Virtual machine management
+		"composer",   // PHP package manager
+		"php",        // PHP interpreter
+		"ruby",       // Ruby interpreter
+		"gem",        // Ruby package manager
+		"bundle",     // Ruby bundler
+		"rails",      // Ruby on Rails
+		"dotnet",     // .NET CLI
+		"nuget",      // NuGet package manager
+		"flutter",    // Flutter framework
+		"dart",       // Dart language
+		"ionic",      // Ionic framework
+		"cordova",    // Apache Cordova
+		"electron",   // Electron framework
+		"ng",         // Angular CLI
+		"vue",        // Vue CLI
+		"react",      // React (via npx)
+		"create-react-app", // Create React App
+		"webpack",    // Module bundler
+		"babel",      // JavaScript compiler
+		"eslint",     // JavaScript linter
+		"prettier",   // Code formatter
+		"jest",       // Testing framework
+		"mocha",      // Testing framework
+		"cypress",    // End-to-end testing
+		"playwright", // Browser automation
+		"selenium",   // Browser automation
+	}
+
+	cmdLower := strings.ToLower(command)
+	
+	// Check if the command starts with any of the cross-platform tools
+	for _, tool := range crossPlatformTools {
+		if strings.HasPrefix(cmdLower, tool+" ") || cmdLower == tool {
+			return true
+		}
+	}
+	
+	return false
 }
