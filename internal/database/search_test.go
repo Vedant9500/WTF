@@ -9,19 +9,28 @@ func TestSearch(t *testing.T) {
 	db := &Database{
 		Commands: []Command{
 			{
-				Command:     "git commit -m 'message'",
-				Description: "commit changes with message",
-				Keywords:    []string{"git", "commit", "message"},
+				Command:          "git commit -m 'message'",
+				Description:      "commit changes with message",
+				Keywords:         []string{"git", "commit", "message"},
+				CommandLower:     "git commit -m 'message'",
+				DescriptionLower: "commit changes with message",
+				KeywordsLower:    []string{"git", "commit", "message"},
 			},
 			{
-				Command:     "find . -name '*.txt'",
-				Description: "find text files",
-				Keywords:    []string{"find", "files", "text"},
+				Command:          "find . -name '*.txt'",
+				Description:      "find text files",
+				Keywords:         []string{"find", "files", "text"},
+				CommandLower:     "find . -name '*.txt'",
+				DescriptionLower: "find text files",
+				KeywordsLower:    []string{"find", "files", "text"},
 			},
 			{
-				Command:     "tar -czf archive.tar.gz .",
-				Description: "create compressed archive",
-				Keywords:    []string{"tar", "compress", "archive"},
+				Command:          "tar -czf archive.tar.gz .",
+				Description:      "create compressed archive",
+				Keywords:         []string{"tar", "compress", "archive"},
+				CommandLower:     "tar -czf archive.tar.gz .",
+				DescriptionLower: "create compressed archive",
+				KeywordsLower:    []string{"tar", "compress", "archive"},
 			},
 		},
 	}
@@ -47,9 +56,30 @@ func TestSearch(t *testing.T) {
 func TestSearchLimit(t *testing.T) {
 	db := &Database{
 		Commands: []Command{
-			{Command: "cmd1", Description: "test", Keywords: []string{"test"}},
-			{Command: "cmd2", Description: "test", Keywords: []string{"test"}},
-			{Command: "cmd3", Description: "test", Keywords: []string{"test"}},
+			{
+				Command:          "cmd1",
+				Description:      "test",
+				Keywords:         []string{"test"},
+				CommandLower:     "cmd1",
+				DescriptionLower: "test",
+				KeywordsLower:    []string{"test"},
+			},
+			{
+				Command:          "cmd2",
+				Description:      "test",
+				Keywords:         []string{"test"},
+				CommandLower:     "cmd2",
+				DescriptionLower: "test",
+				KeywordsLower:    []string{"test"},
+			},
+			{
+				Command:          "cmd3",
+				Description:      "test",
+				Keywords:         []string{"test"},
+				CommandLower:     "cmd3",
+				DescriptionLower: "test",
+				KeywordsLower:    []string{"test"},
+			},
 		},
 	}
 
@@ -63,7 +93,14 @@ func TestSearchLimit(t *testing.T) {
 func TestSearchNoResults(t *testing.T) {
 	db := &Database{
 		Commands: []Command{
-			{Command: "git commit", Description: "commit", Keywords: []string{"git"}},
+			{
+				Command:          "git commit",
+				Description:      "commit",
+				Keywords:         []string{"git"},
+				CommandLower:     "git commit",
+				DescriptionLower: "commit",
+				KeywordsLower:    []string{"git"},
+			},
 		},
 	}
 
@@ -79,6 +116,10 @@ func TestCalculateScore(t *testing.T) {
 		Command:     "git commit",
 		Description: "commit changes",
 		Keywords:    []string{"git", "version-control"},
+		// Populate cached lowercased fields
+		CommandLower:     "git commit",
+		DescriptionLower: "commit changes",
+		KeywordsLower:    []string{"git", "version-control"},
 	}
 
 	queryWords := []string{"git", "commit"}
@@ -88,11 +129,13 @@ func TestCalculateScore(t *testing.T) {
 		t.Errorf("Expected positive score, got %f", score)
 	}
 
-	// Git should match in command (10) and keywords (3) = at least 13
-	// Commit should match in command (10) = at least 10
-	// Total should be at least 23
-	if score < 23 {
-		t.Errorf("Expected score >= 23, got %f", score)
+	// Based on actual scoring algorithm:
+	// "git": matches in command (10.0) + matches in keywords (4.0) = 14.0
+	// "commit": matches in command (10.0) = 10.0
+	// Total should be 24.0
+	expectedScore := 24.0
+	if score < expectedScore {
+		t.Errorf("Expected score >= %f, got %f", expectedScore, score)
 	}
 }
 
@@ -101,6 +144,10 @@ func TestCalculateScoreWithContext(t *testing.T) {
 		Command:     "git commit -m 'message'",
 		Description: "commit changes",
 		Keywords:    []string{"git", "version-control"},
+		// Populate cached lowercased fields
+		CommandLower:     "git commit -m 'message'",
+		DescriptionLower: "commit changes",
+		KeywordsLower:    []string{"git", "version-control"},
 	}
 
 	queryWords := []string{"git", "commit"}
@@ -120,13 +167,11 @@ func TestCalculateScoreWithContext(t *testing.T) {
 			scoreWithoutContext, scoreWithContext)
 	}
 
-	// The git keyword should get a 2.0x boost and commit should get 1.5x boost
-	// Original git score: 13 (10 from command + 3 from keyword)
-	// Boosted git score: 13 * 2.0 = 26
-	// Original commit score: 10 (from command)
-	// Boosted commit score: 10 * 1.5 = 15
-	// Total should be around 41
-	expectedMinScore := 40.0
+	// Based on actual scoring algorithm:
+	// "git": matches in command (10.0) + matches in keywords (4.0) = 14.0 * 2.0 = 28.0
+	// "commit": matches in command (10.0) = 10.0 * 1.5 = 15.0
+	// Total should be 43.0
+	expectedMinScore := 43.0
 	if scoreWithContext < expectedMinScore {
 		t.Errorf("Expected context-boosted score >= %f, got %f", expectedMinScore, scoreWithContext)
 	}

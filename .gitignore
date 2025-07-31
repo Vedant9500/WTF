@@ -50,3 +50,8 @@ ACTION_PLAN.md
 
 # Air live reload  
 .air.toml.local
+
+# Kiro spec files
+.kiro/specs/*/requirements.md
+.kiro/specs/*/design.md
+.kiro/specs/*/tasks.md
