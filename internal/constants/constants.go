@@ -34,6 +34,27 @@ const (
 	DefaultFuzzyThreshold = -30
 	DefaultMaxResults     = 5
 	DefaultHistorySize    = 100
+	
+	// Search algorithm constants
+	CrossPlatformPenalty     = 0.9
+	ResultsBufferMultiplier  = 3
+	FuzzySearchMultiplier    = 2
+	MinWordLength           = 2
+	FuzzyScoreThreshold     = 0.5
+	FuzzyNormalizationBase  = 100.0
+	NicheBoostFactor        = 0.2
+	
+	// Word scoring constants
+	DirectCommandMatchScore = 15.0
+	CommandMatchScore      = 10.0
+	DomainSpecificScore    = 12.0
+	DescriptionMatchScore  = 6.0
+	KeywordExactScore      = 4.0
+	KeywordPartialScore    = 1.0
+	
+	// Suggestion constants
+	DefaultMaxSuggestions  = 3
+	FuzzySuggestionThreshold = -20
 )
 
 // Cache settings
@@ -44,7 +65,6 @@ const (
 // File size limits
 const (
 	MaxQueryLength = 1000 // Maximum query length in characters
-	MinWordLength  = 2    // Minimum word length for processing
 )
 
 // NLP processing constants

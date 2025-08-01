@@ -5,6 +5,7 @@ import (
 	"strings"
 	"runtime"
 
+	"github.com/Vedant9500/WTF/internal/constants"
 	"github.com/Vedant9500/WTF/internal/nlp"
 	"github.com/sahilm/fuzzy"
 )
@@ -44,81 +45,47 @@ func (db *Database) Search(query string, limit int) []SearchResult {
 // SearchWithOptions performs search with advanced options including context awareness and platform filtering
 func (db *Database) SearchWithOptions(query string, options SearchOptions) []SearchResult {
 	if options.Limit <= 0 {
-		options.Limit = 5 // default limit
+		options.Limit = constants.DefaultSearchLimit
 	}
 
 	queryWords := strings.Fields(strings.ToLower(query))
-	results := make([]SearchResult, 0, min(len(db.Commands), options.Limit*3))
+	results := make([]SearchResult, 0, min(len(db.Commands), options.Limit*constants.ResultsBufferMultiplier))
 
 	currentPlatform := getCurrentPlatform()
 
 	for i := range db.Commands {
 		cmd := &db.Commands[i]
-		// Platform filtering/penalty: if cmd.Platform is set and currentPlatform is not in it, penalize or skip
-		if len(cmd.Platform) > 0 {
-			found := false
-			for _, p := range cmd.Platform {
-				if strings.EqualFold(p, currentPlatform) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				// Check if this is a cross-platform tool that should work everywhere
-				if isCrossPlatformTool(cmd.Command) {
-					// Don't skip cross-platform tools, just apply a small penalty
-					// This allows git, docker, etc. to show up on all platforms
-					score := calculateScore(cmd, queryWords, options.ContextBoosts) * 0.9
-					if score > 0 {
-						results = append(results, SearchResult{Command: cmd, Score: score})
-					}
-					continue
-				}
-				// For platform-specific tools, skip entirely
-				continue
-			}
-		}
-		score := calculateScore(cmd, queryWords, options.ContextBoosts)
-		if score > 0 {
-			results = append(results, SearchResult{
-				Command: cmd,
-				Score:   score,
-			})
+		
+		// Apply platform filtering and calculate score
+		if result := db.calculateCommandScore(cmd, queryWords, options.ContextBoosts, currentPlatform); result != nil {
+			results = append(results, *result)
 		}
 	}
 
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Score > results[j].Score
-	})
-
-	if len(results) > options.Limit {
-		results = results[:options.Limit]
-	}
-
-	return results
+	return db.sortAndLimitResults(results, options.Limit)
 }
 
 // SearchWithPipelineOptions performs search with pipeline-specific enhancements
 func (db *Database) SearchWithPipelineOptions(query string, options SearchOptions) []SearchResult {
 	if options.Limit <= 0 {
-		options.Limit = 5 // default limit
+		options.Limit = constants.DefaultSearchLimit
 	}
 
 	queryWords := strings.Fields(strings.ToLower(query))
-	var results []SearchResult
+	results := make([]SearchResult, 0, min(len(db.Commands), options.Limit*constants.ResultsBufferMultiplier))
 
 	for i := range db.Commands {
 		cmd := &db.Commands[i]
 
 		// If PipelineOnly is true, skip non-pipeline commands
-		if options.PipelineOnly && !cmd.Pipeline && !isPipelineCommand(cmd.Command) {
+		if options.PipelineOnly && !isPipelineCommand(cmd) {
 			continue
 		}
 
 		score := calculateScore(cmd, queryWords, options.ContextBoosts)
 
 		// Apply pipeline boost
-		if (cmd.Pipeline || isPipelineCommand(cmd.Command)) && options.PipelineBoost > 0 {
+		if isPipelineCommand(cmd) && options.PipelineBoost > 0 {
 			score *= options.PipelineBoost
 		}
 
@@ -130,81 +97,126 @@ func (db *Database) SearchWithPipelineOptions(query string, options SearchOption
 		}
 	}
 
-	// Sort by score (highest first)
+	return db.sortAndLimitResults(results, options.Limit)
+}
+
+// sortAndLimitResults sorts results by score and applies limit
+func (db *Database) sortAndLimitResults(results []SearchResult, limit int) []SearchResult {
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Score > results[j].Score
 	})
 
-	// Return top results
-	if len(results) > options.Limit {
-		results = results[:options.Limit]
+	if len(results) > limit {
+		results = results[:limit]
 	}
 
 	return results
 }
 
 // isPipelineCommand checks if a command is likely a pipeline
-func isPipelineCommand(command string) bool {
+func isPipelineCommand(cmd *Command) bool {
+	if cmd.Pipeline {
+		return true
+	}
+	
+	command := cmd.Command
 	return strings.Contains(command, "|") ||
 		strings.Contains(strings.ToLower(command), "pipe") ||
 		strings.Contains(command, "&&") ||
 		strings.Contains(command, ">>")
 }
 
+// calculateCommandScore handles platform filtering and score calculation for a single command
+func (db *Database) calculateCommandScore(cmd *Command, queryWords []string, contextBoosts map[string]float64, currentPlatform string) *SearchResult {
+	// Platform filtering/penalty: if cmd.Platform is set and currentPlatform is not in it, penalize or skip
+	if len(cmd.Platform) > 0 {
+		found := false
+		for _, p := range cmd.Platform {
+			if strings.EqualFold(p, currentPlatform) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			// Check if this is a cross-platform tool that should work everywhere
+			if isCrossPlatformTool(cmd.Command) {
+				// Don't skip cross-platform tools, just apply a small penalty
+				score := calculateScore(cmd, queryWords, contextBoosts) * constants.CrossPlatformPenalty
+				if score > 0 {
+					return &SearchResult{Command: cmd, Score: score}
+				}
+			}
+			// For platform-specific tools, skip entirely
+			return nil
+		}
+	}
+	
+	score := calculateScore(cmd, queryWords, contextBoosts)
+	if score > 0 {
+		return &SearchResult{Command: cmd, Score: score}
+	}
+	return nil
+}
+
+// calculateWordScore computes the relevance score for a single word against a command
+func calculateWordScore(word string, cmd *Command) float64 {
+	cmdLower := cmd.CommandLower
+	descLower := cmd.DescriptionLower
+	keywordsLower := cmd.KeywordsLower
+	
+	var wordScore float64
+
+	// HIGHEST PRIORITY: Exact match in command name
+	if strings.Contains(cmdLower, word) {
+		if strings.HasPrefix(cmdLower, word) || cmdLower == word {
+			wordScore += constants.DirectCommandMatchScore
+		} else {
+			wordScore += constants.CommandMatchScore
+		}
+	}
+
+	// HIGH PRIORITY: Domain-specific command matching
+	if isDomainSpecificMatch(word, cmd) {
+		wordScore += constants.DomainSpecificScore
+	}
+
+	// MEDIUM-HIGH PRIORITY: Exact match in description
+	if strings.Contains(descLower, word) {
+		wordScore += constants.DescriptionMatchScore
+	}
+
+	// MEDIUM PRIORITY: Exact match in keywords
+	for _, keyword := range keywordsLower {
+		if keyword == word {
+			wordScore += constants.KeywordExactScore
+			break
+		}
+	}
+
+	// LOW PRIORITY: Partial match in keywords (only if no exact match)
+	if wordScore == 0 {
+		for _, keyword := range keywordsLower {
+			if strings.Contains(keyword, word) {
+				wordScore += constants.KeywordPartialScore
+				break
+			}
+		}
+	}
+
+	return wordScore
+}
+
 // calculateScore computes relevance score for a command based on query words and context
 func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]float64) float64 {
 	var score float64
 
-	// Use cached lowercased fields for matching
-	cmdLower := cmd.CommandLower
-	descLower := cmd.DescriptionLower
-	keywordsLower := cmd.KeywordsLower
-
 	for _, word := range queryWords {
 		// Skip very short words
-		if len(word) < 2 {
+		if len(word) < constants.MinWordLength {
 			continue
 		}
 
-		wordScore := 0.0
-
-		// HIGHEST PRIORITY: Exact match in command name
-		if strings.Contains(cmdLower, word) {
-			// Even higher boost if it's a direct command match
-			if strings.HasPrefix(cmdLower, word) || cmdLower == word {
-				wordScore += 15.0 // Increased from 10.0
-			} else {
-				wordScore += 10.0
-			}
-		}
-
-		// HIGH PRIORITY: Domain-specific command matching
-		if isDomainSpecificMatch(word, cmd) {
-			wordScore += 12.0 // New: boost for domain-specific relevance
-		}
-
-		// MEDIUM-HIGH PRIORITY: Exact match in description
-		if strings.Contains(descLower, word) {
-			wordScore += 6.0 // Increased from 5.0
-		}
-
-		// MEDIUM PRIORITY: Exact match in keywords
-		for _, keyword := range keywordsLower {
-			if keyword == word {
-				wordScore += 4.0 // Increased from 3.0
-				break
-			}
-		}
-
-		// LOW PRIORITY: Partial match in keywords (only if no exact match)
-		if wordScore == 0 {
-			for _, keyword := range keywordsLower {
-				if strings.Contains(keyword, word) {
-					wordScore += 1.0
-					break
-				}
-			}
-		}
+		wordScore := calculateWordScore(word, cmd)
 
 		// Apply context boost if available
 		if contextBoosts != nil {
@@ -223,7 +235,7 @@ func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]
 	if contextBoosts != nil && cmd.Niche != "" {
 		nicheLower := strings.ToLower(cmd.Niche)
 		if boost, exists := contextBoosts[nicheLower]; exists {
-			score *= (1.0 + boost*0.2) // Moderate boost for niche match
+			score *= (1.0 + boost*constants.NicheBoostFactor)
 		}
 	}
 
@@ -299,40 +311,36 @@ func getCategoryRelevanceBoost(cmd *Command, queryWords []string) float64 {
 // SearchWithFuzzy performs hybrid search combining exact matching and fuzzy search
 func (db *Database) SearchWithFuzzy(query string, options SearchOptions) []SearchResult {
 	if options.Limit <= 0 {
-		options.Limit = 5
+		options.Limit = constants.DefaultSearchLimit
 	}
 
 	// First try exact search
-	exactResults := db.SearchWithOptions(query, SearchOptions{
-		Limit:         options.Limit * 2, // Get more for better selection
-		ContextBoosts: options.ContextBoosts,
-		PipelineOnly:  options.PipelineOnly,
-		PipelineBoost: options.PipelineBoost,
-		UseFuzzy:      false, // Disable fuzzy for exact search
-	})
+	exactOptions := options
+	exactOptions.Limit = options.Limit * constants.FuzzySearchMultiplier
+	exactOptions.UseFuzzy = false
+	exactResults := db.SearchWithOptions(query, exactOptions)
 
 	// If we have good exact results, return them
-	if len(exactResults) >= options.Limit && exactResults[0].Score > 0.5 {
-		if len(exactResults) > options.Limit {
-			exactResults = exactResults[:options.Limit]
-		}
-		return exactResults
+	if len(exactResults) >= options.Limit && exactResults[0].Score > constants.FuzzyScoreThreshold {
+		return db.limitResults(exactResults, options.Limit)
 	}
 
 	// If exact search doesn't yield good results, try fuzzy search
 	if options.UseFuzzy {
 		fuzzyResults := db.performFuzzySearch(query, options)
-
-		// Combine and deduplicate results
-		combinedResults := db.combineAndDeduplicateResults(exactResults, fuzzyResults, options.Limit)
-		return combinedResults
+		return db.combineAndDeduplicateResults(exactResults, fuzzyResults, options.Limit)
 	}
 
 	// Return exact results if fuzzy is disabled
-	if len(exactResults) > options.Limit {
-		exactResults = exactResults[:options.Limit]
+	return db.limitResults(exactResults, options.Limit)
+}
+
+// limitResults applies limit to results slice
+func (db *Database) limitResults(results []SearchResult, limit int) []SearchResult {
+	if len(results) > limit {
+		return results[:limit]
 	}
-	return exactResults
+	return results
 }
 
 // performFuzzySearch conducts fuzzy search on the database
@@ -366,7 +374,7 @@ func (db *Database) performFuzzySearch(query string, options SearchOptions) []Se
 		// Convert fuzzy score to our scoring system
 		// Fuzzy scores are negative (better matches have higher negative values)
 		// Convert to positive score between 0-1
-		normalizedScore := float64(match.Score+100) / 100.0
+		normalizedScore := float64(match.Score+int(constants.FuzzyNormalizationBase)) / constants.FuzzyNormalizationBase
 		if normalizedScore < 0 {
 			normalizedScore = 0
 		}
@@ -424,7 +432,7 @@ func (db *Database) combineAndDeduplicateResults(exactResults, fuzzyResults []Se
 // GetSuggestions provides "Did you mean?" suggestions for potential typos
 func (db *Database) GetSuggestions(query string, maxSuggestions int) []string {
 	if maxSuggestions <= 0 {
-		maxSuggestions = 3
+		maxSuggestions = constants.DefaultMaxResults
 	}
 
 	// Extract unique words from commands and descriptions
@@ -464,7 +472,7 @@ func (db *Database) GetSuggestions(query string, maxSuggestions int) []string {
 			break
 		}
 		// Only suggest if the match is reasonably good
-		if match.Score >= -20 { // Adjust threshold as needed
+		if match.Score >= constants.FuzzySuggestionThreshold {
 			suggestions = append(suggestions, words[match.Index])
 		}
 	}

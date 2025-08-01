@@ -63,7 +63,7 @@ func TestSearchWithPipelineOptions(t *testing.T) {
 
 	// Verify returned commands are pipelines
 	for _, result := range results {
-		if !result.Command.Pipeline && !isPipelineCommand(result.Command.Command) {
+		if !isPipelineCommand(result.Command) {
 			t.Errorf("Non-pipeline command returned: %s", result.Command.Command)
 		}
 	}
@@ -129,22 +129,28 @@ func TestSearchWithPipelineBoost(t *testing.T) {
 func TestIsPipelineCommand(t *testing.T) {
 	tests := []struct {
 		command  string
+		pipeline bool
 		expected bool
 	}{
-		{"ls -la", false},
-		{"cat file | grep test", true},
-		{"find . -name '*.txt' | head -5", true},
-		{"echo 'test' && echo 'done'", true},
-		{"cat file >> output.txt", true},
-		{"grep test file.txt", false},
-		{"command with pipe in description", true},
-		{"PIPE uppercase test", true},
+		{"ls -la", false, false},
+		{"cat file | grep test", false, true},
+		{"find . -name '*.txt' | head -5", false, true},
+		{"echo 'test' && echo 'done'", false, true},
+		{"cat file >> output.txt", false, true},
+		{"grep test file.txt", false, false},
+		{"command with pipe in description", false, true},
+		{"PIPE uppercase test", false, true},
+		{"regular command", true, true}, // Pipeline flag set
 	}
 
 	for _, test := range tests {
-		result := isPipelineCommand(test.command)
+		cmd := &Command{
+			Command:  test.command,
+			Pipeline: test.pipeline,
+		}
+		result := isPipelineCommand(cmd)
 		if result != test.expected {
-			t.Errorf("isPipelineCommand(%q) = %v, expected %v", test.command, result, test.expected)
+			t.Errorf("isPipelineCommand(%q, pipeline=%v) = %v, expected %v", test.command, test.pipeline, result, test.expected)
 		}
 	}
 }
