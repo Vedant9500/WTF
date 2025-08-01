@@ -186,7 +186,7 @@ func (fs *FuzzySearcher) IsTypo(query string, exactMatches int) bool {
 	if len(fuzzyResults) > 0 && fuzzyResults[0].Score > 0 {
 		// If fuzzy search finds something but exact search doesn't,
 		// and the fuzzy score is reasonable, it might be a typo
-		return fuzzyResults[0].Score >= -10 // Adjust threshold as needed
+		return fuzzyResults[0].Score >= -50 // Adjust threshold as needed for the fuzzy library
 	}
 
 	return false
