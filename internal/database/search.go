@@ -565,83 +565,96 @@ func calculateIntentBoost(cmd *Command, pq *nlp.ProcessedQuery) float64 {
 	cmdLower := strings.ToLower(cmd.Command)
 	descLower := strings.ToLower(cmd.Description)
 
-	// Apply intent-specific boosts with stronger differentiation
-	switch pq.Intent {
+	// Apply intent-specific boosts
+	boost *= applyIntentBoost(cmdLower, descLower, pq.Intent)
+	
+	// Apply action and target boosts
+	boost *= applyActionBoosts(cmdLower, descLower, pq.Actions)
+	boost *= applyTargetBoosts(cmdLower, descLower, pq.Targets)
+
+	return boost
+}
+
+// applyIntentBoost applies boost based on detected intent
+func applyIntentBoost(cmdLower, descLower string, intent nlp.QueryIntent) float64 {
+	switch intent {
 	case nlp.IntentFind:
-		if strings.Contains(cmdLower, "find") || strings.Contains(cmdLower, "search") ||
-			strings.Contains(cmdLower, "ls") || strings.Contains(cmdLower, "grep") {
-			boost *= 2.0 // Increased from 1.5
+		if containsAny(cmdLower, []string{"find", "search", "ls", "grep"}) {
+			return 2.0
 		}
-
 	case nlp.IntentCreate:
-		if strings.Contains(cmdLower, "mkdir") || strings.Contains(cmdLower, "touch") ||
-			strings.Contains(cmdLower, "create") || strings.Contains(cmdLower, "make") {
-			boost *= 2.0 // Increased from 1.5
+		if containsAny(cmdLower, []string{"mkdir", "touch", "create", "make"}) {
+			boost := 2.0
+			// Penalize package creation tools for simple "create directory" queries
+			if strings.Contains(cmdLower, "makepkg") && !strings.Contains(descLower, "package") {
+				boost *= 0.3
+			}
+			return boost
 		}
-		// Penalize package creation tools for simple "create directory" queries
-		if strings.Contains(cmdLower, "makepkg") &&
-			!strings.Contains(descLower, "package") {
-			boost *= 0.3 // Strong penalty for mismatched tools
-		}
-
 	case nlp.IntentDelete:
-		if strings.Contains(cmdLower, "rm") || strings.Contains(cmdLower, "del") ||
-			strings.Contains(cmdLower, "delete") || strings.Contains(cmdLower, "remove") {
-			boost *= 2.0 // Increased from 1.5
+		if containsAny(cmdLower, []string{"rm", "del", "delete", "remove"}) {
+			return 2.0
 		}
-
 	case nlp.IntentInstall:
-		if strings.Contains(cmdLower, "install") || strings.Contains(cmdLower, "add") ||
-			strings.Contains(cmdLower, "setup") || strings.Contains(descLower, "install") {
-			boost *= 2.0 // Increased from 1.5
+		if containsAny(cmdLower, []string{"install", "add", "setup"}) || strings.Contains(descLower, "install") {
+			return 2.0
 		}
-
 	case nlp.IntentRun:
-		if strings.Contains(cmdLower, "run") || strings.Contains(cmdLower, "exec") ||
-			strings.Contains(cmdLower, "start") || strings.Contains(cmdLower, "launch") {
-			boost *= 2.0 // Increased from 1.5
+		if containsAny(cmdLower, []string{"run", "exec", "start", "launch"}) {
+			return 2.0
 		}
-
 	case nlp.IntentConfigure:
-		if strings.Contains(cmdLower, "config") || strings.Contains(cmdLower, "set") ||
-			strings.Contains(cmdLower, "configure") || strings.Contains(descLower, "config") {
-			boost *= 2.0 // Increased from 1.5
+		if containsAny(cmdLower, []string{"config", "set", "configure"}) || strings.Contains(descLower, "config") {
+			return 2.0
 		}
 	}
+	return 1.0
+}
 
-	// Apply action-based boosts with stronger weights for exact matches
-	for _, action := range pq.Actions {
+// applyActionBoosts applies boosts based on detected actions
+func applyActionBoosts(cmdLower, descLower string, actions []string) float64 {
+	boost := 1.0
+	for _, action := range actions {
 		if strings.Contains(cmdLower, action) {
-			boost *= 1.5 // Increased from 1.2 for command matches
+			boost *= 1.5
 		} else if strings.Contains(descLower, action) {
-			boost *= 1.3 // Increased from 1.2 for description matches
+			boost *= 1.3
 		}
 
 		// Special handling for compression actions
 		if action == "compress" || action == "archive" {
-			if strings.Contains(cmdLower, "tar") ||
-				strings.Contains(cmdLower, "zip") ||
-				strings.Contains(cmdLower, "gzip") {
-				boost *= 2.5 // Strong boost for compression tools
+			if containsAny(cmdLower, []string{"tar", "zip", "gzip"}) {
+				boost *= 2.5
 			}
-			// Penalize search tools for compression queries
-			if strings.Contains(cmdLower, "find") ||
-				strings.Contains(cmdLower, "locate") {
-				boost *= 0.2 // Strong penalty
+			if containsAny(cmdLower, []string{"find", "locate"}) {
+				boost *= 0.2
 			}
 		}
 	}
-
-	// Apply target-based boosts with stronger weights
-	for _, target := range pq.Targets {
-		if strings.Contains(cmdLower, target) {
-			boost *= 1.4 // Increased from 1.2 for command matches
-		} else if strings.Contains(descLower, target) {
-			boost *= 1.2 // Same for description matches
-		}
-	}
-
 	return boost
+}
+
+// applyTargetBoosts applies boosts based on detected targets
+func applyTargetBoosts(cmdLower, descLower string, targets []string) float64 {
+	boost := 1.0
+	for _, target := range targets {
+		if strings.Contains(cmdLower, target) {
+			boost *= 1.4
+		} else if strings.Contains(descLower, target) {
+			boost *= 1.2
+		}
+	}
+	return boost
+}
+
+// containsAny checks if a string contains any of the given substrings
+func containsAny(s string, substrings []string) bool {
+	for _, substr := range substrings {
+		if strings.Contains(s, substr) {
+			return true
+		}
+	}
+	return false
 }
 
 // getCurrentPlatform returns the platform string used in the command database for the current OS
