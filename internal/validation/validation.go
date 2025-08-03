@@ -2,22 +2,24 @@
 package validation
 
 import (
-	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 
 	"github.com/Vedant9500/WTF/internal/constants"
+	"github.com/Vedant9500/WTF/internal/errors"
 )
 
 // ValidateQuery validates and sanitizes user input queries
 func ValidateQuery(query string) (string, error) {
-	// Check length
-	if len(query) == 0 {
-		return "", fmt.Errorf("query cannot be empty")
+	// Check for empty query
+	if len(strings.TrimSpace(query)) == 0 {
+		return "", errors.NewQueryEmptyError()
 	}
 
+	// Check length
 	if len(query) > constants.MaxQueryLength {
-		return "", fmt.Errorf("query too long (max %d characters)", constants.MaxQueryLength)
+		return "", errors.NewQueryTooLongError(len(query), constants.MaxQueryLength)
 	}
 
 	// Basic sanitization - remove control characters but keep printable chars
@@ -28,6 +30,20 @@ func ValidateQuery(query string) (string, error) {
 		return r
 	}, query)
 
+	// Check for potentially dangerous characters after sanitization
+	dangerousChars := regexp.MustCompile(`[<>|&;$]`)
+	if matches := dangerousChars.FindAllString(cleaned, -1); len(matches) > 0 {
+		uniqueChars := make(map[string]bool)
+		for _, match := range matches {
+			uniqueChars[match] = true
+		}
+		var invalidChars []string
+		for char := range uniqueChars {
+			invalidChars = append(invalidChars, char)
+		}
+		return "", errors.NewQueryInvalidCharsError(strings.Join(invalidChars, ", "))
+	}
+
 	// Trim excessive whitespace
 	cleaned = strings.TrimSpace(cleaned)
 
@@ -35,7 +51,7 @@ func ValidateQuery(query string) (string, error) {
 	cleaned = strings.Join(strings.Fields(cleaned), " ")
 
 	if len(cleaned) == 0 {
-		return "", fmt.Errorf("query contains no valid characters")
+		return "", errors.NewQueryEmptyError()
 	}
 
 	return cleaned, nil
@@ -43,16 +59,18 @@ func ValidateQuery(query string) (string, error) {
 
 // ValidateLimit validates search result limits
 func ValidateLimit(limit int) (int, error) {
+	const maxLimit = 100
+
 	if limit < 0 {
-		return 0, fmt.Errorf("limit cannot be negative")
+		return 0, errors.NewLimitInvalidError(limit, maxLimit)
 	}
 
 	if limit == 0 {
 		return constants.DefaultSearchLimit, nil
 	}
 
-	if limit > 100 {
-		return 100, fmt.Errorf("limit too large (max 100)")
+	if limit > maxLimit {
+		return maxLimit, errors.NewLimitInvalidError(limit, maxLimit)
 	}
 
 	return limit, nil

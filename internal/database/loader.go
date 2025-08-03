@@ -13,12 +13,12 @@ import (
 func LoadDatabase(filename string) (*Database, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, errors.NewDatabaseError("read", filename, err)
+		return nil, errors.NewDatabaseErrorWithContext("read", filename, err)
 	}
 
 	var commands []Command
 	if err := yaml.Unmarshal(data, &commands); err != nil {
-		return nil, errors.NewDatabaseError("parse", filename, err)
+		return nil, errors.NewDatabaseErrorWithContext("parse", filename, err)
 	}
 
 	// Populate lowercased cache fields for performance
@@ -58,6 +58,12 @@ func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, err
 		// Check if it's a DatabaseError wrapping IsNotExist
 		if dbErr, ok := err.(*errors.DatabaseError); ok {
 			if os.IsNotExist(dbErr.Cause) {
+				return mainDB, nil
+			}
+		}
+		// Check if it's an AppError wrapping IsNotExist
+		if appErr, ok := err.(*errors.AppError); ok {
+			if appErr.Cause != nil && os.IsNotExist(appErr.Cause) {
 				return mainDB, nil
 			}
 		}

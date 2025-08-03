@@ -8,7 +8,10 @@ import (
 	"github.com/Vedant9500/WTF/internal/config"
 	"github.com/Vedant9500/WTF/internal/context"
 	"github.com/Vedant9500/WTF/internal/database"
+	"github.com/Vedant9500/WTF/internal/errors"
 	"github.com/Vedant9500/WTF/internal/history"
+	"github.com/Vedant9500/WTF/internal/recovery"
+	"github.com/Vedant9500/WTF/internal/search"
 	"github.com/Vedant9500/WTF/internal/validation"
 
 	"github.com/spf13/cobra"
@@ -36,7 +39,13 @@ Examples:
 		// Validate and sanitize query
 		cleanQuery, err := validation.ValidateQuery(query)
 		if err != nil {
-			fmt.Printf("Invalid query: %v\n", err)
+			fmt.Printf("%s\n", errors.GetUserFriendlyMessage(err))
+			if suggestions := errors.GetErrorSuggestions(err); len(suggestions) > 0 {
+				fmt.Printf("\nSuggestions:\n")
+				for _, suggestion := range suggestions {
+					fmt.Printf("• %s\n", suggestion)
+				}
+			}
 			return
 		}
 		query = cleanQuery
@@ -54,7 +63,13 @@ Examples:
 		// Validate limit
 		validLimit, err := validation.ValidateLimit(flags.limit)
 		if err != nil {
-			fmt.Printf("Invalid limit: %v\n", err)
+			fmt.Printf("%s\n", errors.GetUserFriendlyMessage(err))
+			if suggestions := errors.GetErrorSuggestions(err); len(suggestions) > 0 {
+				fmt.Printf("\nSuggestions:\n")
+				for _, suggestion := range suggestions {
+					fmt.Printf("• %s\n", suggestion)
+				}
+			}
 			return
 		}
 		flags.limit = validLimit
@@ -75,13 +90,24 @@ Examples:
 			fmt.Printf("Warning: Could not analyze directory context: %v\n", err)
 		}
 
-		// Load database (main + personal)
+		// Load database (main + personal) with recovery mechanisms
 		dbFilePath := cfg.GetDatabasePath()
 		personalDBPath := cfg.GetPersonalDatabasePath()
-		db, err := database.LoadDatabaseWithPersonal(dbFilePath, personalDBPath)
+		
+		// Use database recovery for robust loading
+		dbRecovery := recovery.NewDatabaseRecovery(recovery.DefaultRetryConfig())
+		db, err := dbRecovery.LoadDatabaseWithFallback(dbFilePath, personalDBPath)
 		if err != nil {
-			fmt.Printf("Error loading database from %s: %v\n", dbFilePath, err)
-			fmt.Println("Make sure the commands.yml file exists in the current directory.")
+			// Use user-friendly error messages
+			fmt.Printf("%s\n", errors.GetUserFriendlyMessage(err))
+			
+			// Show suggestions if available
+			if suggestions := errors.GetErrorSuggestions(err); len(suggestions) > 0 {
+				fmt.Printf("\nSuggestions:\n")
+				for _, suggestion := range suggestions {
+					fmt.Printf("• %s\n", suggestion)
+				}
+			}
 			return
 		}
 
@@ -104,9 +130,29 @@ Examples:
 			searchOptions.ContextBoosts = projectContext.GetContextBoosts()
 		}
 
-		// Perform context-aware search with NLP and fuzzy capabilities
-		results := db.SearchWithNLP(query, searchOptions)
+		// Use enhanced search for better results
+		enhancedSearcher := search.NewEnhancedSearcher(db)
+		enhancedResults := enhancedSearcher.EnhancedSearch(query, cfg.MaxResults)
+		
+		// Convert enhanced results to database.SearchResult format
+		results := make([]database.SearchResult, len(enhancedResults))
+		for i, result := range enhancedResults {
+			results[i] = database.SearchResult{
+				Command: result.Command,
+				Score:   result.Score,
+			}
+		}
+		
 		searchDuration := time.Since(startTime)
+		
+		// If enhanced search failed, try recovery mechanisms
+		if len(results) == 0 {
+			searchRecovery := recovery.NewSearchRecovery()
+			recoveredResults, recoveryErr := searchRecovery.RecoverFromSearchFailure(query, nil, db)
+			if recoveryErr == nil && len(recoveredResults) > 0 {
+				results = recoveredResults
+			}
+		}
 
 		// Record search in history
 		historyPath := history.DefaultHistoryPath()
@@ -122,14 +168,15 @@ Examples:
 		_ = searchHistory.Save() // Ignore errors for history saving
 
 		if len(results) == 0 {
-			fmt.Println("No commands found matching your query.")
-
-			// Provide suggestions for potential typos
-			suggestions := db.GetSuggestions(query, 3)
+			// Use enhanced suggestions
+			suggestions := enhancedSearcher.GenerateSuggestions(query, 3)
+			noResultsErr := errors.NewNoResultsError(query, suggestions)
+			fmt.Printf("%s\n", noResultsErr.Error())
+			
 			if len(suggestions) > 0 {
 				fmt.Printf("\nDid you mean:\n")
 				for _, suggestion := range suggestions {
-					fmt.Printf("  • %s\n", suggestion)
+					fmt.Printf("• %s\n", suggestion)
 				}
 				fmt.Printf("\nTry: wtf \"%s\"\n", suggestions[0])
 			}
