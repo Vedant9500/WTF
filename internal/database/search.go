@@ -128,25 +128,33 @@ func isPipelineCommand(cmd *Command) bool {
 
 // calculateCommandScore handles platform filtering and score calculation for a single command
 func (db *Database) calculateCommandScore(cmd *Command, queryWords []string, contextBoosts map[string]float64, currentPlatform string) *SearchResult {
-	// Platform filtering/penalty: if cmd.Platform is set and currentPlatform is not in it, penalize or skip
+	// Platform filtering: handle new cross-platform designation
 	if len(cmd.Platform) > 0 {
-		found := false
+		isCrossPlatform := false
+		platformMatch := false
+		
 		for _, p := range cmd.Platform {
+			if strings.EqualFold(p, "cross-platform") {
+				isCrossPlatform = true
+				break
+			}
 			if strings.EqualFold(p, currentPlatform) {
-				found = true
+				platformMatch = true
 				break
 			}
 		}
-		if !found {
-			// Check if this is a cross-platform tool that should work everywhere
+		
+		// Skip if platform-specific and doesn't match current platform
+		if !isCrossPlatform && !platformMatch {
+			// Check if this is a legacy cross-platform tool (for backward compatibility)
 			if isCrossPlatformTool(cmd.Command) {
-				// Don't skip cross-platform tools, just apply a small penalty
+				// Apply small penalty for legacy cross-platform tools
 				score := calculateScore(cmd, queryWords, contextBoosts) * constants.CrossPlatformPenalty
 				if score > 0 {
 					return &SearchResult{Command: cmd, Score: score}
 				}
 			}
-			// For platform-specific tools, skip entirely
+			// Skip platform-specific tools that don't match
 			return nil
 		}
 	}
@@ -163,6 +171,7 @@ func calculateWordScore(word string, cmd *Command) float64 {
 	cmdLower := cmd.CommandLower
 	descLower := cmd.DescriptionLower
 	keywordsLower := cmd.KeywordsLower
+	tagsLower := cmd.TagsLower
 	
 	var wordScore float64
 
@@ -185,11 +194,29 @@ func calculateWordScore(word string, cmd *Command) float64 {
 		wordScore += constants.DescriptionMatchScore
 	}
 
+	// MEDIUM-HIGH PRIORITY: Exact match in tags
+	for _, tag := range tagsLower {
+		if tag == word {
+			wordScore += constants.TagExactScore
+			break
+		}
+	}
+
 	// MEDIUM PRIORITY: Exact match in keywords
 	for _, keyword := range keywordsLower {
 		if keyword == word {
 			wordScore += constants.KeywordExactScore
 			break
+		}
+	}
+
+	// LOW-MEDIUM PRIORITY: Partial match in tags (if no exact tag match)
+	if wordScore < constants.TagExactScore {
+		for _, tag := range tagsLower {
+			if strings.Contains(tag, word) {
+				wordScore += constants.TagPartialScore
+				break
+			}
 		}
 	}
 

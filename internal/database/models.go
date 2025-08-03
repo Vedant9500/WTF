@@ -5,6 +5,7 @@ type Command struct {
 	Command     string   `yaml:"command"`
 	Description string   `yaml:"description"`
 	Keywords    []string `yaml:"keywords"`
+	Tags        []string `yaml:"tags,omitempty"`
 	Niche       string   `yaml:"niche,omitempty"`
 	Platform    []string `yaml:"platform,omitempty"`
 	Pipeline    bool     `yaml:"pipeline"`
@@ -13,6 +14,7 @@ type Command struct {
 	CommandLower     string   `yaml:"-"`
 	DescriptionLower string   `yaml:"-"`
 	KeywordsLower    []string `yaml:"-"`
+	TagsLower       []string `yaml:"-"`
 }
 
 // Database holds all commands and provides search functionality

@@ -51,6 +51,8 @@ const (
 	DescriptionMatchScore  = 6.0
 	KeywordExactScore      = 4.0
 	KeywordPartialScore    = 1.0
+	TagExactScore         = 5.0
+	TagPartialScore       = 2.0
 	
 	// Suggestion constants
 	DefaultMaxSuggestions  = 3

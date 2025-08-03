@@ -29,6 +29,10 @@ func LoadDatabase(filename string) (*Database, error) {
 		for j, kw := range commands[i].Keywords {
 			commands[i].KeywordsLower[j] = strings.ToLower(kw)
 		}
+		commands[i].TagsLower = make([]string, len(commands[i].Tags))
+		for j, tag := range commands[i].Tags {
+			commands[i].TagsLower[j] = strings.ToLower(tag)
+		}
 	}
 
 	return &Database{
