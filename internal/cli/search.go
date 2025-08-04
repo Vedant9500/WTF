@@ -169,16 +169,22 @@ Examples:
 
 		if len(results) == 0 {
 			// Use enhanced suggestions
-			suggestions := enhancedSearcher.GenerateSuggestions(query, 3)
-			noResultsErr := errors.NewNoResultsError(query, suggestions)
-			fmt.Printf("%s\n", noResultsErr.Error())
+			suggestions := enhancedSearcher.GenerateSuggestions(query, 5)
+			
+			fmt.Printf("No commands found matching '%s'.\n\n", query)
 			
 			if len(suggestions) > 0 {
-				fmt.Printf("\nDid you mean:\n")
+				fmt.Printf("Did you mean:\n")
 				for _, suggestion := range suggestions {
 					fmt.Printf("• %s\n", suggestion)
 				}
 				fmt.Printf("\nTry: wtf \"%s\"\n", suggestions[0])
+			} else {
+				fmt.Printf("Suggestions:\n")
+				fmt.Printf("• Try using different keywords\n")
+				fmt.Printf("• Check for typos in your query\n")
+				fmt.Printf("• Be more specific or more general\n")
+				fmt.Printf("• Use simpler terms (e.g., 'compress files' instead of 'how do I compress files')\n")
 			}
 			return
 		}

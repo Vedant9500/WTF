@@ -122,12 +122,52 @@ var CommonTypos = map[string]string{
 	"traffik":  "traffic",
 }
 
-// PreprocessQuery cleans and corrects common typos in the query
+// StopWords are common words that don't add search value
+var StopWords = map[string]bool{
+	"how": true, "do": true, "i": true, "to": true, "a": true, "an": true, "the": true,
+	"and": true, "or": true, "but": true, "in": true, "on": true, "at": true, "by": true,
+	"for": true, "with": true, "from": true, "into": true, "of": true, "is": true, "are": true,
+	"was": true, "were": true, "be": true, "been": true, "have": true, "has": true, "had": true,
+	"will": true, "would": true, "could": true, "should": true, "can": true, "may": true,
+	"might": true, "must": true, "shall": true, "this": true, "that": true, "these": true,
+	"those": true, "it": true, "its": true, "you": true, "your": true, "my": true, "me": true,
+	"we": true, "us": true, "our": true, "they": true, "them": true, "their": true,
+}
+
+// KeywordSynonyms maps natural language terms to technical keywords
+var KeywordSynonyms = map[string][]string{
+	"compress":   {"compress", "zip", "tar", "gzip", "archive", "pack"},
+	"extract":    {"extract", "unzip", "untar", "decompress", "unpack"},
+	"create":     {"create", "make", "mkdir", "touch", "new"},
+	"delete":     {"delete", "remove", "rm", "del", "erase"},
+	"copy":       {"copy", "cp", "duplicate", "clone"},
+	"move":       {"move", "mv", "rename", "relocate"},
+	"list":       {"list", "ls", "show", "display", "dir"},
+	"find":       {"find", "search", "locate", "grep", "look"},
+	"edit":       {"edit", "modify", "change", "update", "vim", "nano"},
+	"download":   {"download", "fetch", "get", "wget", "curl", "pull"},
+	"upload":     {"upload", "push", "send", "put"},
+	"backup":     {"backup", "save", "export", "dump"},
+	"restore":    {"restore", "import", "load", "recover"},
+	"install":    {"install", "setup", "add", "mount"},
+	"monitor":    {"monitor", "watch", "track", "observe", "top", "ps"},
+	"permission": {"permission", "chmod", "chown", "access", "rights"},
+	"network":    {"network", "ping", "ssh", "curl", "wget", "nc"},
+	"process":    {"process", "kill", "ps", "top", "jobs"},
+	"file":       {"file", "files", "document", "documents"},
+	"directory":  {"directory", "folder", "dir", "directories", "folders"},
+	"multiple":   {"multiple", "many", "several", "all"},
+	"single":     {"single", "one", "into"},
+	"archive":    {"archive", "zip", "tar", "compressed"},
+}
+
+// PreprocessQuery cleans, corrects typos, and enhances the query with synonyms
 func (es *EnhancedSearcher) PreprocessQuery(query string) string {
 	words := strings.Fields(strings.ToLower(query))
-	correctedWords := make([]string, len(words))
-
-	for i, word := range words {
+	var processedWords []string
+	
+	// Step 1: Clean and correct typos
+	for _, word := range words {
 		// Remove punctuation
 		cleanWord := strings.Map(func(r rune) rune {
 			if unicode.IsLetter(r) || unicode.IsNumber(r) {
@@ -136,15 +176,42 @@ func (es *EnhancedSearcher) PreprocessQuery(query string) string {
 			return -1
 		}, word)
 
+		if len(cleanWord) == 0 {
+			continue
+		}
+
+		// Skip stop words
+		if StopWords[cleanWord] {
+			continue
+		}
+
 		// Check for common typos
 		if correction, exists := CommonTypos[cleanWord]; exists {
-			correctedWords[i] = correction
+			processedWords = append(processedWords, correction)
 		} else {
-			correctedWords[i] = cleanWord
+			processedWords = append(processedWords, cleanWord)
 		}
 	}
 
-	return strings.Join(correctedWords, " ")
+	// Step 2: Add synonyms for key terms
+	var enhancedWords []string
+	enhancedWords = append(enhancedWords, processedWords...) // Keep original words
+	
+	for _, word := range processedWords {
+		if synonyms, exists := KeywordSynonyms[word]; exists {
+			// Add the most relevant synonyms (limit to avoid query explosion)
+			for i, synonym := range synonyms {
+				if i >= 2 { // Limit to 2 synonyms per word
+					break
+				}
+				if synonym != word { // Don't add the same word
+					enhancedWords = append(enhancedWords, synonym)
+				}
+			}
+		}
+	}
+
+	return strings.Join(enhancedWords, " ")
 }
 
 // SearchResult represents an enhanced search result
@@ -155,35 +222,54 @@ type SearchResult struct {
 	Distance    int
 }
 
-// EnhancedSearch performs comprehensive search with multiple strategies
+// EnhancedSearch performs comprehensive search with multiple strategies and smart ranking
 func (es *EnhancedSearcher) EnhancedSearch(query string, limit int) []SearchResult {
 	if limit <= 0 {
 		limit = 5
 	}
 
-	// Preprocess query to fix common typos
+	// Preprocess query to fix common typos and add synonyms
 	correctedQuery := es.PreprocessQuery(query)
+	originalQuery := strings.ToLower(query)
 	
 	var allResults []SearchResult
 
-	// Strategy 1: Exact matching on corrected query
+	// Strategy 1: Exact matching on corrected query (highest priority)
 	exactResults := es.exactSearch(correctedQuery)
+	for i := range exactResults {
+		exactResults[i].Score *= 1.5 // Boost exact matches
+	}
 	allResults = append(allResults, exactResults...)
 
-	// Strategy 2: Fuzzy matching on individual words
+	// Strategy 2: Intent-based matching (high priority for natural language)
+	intentResults := es.intentBasedSearch(originalQuery)
+	for i := range intentResults {
+		intentResults[i].Score *= 1.3 // Boost intent matches
+	}
+	allResults = append(allResults, intentResults...)
+
+	// Strategy 3: Fuzzy matching on individual words
 	fuzzyResults := es.fuzzyWordSearch(correctedQuery)
 	allResults = append(allResults, fuzzyResults...)
 
-	// Strategy 3: Partial matching with high tolerance
+	// Strategy 4: Partial matching with high tolerance
 	partialResults := es.partialSearch(correctedQuery)
+	for i := range partialResults {
+		partialResults[i].Score *= 0.8 // Reduce partial match scores
+	}
 	allResults = append(allResults, partialResults...)
 
-	// Strategy 4: Intent-based matching
-	intentResults := es.intentBasedSearch(correctedQuery)
-	allResults = append(allResults, intentResults...)
+	// Strategy 5: Fallback search on original query if corrected query yields poor results
+	if len(allResults) < limit {
+		fallbackResults := es.exactSearch(originalQuery)
+		for i := range fallbackResults {
+			fallbackResults[i].Score *= 0.9 // Slightly reduce fallback scores
+		}
+		allResults = append(allResults, fallbackResults...)
+	}
 
-	// Deduplicate and sort by score
-	return es.deduplicateAndSort(allResults, limit)
+	// Deduplicate and sort by score with enhanced ranking
+	return es.deduplicateAndSortWithRanking(allResults, limit, originalQuery)
 }
 
 // exactSearch performs exact string matching
@@ -370,109 +456,325 @@ func (es *EnhancedSearcher) partialSearch(query string) []SearchResult {
 	return results
 }
 
-// intentBasedSearch performs intent-based matching
+// intentBasedSearch performs intent-based matching with context awareness
 func (es *EnhancedSearcher) intentBasedSearch(query string) []SearchResult {
 	var results []SearchResult
 	
-	// Define intent patterns
-	intents := map[string][]string{
-		"create": {"create", "make", "new", "mkdir", "touch"},
-		"delete": {"delete", "remove", "rm", "del", "erase"},
-		"copy":   {"copy", "cp", "duplicate", "clone"},
-		"move":   {"move", "mv", "rename", "relocate"},
-		"list":   {"list", "ls", "show", "display", "dir"},
-		"find":   {"find", "search", "locate", "grep"},
-		"edit":   {"edit", "modify", "change", "update", "vim", "nano"},
-		"compress": {"compress", "zip", "tar", "archive", "gzip"},
-		"extract":  {"extract", "unzip", "untar", "decompress"},
-		"download": {"download", "fetch", "get", "wget", "curl"},
-		"upload":   {"upload", "push", "send", "put"},
-		"backup":   {"backup", "save", "export", "dump"},
-		"restore":  {"restore", "import", "load", "recover"},
-		"install":  {"install", "setup", "add", "mount"},
-		"monitor":  {"monitor", "watch", "track", "observe"},
-	}
-
+	// Analyze query for compound intents (e.g., "compress multiple files")
 	queryLower := strings.ToLower(query)
+	detectedIntents := es.detectIntents(queryLower)
 	
-	for intent, keywords := range intents {
-		for _, keyword := range keywords {
-			if strings.Contains(queryLower, keyword) {
-				// Find commands that match this intent
-				intentResults := es.findCommandsByIntent(intent, keyword)
-				results = append(results, intentResults...)
-				break
-			}
+	for intent, confidence := range detectedIntents {
+		if confidence > 0.5 { // Only use high-confidence intents
+			intentResults := es.findCommandsByIntent(intent, confidence)
+			results = append(results, intentResults...)
 		}
 	}
 
 	return results
 }
 
-// findCommandsByIntent finds commands that match a specific intent
-func (es *EnhancedSearcher) findCommandsByIntent(intent, keyword string) []SearchResult {
+// detectIntents analyzes the query to detect user intents with confidence scores
+func (es *EnhancedSearcher) detectIntents(query string) map[string]float64 {
+	intents := make(map[string]float64)
+	
+	// Define intent patterns with weights
+	intentPatterns := map[string]map[string]float64{
+		"compress": {
+			"compress": 1.0, "zip": 0.9, "tar": 0.9, "archive": 0.8, "gzip": 0.8,
+			"pack": 0.7, "bundle": 0.6, "multiple files": 0.8, "single archive": 0.9,
+		},
+		"extract": {
+			"extract": 1.0, "unzip": 0.9, "untar": 0.9, "decompress": 0.8, "unpack": 0.7,
+			"open archive": 0.8, "get files from": 0.7,
+		},
+		"create": {
+			"create": 1.0, "make": 0.8, "new": 0.7, "mkdir": 0.9, "touch": 0.9,
+			"directory": 0.8, "folder": 0.8, "file": 0.6,
+		},
+		"delete": {
+			"delete": 1.0, "remove": 0.9, "rm": 0.9, "del": 0.8, "erase": 0.7,
+			"get rid": 0.6, "clean up": 0.6,
+		},
+		"copy": {
+			"copy": 1.0, "cp": 0.9, "duplicate": 0.8, "clone": 0.7, "backup": 0.6,
+		},
+		"move": {
+			"move": 1.0, "mv": 0.9, "rename": 0.8, "relocate": 0.7, "transfer": 0.6,
+		},
+		"list": {
+			"list": 1.0, "ls": 0.9, "show": 0.8, "display": 0.8, "dir": 0.9,
+			"see": 0.6, "view": 0.7, "contents": 0.7,
+		},
+		"find": {
+			"find": 1.0, "search": 0.9, "locate": 0.8, "grep": 0.8, "look for": 0.7,
+			"where is": 0.6, "which": 0.5,
+		},
+		"download": {
+			"download": 1.0, "fetch": 0.8, "get": 0.7, "wget": 0.9, "curl": 0.9,
+			"pull": 0.6, "retrieve": 0.7,
+		},
+		"backup": {
+			"backup": 1.0, "save": 0.8, "export": 0.7, "dump": 0.8, "preserve": 0.6,
+		},
+		"restore": {
+			"restore": 1.0, "import": 0.8, "load": 0.7, "recover": 0.9, "bring back": 0.6,
+		},
+		"monitor": {
+			"monitor": 1.0, "watch": 0.9, "track": 0.8, "observe": 0.7, "check": 0.6,
+			"status": 0.6, "usage": 0.7, "bandwidth": 0.8, "traffic": 0.8,
+		},
+		"permission": {
+			"permission": 1.0, "chmod": 0.9, "chown": 0.8, "access": 0.7, "rights": 0.7,
+			"ownership": 0.6, "security": 0.5,
+		},
+	}
+	
+	// Score each intent based on pattern matches
+	for intent, patterns := range intentPatterns {
+		score := 0.0
+		matches := 0
+		
+		for pattern, weight := range patterns {
+			if strings.Contains(query, pattern) {
+				score += weight
+				matches++
+			}
+		}
+		
+		if matches > 0 {
+			// Normalize score and boost for multiple matches
+			normalizedScore := score / float64(len(patterns))
+			if matches > 1 {
+				normalizedScore *= 1.2 // Boost for multiple pattern matches
+			}
+			intents[intent] = normalizedScore
+		}
+	}
+	
+	return intents
+}
+
+// findCommandsByIntent finds commands that match a specific intent with confidence weighting
+func (es *EnhancedSearcher) findCommandsByIntent(intent string, confidence float64) []SearchResult {
 	var results []SearchResult
 
-	for i := range es.db.Commands {
-		cmd := &es.db.Commands[i]
-		score := 0.0
+	// Define comprehensive intent matching patterns
+	intentMatchers := map[string]func(*database.Command) float64{
+		"compress": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			// High priority matches
+			if strings.Contains(cmdLower, "tar") && (strings.Contains(cmdLower, "czf") || strings.Contains(cmdLower, "czvf")) {
+				score += 15.0 // tar create commands
+			}
+			if strings.Contains(cmdLower, "zip") && !strings.Contains(cmdLower, "unzip") {
+				score += 12.0 // zip commands
+			}
+			if strings.Contains(cmdLower, "gzip") && !strings.Contains(cmdLower, "gunzip") {
+				score += 10.0 // gzip commands
+			}
+			
+			// Medium priority matches
+			if strings.Contains(descLower, "compress") || strings.Contains(descLower, "archive") {
+				score += 8.0
+			}
+			if strings.Contains(cmdLower, "7z") && strings.Contains(cmdLower, "a") {
+				score += 10.0 // 7zip archive
+			}
+			
+			// Keyword matches
+			for _, keyword := range cmd.KeywordsLower {
+				if keyword == "compress" || keyword == "archive" || keyword == "zip" {
+					score += 6.0
+				}
+			}
+			
+			return score
+		},
+		
+		"extract": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			if strings.Contains(cmdLower, "tar") && (strings.Contains(cmdLower, "xzf") || strings.Contains(cmdLower, "xvf")) {
+				score += 15.0
+			}
+			if strings.Contains(cmdLower, "unzip") {
+				score += 12.0
+			}
+			if strings.Contains(cmdLower, "gunzip") {
+				score += 10.0
+			}
+			if strings.Contains(descLower, "extract") || strings.Contains(descLower, "decompress") {
+				score += 8.0
+			}
+			
+			return score
+		},
+		
+		"create": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			if strings.Contains(cmdLower, "mkdir") {
+				score += 15.0
+			}
+			if strings.Contains(cmdLower, "touch") {
+				score += 12.0
+			}
+			if strings.Contains(cmdLower, "create") {
+				score += 10.0
+			}
+			if strings.Contains(descLower, "create") {
+				score += 8.0
+			}
+			
+			return score
+		},
+		
+		"delete": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			if cmdLower == "rm" || strings.HasPrefix(cmdLower, "rm ") {
+				score += 15.0
+			}
+			if strings.Contains(cmdLower, "del") {
+				score += 12.0
+			}
+			if strings.Contains(cmdLower, "remove") {
+				score += 10.0
+			}
+			if strings.Contains(descLower, "delete") || strings.Contains(descLower, "remove") {
+				score += 8.0
+			}
+			
+			return score
+		},
+		
+		"list": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			if cmdLower == "ls" || strings.HasPrefix(cmdLower, "ls ") {
+				score += 15.0
+			}
+			if strings.Contains(cmdLower, "dir") {
+				score += 12.0
+			}
+			if strings.Contains(cmdLower, "list") {
+				score += 10.0
+			}
+			if strings.Contains(descLower, "list") {
+				score += 8.0
+			}
+			
+			return score
+		},
+		
+		"find": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			if strings.HasPrefix(cmdLower, "find ") {
+				score += 15.0
+			}
+			if strings.Contains(cmdLower, "grep") {
+				score += 12.0
+			}
+			if strings.Contains(cmdLower, "locate") {
+				score += 10.0
+			}
+			if strings.Contains(descLower, "find") || strings.Contains(descLower, "search") {
+				score += 8.0
+			}
+			
+			return score
+		},
+		
+		"download": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			if strings.Contains(cmdLower, "wget") {
+				score += 15.0
+			}
+			if strings.Contains(cmdLower, "curl") {
+				score += 12.0
+			}
+			if strings.Contains(descLower, "download") {
+				score += 10.0
+			}
+			
+			return score
+		},
+		
+		"backup": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			if strings.Contains(cmdLower, "mysqldump") {
+				score += 15.0
+			}
+			if strings.Contains(cmdLower, "rsync") {
+				score += 12.0
+			}
+			if strings.Contains(descLower, "backup") {
+				score += 10.0
+			}
+			
+			return score
+		},
+		
+		"monitor": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			if strings.Contains(cmdLower, "top") || strings.Contains(cmdLower, "htop") {
+				score += 15.0
+			}
+			if strings.Contains(cmdLower, "ps") {
+				score += 12.0
+			}
+			if strings.Contains(cmdLower, "netstat") {
+				score += 10.0
+			}
+			if strings.Contains(descLower, "monitor") || strings.Contains(descLower, "watch") {
+				score += 8.0
+			}
+			
+			return score
+		},
+	}
 
-		// Check if command matches the intent
-		switch intent {
-		case "create":
-			if strings.Contains(cmd.CommandLower, "mkdir") || 
-			   strings.Contains(cmd.CommandLower, "touch") ||
-			   strings.Contains(cmd.CommandLower, "create") ||
-			   strings.Contains(cmd.DescriptionLower, "create") {
-				score = 8.0
+	// Apply the appropriate matcher
+	if matcher, exists := intentMatchers[intent]; exists {
+		for i := range es.db.Commands {
+			cmd := &es.db.Commands[i]
+			score := matcher(cmd)
+			
+			if score > 0 {
+				// Apply confidence weighting
+				finalScore := score * confidence
+				
+				results = append(results, SearchResult{
+					Command:     cmd,
+					Score:       finalScore,
+					MatchReason: "intent: " + intent,
+					Distance:    -1,
+				})
 			}
-		case "delete":
-			if strings.Contains(cmd.CommandLower, "rm") || 
-			   strings.Contains(cmd.CommandLower, "del") ||
-			   strings.Contains(cmd.CommandLower, "remove") ||
-			   strings.Contains(cmd.DescriptionLower, "delete") ||
-			   strings.Contains(cmd.DescriptionLower, "remove") {
-				score = 8.0
-			}
-		case "copy":
-			if strings.Contains(cmd.CommandLower, "cp") || 
-			   strings.Contains(cmd.CommandLower, "copy") ||
-			   strings.Contains(cmd.DescriptionLower, "copy") {
-				score = 8.0
-			}
-		case "list":
-			if strings.Contains(cmd.CommandLower, "ls") || 
-			   strings.Contains(cmd.CommandLower, "dir") ||
-			   strings.Contains(cmd.CommandLower, "list") ||
-			   strings.Contains(cmd.DescriptionLower, "list") {
-				score = 8.0
-			}
-		case "find":
-			if strings.Contains(cmd.CommandLower, "find") || 
-			   strings.Contains(cmd.CommandLower, "grep") ||
-			   strings.Contains(cmd.CommandLower, "search") ||
-			   strings.Contains(cmd.DescriptionLower, "find") ||
-			   strings.Contains(cmd.DescriptionLower, "search") {
-				score = 8.0
-			}
-		case "compress":
-			if strings.Contains(cmd.CommandLower, "tar") || 
-			   strings.Contains(cmd.CommandLower, "zip") ||
-			   strings.Contains(cmd.CommandLower, "gzip") ||
-			   strings.Contains(cmd.DescriptionLower, "compress") ||
-			   strings.Contains(cmd.DescriptionLower, "archive") {
-				score = 8.0
-			}
-		// Add more intent matching as needed
-		}
-
-		if score > 0 {
-			results = append(results, SearchResult{
-				Command:     cmd,
-				Score:       score,
-				MatchReason: "intent: " + intent,
-				Distance:    -1,
-			})
 		}
 	}
 
@@ -514,6 +816,89 @@ func (es *EnhancedSearcher) deduplicateAndSort(results []SearchResult, limit int
 	return deduplicated
 }
 
+// deduplicateAndSortWithRanking provides enhanced ranking with query relevance
+func (es *EnhancedSearcher) deduplicateAndSortWithRanking(results []SearchResult, limit int, originalQuery string) []SearchResult {
+	seen := make(map[string]*SearchResult)
+	
+	// Deduplicate, keeping the highest score for each command
+	for _, result := range results {
+		key := result.Command.Command + "|" + result.Command.Description
+		if existing, exists := seen[key]; exists {
+			if result.Score > existing.Score {
+				seen[key] = &result
+			}
+		} else {
+			seen[key] = &result
+		}
+	}
+
+	// Convert back to slice and apply enhanced scoring
+	var deduplicated []SearchResult
+	for _, result := range seen {
+		enhancedResult := *result
+		enhancedResult.Score = es.calculateEnhancedScore(enhancedResult, originalQuery)
+		deduplicated = append(deduplicated, enhancedResult)
+	}
+
+	// Sort by enhanced score (descending)
+	sort.Slice(deduplicated, func(i, j int) bool {
+		// Primary sort by score
+		if deduplicated[i].Score != deduplicated[j].Score {
+			return deduplicated[i].Score > deduplicated[j].Score
+		}
+		// Secondary sort by command length (shorter commands often more relevant)
+		return len(deduplicated[i].Command.Command) < len(deduplicated[j].Command.Command)
+	})
+
+	// Apply limit
+	if len(deduplicated) > limit {
+		deduplicated = deduplicated[:limit]
+	}
+
+	return deduplicated
+}
+
+// calculateEnhancedScore applies additional ranking factors
+func (es *EnhancedSearcher) calculateEnhancedScore(result SearchResult, originalQuery string) float64 {
+	score := result.Score
+	cmd := result.Command
+	queryLower := strings.ToLower(originalQuery)
+	
+	// Boost for exact command name matches
+	if strings.Contains(queryLower, cmd.CommandLower) {
+		score *= 1.2
+	}
+	
+	// Boost for popular/common commands
+	commonCommands := map[string]float64{
+		"ls": 1.1, "cd": 1.1, "pwd": 1.1, "mkdir": 1.1, "rm": 1.1, "cp": 1.1, "mv": 1.1,
+		"find": 1.1, "grep": 1.1, "tar": 1.1, "zip": 1.1, "git": 1.1, "ssh": 1.1,
+		"wget": 1.1, "curl": 1.1, "ps": 1.1, "top": 1.1, "kill": 1.1, "chmod": 1.1,
+	}
+	
+	cmdName := strings.Fields(cmd.CommandLower)[0] // Get first word of command
+	if boost, exists := commonCommands[cmdName]; exists {
+		score *= boost
+	}
+	
+	// Boost for commands with good descriptions
+	if len(cmd.Description) > 20 && len(cmd.Description) < 100 {
+		score *= 1.05 // Prefer commands with informative but not overly long descriptions
+	}
+	
+	// Boost for commands with categories
+	if cmd.Niche != "" {
+		score *= 1.03
+	}
+	
+	// Penalize very long commands (often less useful)
+	if len(cmd.Command) > 80 {
+		score *= 0.9
+	}
+	
+	return score
+}
+
 // max returns the maximum of two integers
 func max(a, b int) int {
 	if a > b {
@@ -522,74 +907,197 @@ func max(a, b int) int {
 	return b
 }
 
-// GenerateSuggestions creates "Did you mean?" suggestions for failed searches
+// GenerateSuggestions creates intelligent "Did you mean?" suggestions for failed searches
 func (es *EnhancedSearcher) GenerateSuggestions(query string, maxSuggestions int) []string {
 	if maxSuggestions <= 0 {
 		maxSuggestions = 3
 	}
 
-	queryWords := strings.Fields(strings.ToLower(query))
+	queryLower := strings.ToLower(query)
+	queryWords := strings.Fields(queryLower)
+	
+	// Strategy 1: Check for common typos first
 	var suggestions []string
 	suggestionSet := make(map[string]bool)
-
-	// Collect all command words and keywords
-	var allWords []string
-	for _, cmd := range es.db.Commands {
-		// Add command words
-		cmdWords := strings.Fields(cmd.CommandLower)
-		allWords = append(allWords, cmdWords...)
-		
-		// Add keywords
-		allWords = append(allWords, cmd.KeywordsLower...)
+	
+	// Check entire query for common typo patterns
+	for typo, correction := range CommonTypos {
+		if strings.Contains(queryLower, typo) {
+			correctedQuery := strings.ReplaceAll(queryLower, typo, correction)
+			if correctedQuery != queryLower && !suggestionSet[correctedQuery] {
+				suggestions = append(suggestions, correctedQuery)
+				suggestionSet[correctedQuery] = true
+			}
+		}
+	}
+	
+	// Strategy 2: Find similar command names using Levenshtein distance
+	commandSuggestions := es.findSimilarCommands(queryLower, maxSuggestions-len(suggestions))
+	for _, suggestion := range commandSuggestions {
+		if !suggestionSet[suggestion] {
+			suggestions = append(suggestions, suggestion)
+			suggestionSet[suggestion] = true
+		}
+	}
+	
+	// Strategy 3: Suggest based on partial matches in descriptions
+	if len(suggestions) < maxSuggestions {
+		descriptionSuggestions := es.findDescriptionBasedSuggestions(queryWords, maxSuggestions-len(suggestions))
+		for _, suggestion := range descriptionSuggestions {
+			if !suggestionSet[suggestion] {
+				suggestions = append(suggestions, suggestion)
+				suggestionSet[suggestion] = true
+			}
+		}
+	}
+	
+	// Strategy 4: Suggest simpler alternatives
+	if len(suggestions) < maxSuggestions {
+		simplifiedSuggestions := es.generateSimplifiedSuggestions(queryLower)
+		for _, suggestion := range simplifiedSuggestions {
+			if !suggestionSet[suggestion] && len(suggestions) < maxSuggestions {
+				suggestions = append(suggestions, suggestion)
+				suggestionSet[suggestion] = true
+			}
+		}
 	}
 
-	// Find close matches for each query word
-	for _, queryWord := range queryWords {
-		if len(queryWord) < 2 {
+	return suggestions
+}
+
+// findSimilarCommands finds commands with names similar to the query
+func (es *EnhancedSearcher) findSimilarCommands(query string, maxSuggestions int) []string {
+	var suggestions []string
+	var matches []FuzzyMatch
+	
+	// Check against command names
+	for _, cmd := range es.db.Commands {
+		cmdName := strings.Fields(cmd.CommandLower)[0] // Get first word of command
+		if len(cmdName) < 2 {
 			continue
 		}
+		
+		distance := LevenshteinDistance(query, cmdName)
+		maxLen := max(len(query), len(cmdName))
+		
+		// More lenient threshold for command names
+		if distance <= maxLen/2 && distance <= 4 {
+			similarity := 1.0 - float64(distance)/float64(maxLen)
+			matches = append(matches, FuzzyMatch{
+				Text:     cmdName,
+				Score:    similarity,
+				Distance: distance,
+			})
+		}
+	}
+	
+	// Sort by similarity
+	sort.Slice(matches, func(i, j int) bool {
+		return matches[i].Score > matches[j].Score
+	})
+	
+	// Add unique suggestions
+	seen := make(map[string]bool)
+	for _, match := range matches {
+		if len(suggestions) >= maxSuggestions {
+			break
+		}
+		if !seen[match.Text] {
+			suggestions = append(suggestions, match.Text)
+			seen[match.Text] = true
+		}
+	}
+	
+	return suggestions
+}
 
-		var bestMatches []FuzzyMatch
-		for _, word := range allWords {
-			if len(word) < 2 {
-				continue
-			}
-
-			distance := LevenshteinDistance(queryWord, word)
-			maxLen := max(len(queryWord), len(word))
-			
-			// Only suggest if the distance is reasonable
-			if distance <= maxLen/2 && distance <= 3 {
-				similarity := 1.0 - float64(distance)/float64(maxLen)
-				bestMatches = append(bestMatches, FuzzyMatch{
-					Text:     word,
-					Score:    similarity,
-					Distance: distance,
-				})
+// findDescriptionBasedSuggestions suggests based on description content
+func (es *EnhancedSearcher) findDescriptionBasedSuggestions(queryWords []string, maxSuggestions int) []string {
+	var suggestions []string
+	wordFreq := make(map[string]int)
+	
+	// Find common words in descriptions that match query intent
+	for _, cmd := range es.db.Commands {
+		descWords := strings.Fields(cmd.DescriptionLower)
+		for _, descWord := range descWords {
+			if len(descWord) > 3 { // Only consider meaningful words
+				for _, queryWord := range queryWords {
+					if strings.Contains(descWord, queryWord) || strings.Contains(queryWord, descWord) {
+						wordFreq[descWord]++
+					}
+				}
 			}
 		}
+	}
+	
+	// Sort by frequency and add suggestions
+	type wordCount struct {
+		word  string
+		count int
+	}
+	
+	var wordCounts []wordCount
+	for word, count := range wordFreq {
+		if count > 1 { // Only suggest words that appear multiple times
+			wordCounts = append(wordCounts, wordCount{word, count})
+		}
+	}
+	
+	sort.Slice(wordCounts, func(i, j int) bool {
+		return wordCounts[i].count > wordCounts[j].count
+	})
+	
+	for i, wc := range wordCounts {
+		if i >= maxSuggestions {
+			break
+		}
+		suggestions = append(suggestions, wc.word)
+	}
+	
+	return suggestions
+}
 
-		// Sort by similarity
-		sort.Slice(bestMatches, func(i, j int) bool {
-			return bestMatches[i].Score > bestMatches[j].Score
-		})
-
-		// Add top suggestions
-		for i, match := range bestMatches {
-			if i >= 2 { // Max 2 suggestions per word
+// generateSimplifiedSuggestions creates simpler query alternatives
+func (es *EnhancedSearcher) generateSimplifiedSuggestions(query string) []string {
+	var suggestions []string
+	
+	// Map complex phrases to simpler alternatives
+	simplifications := map[string][]string{
+		"how do i": {""},
+		"how to": {""},
+		"i want to": {""},
+		"i need to": {""},
+		"help me": {""},
+		"multiple files": {"files"},
+		"single archive": {"archive"},
+		"into a": {""},
+		"from a": {""},
+		"with a": {""},
+	}
+	
+	simplified := query
+	for complex, simples := range simplifications {
+		if strings.Contains(simplified, complex) {
+			for _, simple := range simples {
+				newQuery := strings.ReplaceAll(simplified, complex, simple)
+				newQuery = strings.TrimSpace(strings.Join(strings.Fields(newQuery), " ")) // Clean up spaces
+				if newQuery != query && newQuery != "" {
+					suggestions = append(suggestions, newQuery)
+				}
+			}
+		}
+	}
+	
+	// Add common command categories as suggestions
+	if len(suggestions) == 0 {
+		categoryKeywords := []string{"compress", "extract", "copy", "move", "find", "list", "create", "delete"}
+		for _, keyword := range categoryKeywords {
+			if strings.Contains(query, keyword) {
+				suggestions = append(suggestions, keyword)
 				break
 			}
-			if !suggestionSet[match.Text] && match.Text != queryWord {
-				suggestions = append(suggestions, match.Text)
-				suggestionSet[match.Text] = true
-			}
 		}
 	}
-
-	// Limit total suggestions
-	if len(suggestions) > maxSuggestions {
-		suggestions = suggestions[:maxSuggestions]
-	}
-
+	
 	return suggestions
 }
