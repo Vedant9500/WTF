@@ -27242,3 +27242,147 @@
   tags: [virtualization, system, monitoring]
   platform: [linux]
   pipeline: false
+# Essential text processing commands
+- command: yq
+  description: Command-line YAML processor that can convert JSON to YAML and vice versa
+  keywords: [yq, yaml, json, convert, transform, parse, format, pretty-print]
+  tags: [text-processing, conversion, yaml, json]
+  platform: [cross-platform]
+  niche: text-processing
+  pipeline: false
+
+- command: yq eval '.' file.json --output-format=yaml
+  description: Convert JSON file to pretty-printed YAML format
+  keywords: [yq, json, yaml, convert, pretty-print, format]
+  tags: [text-processing, conversion]
+  platform: [cross-platform]
+  niche: text-processing
+  pipeline: false
+
+- command: tr -d '[:cntrl:]'
+  description: Remove all non-printable control characters from text
+  keywords: [tr, remove, non-printable, control, characters, clean, text]
+  tags: [text-processing, cleanup]
+  platform: [linux, macos]
+  niche: text-processing
+  pipeline: true
+
+- command: tr '[:upper:]' '[:lower:]'
+  description: Convert all uppercase characters to lowercase
+  keywords: [tr, uppercase, lowercase, convert, case, transform]
+  tags: [text-processing, case-conversion]
+  platform: [linux, macos]
+  niche: text-processing
+  pipeline: true
+
+- command: tr '[:lower:]' '[:upper:]'
+  description: Convert all lowercase characters to uppercase
+  keywords: [tr, lowercase, uppercase, convert, case, transform]
+  tags: [text-processing, case-conversion]
+  platform: [linux, macos]
+  niche: text-processing
+  pipeline: true
+
+- command: sed -n '/pattern1/,/pattern2/p'
+  description: Extract lines between two matching patterns (inclusive)
+  keywords: [sed, extract, lines, between, patterns, range, match]
+  tags: [text-processing, pattern-matching]
+  platform: [linux, macos]
+  niche: text-processing
+  pipeline: true
+
+- command: sed '/pattern1/,/pattern2/!d'
+  description: Extract lines between two matching patterns (alternative syntax)
+  keywords: [sed, extract, lines, between, patterns, range, match]
+  tags: [text-processing, pattern-matching]
+  platform: [linux, macos]
+  niche: text-processing
+  pipeline: true
+
+- command: split -l 1000
+  description: Split a large text file into smaller chunks of 1000 lines each
+  keywords: [split, file, chunks, lines, divide, break]
+  tags: [file-operations, text-processing]
+  platform: [linux, macos]
+  niche: text-processing
+  pipeline: false
+
+- command: sort -u
+  description: Sort lines and remove duplicates in one command
+  keywords: [sort, unique, remove, duplicates, alphabetical]
+  tags: [text-processing, sorting]
+  platform: [linux, macos]
+  niche: text-processing
+  pipeline: true
+
+- command: uniq -c
+  description: Show the number of times each unique line appears in a file
+  keywords: [uniq, count, occurrences, frequency, unique, lines]
+  tags: [text-processing, counting]
+  platform: [linux, macos]
+  niche: text-processing
+  pipeline: true
+
+- command: sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//'
+  description: Remove leading and trailing whitespace from each line
+  keywords: [sed, remove, leading, trailing, whitespace, trim, clean]
+  tags: [text-processing, cleanup]
+  platform: [linux, macos]
+  niche: text-processing
+  pipeline: true
+
+- command: grep -E 'regex_pattern'
+  description: Find lines in a file that match a given regex pattern
+  keywords: [grep, regex, pattern, match, find, search, regular, expression]
+  tags: [text-processing, pattern-matching, search]
+  platform: [linux, macos]
+  niche: text-processing
+  pipeline: true
+
+- command: head -n 10
+  description: Show only the first 10 lines of a file
+  keywords: [head, first, lines, beginning, top, display]
+  tags: [text-processing, file-viewing]
+  platform: [linux, macos]
+  niche: text-processing
+  pipeline: true
+
+- command: wget URL
+  description: Download a file from a URL using the command line
+  keywords: [wget, download, url, http, https, fetch, get]
+  tags: [networking, download]
+  platform: [linux, macos]
+  niche: networking
+  pipeline: false
+
+- command: curl -O URL
+  description: Download a file from a URL and save with original filename
+  keywords: [curl, download, url, http, https, fetch, get, save]
+  tags: [networking, download]
+  platform: [cross-platform]
+  niche: networking
+  pipeline: false
+
+- command: tee filename
+  description: Save a copy of standard output to a file while displaying it on terminal
+  keywords: [tee, output, redirect, save, copy, terminal, file, stdout]
+  tags: [output-redirection, file-operations]
+  platform: [linux, macos]
+  niche: general
+  pipeline: true
+
+- command: ls -1 | wc -l
+  description: Count the number of files and subdirectories in current folder
+  keywords: [ls, wc, count, files, directories, folder, number]
+  tags: [file-operations, counting]
+  platform: [linux, macos]
+  niche: file-operations
+  pipeline: true
+
+- command: find . -type f | wc -l
+  description: Count all files recursively in current directory and subdirectories
+  keywords: [find, wc, count, files, recursive, subdirectories, total]
+  tags: [file-operations, counting, search]
+  platform: [linux, macos]
+  niche: file-operations
+  pipeline: true

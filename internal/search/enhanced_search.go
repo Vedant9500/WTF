@@ -136,29 +136,105 @@ var StopWords = map[string]bool{
 
 // KeywordSynonyms maps natural language terms to technical keywords
 var KeywordSynonyms = map[string][]string{
-	"compress":   {"compress", "zip", "tar", "gzip", "archive", "pack"},
-	"extract":    {"extract", "unzip", "untar", "decompress", "unpack"},
-	"create":     {"create", "make", "mkdir", "touch", "new"},
-	"delete":     {"delete", "remove", "rm", "del", "erase"},
-	"copy":       {"copy", "cp", "duplicate", "clone"},
-	"move":       {"move", "mv", "rename", "relocate"},
-	"list":       {"list", "ls", "show", "display", "dir"},
-	"find":       {"find", "search", "locate", "grep", "look"},
-	"edit":       {"edit", "modify", "change", "update", "vim", "nano"},
-	"download":   {"download", "fetch", "get", "wget", "curl", "pull"},
-	"upload":     {"upload", "push", "send", "put"},
-	"backup":     {"backup", "save", "export", "dump"},
-	"restore":    {"restore", "import", "load", "recover"},
-	"install":    {"install", "setup", "add", "mount"},
-	"monitor":    {"monitor", "watch", "track", "observe", "top", "ps"},
-	"permission": {"permission", "chmod", "chown", "access", "rights"},
-	"network":    {"network", "ping", "ssh", "curl", "wget", "nc"},
-	"process":    {"process", "kill", "ps", "top", "jobs"},
-	"file":       {"file", "files", "document", "documents"},
-	"directory":  {"directory", "folder", "dir", "directories", "folders"},
-	"multiple":   {"multiple", "many", "several", "all"},
-	"single":     {"single", "one", "into"},
-	"archive":    {"archive", "zip", "tar", "compressed"},
+	// File format conversion
+	"convert":    {"convert", "transform", "yq", "jq"},
+	"converts":   {"convert", "transform", "yq", "jq"},
+	"json":       {"json", "yq", "jq"},
+	"yaml":       {"yaml", "yq"},
+	"pretty":     {"format", "pretty", "yq"},
+	"printed":    {"format", "pretty", "yq"},
+	
+	// Text processing and counting
+	"count":      {"count", "wc"},
+	"counts":     {"count", "wc"},
+	"words":      {"words", "wc"},
+	"lines":      {"lines", "wc", "head", "tail"},
+	"characters": {"characters", "wc", "tr"},
+	"bytes":      {"bytes", "wc"},
+	
+	// Deduplication
+	"duplicate":   {"duplicate", "uniq"},
+	"duplicates":  {"duplicate", "uniq"},
+	"remove":      {"remove", "rm", "uniq", "tr"},
+	"removes":     {"remove", "rm", "uniq", "tr"},
+	"unique":      {"unique", "uniq"},
+	"sorted":      {"sorted", "sort", "uniq"},
+	
+	// Text manipulation
+	"extract":     {"extract", "sed", "awk", "grep"},
+	"extracts":    {"extract", "sed", "awk", "grep"},
+	"between":     {"between", "sed", "awk"},
+	"patterns":    {"patterns", "grep", "sed", "regex"},
+	"pattern":     {"pattern", "grep", "sed", "regex"},
+	"matching":    {"matching", "grep", "sed"},
+	"uppercase":   {"uppercase", "tr"},
+	"lowercase":   {"lowercase", "tr"},
+	"whitespace":  {"whitespace", "tr", "sed"},
+	"leading":     {"leading", "sed", "tr"},
+	"trailing":    {"trailing", "sed", "tr"},
+	"printable":   {"printable", "tr"},
+	
+	// File operations
+	"split":       {"split"},
+	"splits":      {"split"},
+	"chunks":      {"chunks", "split"},
+	"smaller":     {"smaller", "split"},
+	"sort":        {"sort"},
+	"sorts":       {"sort"},
+	"alphabetically": {"alphabetically", "sort"},
+	"numerically": {"numerically", "sort"},
+	"first":       {"first", "head"},
+	"head":        {"head"},
+	"tail":        {"tail"},
+	"last":        {"last", "tail"},
+	
+	// Pattern matching
+	"find":        {"find", "grep", "locate"},
+	"finds":       {"find", "grep", "locate"},
+	"match":       {"match", "grep"},
+	"matches":     {"match", "grep"},
+	"regex":       {"regex", "grep", "sed"},
+	
+	// Output redirection
+	"standard":    {"standard", "tee"},
+	"output":      {"output", "tee"},
+	"stdout":      {"stdout", "tee"},
+	"terminal":    {"terminal", "tee"},
+	"display":     {"display", "tee", "cat"},
+	"save":        {"save", "tee", "cp"},
+	"copy":        {"copy", "cp", "tee"},
+	
+	// Downloads
+	"download":    {"download", "wget", "curl"},
+	"downloads":   {"download", "wget", "curl"},
+	"url":         {"url", "wget", "curl"},
+	
+	// File system
+	"file":        {"file", "files"},
+	"files":       {"files", "ls", "find"},
+	"subdirectories": {"subdirectories", "ls", "find"},
+	"folder":      {"folder", "directory", "ls"},
+	"inside":      {"inside", "ls", "find"},
+	
+	// Legacy mappings
+	"compress":    {"compress", "zip", "tar", "gzip", "archive", "pack"},
+	"create":      {"create", "make", "mkdir", "touch", "new"},
+	"delete":      {"delete", "remove", "rm", "del", "erase"},
+	"move":        {"move", "mv", "rename", "relocate"},
+	"list":        {"list", "ls", "show", "display", "dir"},
+	"edit":        {"edit", "modify", "change", "update", "vim", "nano"},
+	"upload":      {"upload", "push", "send", "put"},
+	"backup":      {"backup", "save", "export", "dump"},
+	"restore":     {"restore", "import", "load", "recover"},
+	"install":     {"install", "setup", "add", "mount"},
+	"monitor":     {"monitor", "watch", "track", "observe", "top", "ps"},
+	"permission":  {"permission", "chmod", "chown", "access", "rights"},
+	"network":     {"network", "ping", "ssh", "curl", "wget", "nc"},
+	"process":     {"process", "kill", "ps", "top", "jobs"},
+	"directory":   {"directory", "folder", "dir", "directories", "folders"},
+	"multiple":    {"multiple", "many", "several", "all"},
+	"single":      {"single", "one", "into"},
+	"archive":     {"archive", "zip", "tar", "compressed"},
 }
 
 // PreprocessQuery cleans, corrects typos, and enhances the query with synonyms
@@ -478,8 +554,36 @@ func (es *EnhancedSearcher) intentBasedSearch(query string) []SearchResult {
 func (es *EnhancedSearcher) detectIntents(query string) map[string]float64 {
 	intents := make(map[string]float64)
 	
-	// Define intent patterns with weights
+	// Define intent patterns with weights - enhanced with text processing commands
 	intentPatterns := map[string]map[string]float64{
+		"convert": {
+			"convert": 1.0, "converts": 1.0, "transform": 0.8, "change": 0.7,
+			"json": 0.9, "yaml": 0.9, "xml": 0.8, "csv": 0.8,
+			"pretty-printed": 0.9, "format": 0.8, "parse": 0.7,
+		},
+		"count": {
+			"count": 1.0, "counts": 1.0, "number of": 0.9, "how many": 0.8,
+			"words": 0.9, "lines": 0.9, "characters": 0.9, "bytes": 0.8,
+			"files": 0.7, "directories": 0.7,
+		},
+		"remove_duplicates": {
+			"remove": 0.8, "removes": 0.8, "duplicate": 1.0, "duplicates": 1.0,
+			"unique": 0.9, "deduplicate": 1.0, "sorted": 0.7, "text file": 0.6,
+		},
+		"text_processing": {
+			"extract": 0.8, "extracts": 0.8, "lines between": 1.0, "matching patterns": 1.0,
+			"non-printable": 1.0, "characters": 0.7, "uppercase": 0.9, "lowercase": 0.9,
+			"leading": 0.8, "trailing": 0.8, "whitespace": 0.9,
+		},
+		"file_operations": {
+			"splits": 1.0, "split": 1.0, "chunks": 0.9, "smaller": 0.7,
+			"sorts": 1.0, "sort": 1.0, "alphabetically": 0.9, "numerically": 0.9,
+			"first": 0.8, "lines": 0.8, "head": 0.9, "tail": 0.9,
+		},
+		"pattern_matching": {
+			"finds": 0.9, "find": 0.9, "match": 0.9, "matches": 0.9,
+			"regex": 1.0, "pattern": 1.0, "grep": 1.0,
+		},
 		"compress": {
 			"compress": 1.0, "zip": 0.9, "tar": 0.9, "archive": 0.8, "gzip": 0.8,
 			"pack": 0.7, "bundle": 0.6, "multiple files": 0.8, "single archive": 0.9,
@@ -498,6 +602,7 @@ func (es *EnhancedSearcher) detectIntents(query string) map[string]float64 {
 		},
 		"copy": {
 			"copy": 1.0, "cp": 0.9, "duplicate": 0.8, "clone": 0.7, "backup": 0.6,
+			"saves": 0.7, "save": 0.7,
 		},
 		"move": {
 			"move": 1.0, "mv": 0.9, "rename": 0.8, "relocate": 0.7, "transfer": 0.6,
@@ -511,8 +616,12 @@ func (es *EnhancedSearcher) detectIntents(query string) map[string]float64 {
 			"where is": 0.6, "which": 0.5,
 		},
 		"download": {
-			"download": 1.0, "fetch": 0.8, "get": 0.7, "wget": 0.9, "curl": 0.9,
-			"pull": 0.6, "retrieve": 0.7,
+			"download": 1.0, "downloads": 1.0, "fetch": 0.8, "get": 0.7, "wget": 0.9, "curl": 0.9,
+			"pull": 0.6, "retrieve": 0.7, "url": 0.8, "from url": 0.9,
+		},
+		"output_redirect": {
+			"standard output": 1.0, "stdout": 1.0, "copy": 0.7, "save": 0.8,
+			"file": 0.6, "terminal": 0.8, "display": 0.7, "tee": 1.0,
 		},
 		"backup": {
 			"backup": 1.0, "save": 0.8, "export": 0.7, "dump": 0.8, "preserve": 0.6,
@@ -561,6 +670,170 @@ func (es *EnhancedSearcher) findCommandsByIntent(intent string, confidence float
 
 	// Define comprehensive intent matching patterns
 	intentMatchers := map[string]func(*database.Command) float64{
+		"convert": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			// JSON/YAML conversion tools
+			if strings.Contains(cmdLower, "yq") {
+				score += 20.0 // yq is the primary JSON/YAML tool
+			}
+			if strings.Contains(cmdLower, "jq") {
+				score += 15.0 // jq for JSON processing
+			}
+			if strings.Contains(descLower, "json") && strings.Contains(descLower, "yaml") {
+				score += 18.0
+			}
+			if strings.Contains(descLower, "convert") && (strings.Contains(descLower, "json") || strings.Contains(descLower, "yaml")) {
+				score += 15.0
+			}
+			
+			return score
+		},
+		
+		"count": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			// wc is the primary counting tool
+			if cmdLower == "wc" || strings.HasPrefix(cmdLower, "wc ") {
+				score += 20.0
+			}
+			if strings.Contains(descLower, "count") && (strings.Contains(descLower, "words") || strings.Contains(descLower, "lines") || strings.Contains(descLower, "characters")) {
+				score += 15.0
+			}
+			if strings.Contains(descLower, "number of") {
+				score += 12.0
+			}
+			
+			return score
+		},
+		
+		"remove_duplicates": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			// uniq is the primary deduplication tool
+			if strings.Contains(cmdLower, "uniq") {
+				score += 20.0
+			}
+			if strings.Contains(descLower, "duplicate") && strings.Contains(descLower, "remove") {
+				score += 15.0
+			}
+			if strings.Contains(descLower, "unique") {
+				score += 12.0
+			}
+			
+			return score
+		},
+		
+		"text_processing": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			// sed for text processing
+			if strings.Contains(cmdLower, "sed") {
+				score += 18.0
+			}
+			// tr for character translation
+			if cmdLower == "tr" || strings.HasPrefix(cmdLower, "tr ") {
+				score += 18.0
+			}
+			// awk for text processing
+			if strings.Contains(cmdLower, "awk") {
+				score += 15.0
+			}
+			
+			if strings.Contains(descLower, "non-printable") {
+				score += 20.0
+			}
+			if strings.Contains(descLower, "uppercase") || strings.Contains(descLower, "lowercase") {
+				score += 15.0
+			}
+			if strings.Contains(descLower, "whitespace") {
+				score += 12.0
+			}
+			
+			return score
+		},
+		
+		"file_operations": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			// split for file splitting
+			if strings.Contains(cmdLower, "split") {
+				score += 18.0
+			}
+			// sort for sorting
+			if cmdLower == "sort" || strings.HasPrefix(cmdLower, "sort ") {
+				score += 18.0
+			}
+			// head for first lines
+			if strings.Contains(cmdLower, "head") {
+				score += 18.0
+			}
+			// tail for last lines
+			if strings.Contains(cmdLower, "tail") {
+				score += 15.0
+			}
+			
+			if strings.Contains(descLower, "split") && strings.Contains(descLower, "lines") {
+				score += 15.0
+			}
+			if strings.Contains(descLower, "sort") {
+				score += 12.0
+			}
+			if strings.Contains(descLower, "first") && strings.Contains(descLower, "lines") {
+				score += 15.0
+			}
+			
+			return score
+		},
+		
+		"pattern_matching": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			// grep for pattern matching
+			if strings.Contains(cmdLower, "grep") {
+				score += 20.0
+			}
+			if strings.Contains(descLower, "regex") || strings.Contains(descLower, "pattern") {
+				score += 15.0
+			}
+			if strings.Contains(descLower, "match") {
+				score += 12.0
+			}
+			
+			return score
+		},
+		
+		"output_redirect": func(cmd *database.Command) float64 {
+			score := 0.0
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			
+			// tee for output redirection
+			if strings.Contains(cmdLower, "tee") {
+				score += 20.0
+			}
+			if strings.Contains(descLower, "standard output") || strings.Contains(descLower, "stdout") {
+				score += 15.0
+			}
+			if strings.Contains(descLower, "terminal") && strings.Contains(descLower, "file") {
+				score += 12.0
+			}
+			
+			return score
+		},
+		
 		"compress": func(cmd *database.Command) float64 {
 			score := 0.0
 			cmdLower := cmd.CommandLower
