@@ -28,9 +28,15 @@ Examples:
   wtf search "git commit changes"
   wtf search --limit 10 "docker commands"
   
+  # Platform-specific searches:
+  wtf search --platform linux "list files"
+  wtf search --platform windows,macos "compress files"
+  wtf search --all-platforms "git commands"
+  wtf search --platform linux --no-cross-platform "process management"
+  
   # Or use directly without 'search':
   wtf "compress a directory"
-  hey "find files by name"  # if you set up 'hey' as an alias`,
+  wtf --platform linux "find files by name"`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		startTime := time.Now()
@@ -52,13 +58,19 @@ Examples:
 
 		// Get flags once at the beginning
 		flags := struct {
-			limit   int
-			verbose bool
-			dbPath  string
+			limit            int
+			verbose          bool
+			dbPath           string
+			platforms        []string
+			allPlatforms     bool
+			noCrossPlatform  bool
 		}{}
 		flags.limit, _ = cmd.Flags().GetInt("limit")
 		flags.verbose, _ = cmd.Flags().GetBool("verbose")
 		flags.dbPath, _ = cmd.Flags().GetString("database")
+		flags.platforms, _ = cmd.Flags().GetStringSlice("platform")
+		flags.allPlatforms, _ = cmd.Flags().GetBool("all-platforms")
+		flags.noCrossPlatform, _ = cmd.Flags().GetBool("no-cross-platform")
 
 		// Validate limit
 		validLimit, err := validation.ValidateLimit(flags.limit)
@@ -116,6 +128,19 @@ Examples:
 			if projectContext != nil {
 				fmt.Printf("Context detected: %s\n", projectContext.GetContextDescription())
 			}
+			
+			// Show platform filtering info
+			if flags.allPlatforms {
+				fmt.Printf("Platform filter: All platforms (no filtering)\n")
+			} else if len(flags.platforms) > 0 {
+				fmt.Printf("Platform filter: %v", flags.platforms)
+				if !flags.noCrossPlatform {
+					fmt.Printf(" + cross-platform")
+				}
+				fmt.Printf("\n")
+			} else {
+				fmt.Printf("Platform filter: None (showing all platforms)\n")
+			}
 		}
 		fmt.Printf("Searching for: %s\n\n", query)
 
@@ -130,13 +155,22 @@ Examples:
 			searchOptions.ContextBoosts = projectContext.GetContextBoosts()
 		}
 
-		// Use lightning-fast search
-		fastSearcher := search.NewFastSearcher(db)
-		fastResults := fastSearcher.SmartSearch(query, cfg.MaxResults)
+		// Use enhanced search with platform filtering
+		enhancedSearcher := search.NewEnhancedSearcher(db)
 		
-		// Convert fast results to database.SearchResult format
-		results := make([]database.SearchResult, len(fastResults))
-		for i, result := range fastResults {
+		// Create search options with platform filtering
+		enhancedSearchOptions := search.SearchOptions{
+			Limit:                cfg.MaxResults,
+			PlatformFilter:       flags.platforms,
+			IncludeCrossPlatform: !flags.noCrossPlatform,
+			ShowAllPlatforms:     flags.allPlatforms,
+		}
+		
+		enhancedResults := enhancedSearcher.FastAdaptiveSearchWithOptions(query, enhancedSearchOptions)
+		
+		// Convert enhanced results to database.SearchResult format
+		results := make([]database.SearchResult, len(enhancedResults))
+		for i, result := range enhancedResults {
 			results[i] = database.SearchResult{
 				Command: result.Command,
 				Score:   result.Score,
@@ -168,8 +202,8 @@ Examples:
 		_ = searchHistory.Save() // Ignore errors for history saving
 
 		if len(results) == 0 {
-			// Use fast suggestions
-			suggestions := fastSearcher.FastTypoCorrection(query, 5)
+			// Use enhanced suggestions
+			suggestions := enhancedSearcher.GenerateDynamicSuggestions(query, 5)
 			
 			fmt.Printf("No commands found matching '%s'.\n\n", query)
 			
@@ -185,6 +219,9 @@ Examples:
 				fmt.Printf("• Check for typos in your query\n")
 				fmt.Printf("• Be more specific or more general\n")
 				fmt.Printf("• Use simpler terms (e.g., 'compress files' instead of 'how do I compress files')\n")
+				if len(flags.platforms) > 0 {
+					fmt.Printf("• Try --all-platforms to search across all platforms\n")
+				}
 			}
 			return
 		}

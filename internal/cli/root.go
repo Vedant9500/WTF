@@ -42,4 +42,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().StringP("database", "d", "", "Path to custom database file")
 	rootCmd.PersistentFlags().IntP("limit", "l", 0, "Maximum number of results to display (default: 5)")
+	rootCmd.PersistentFlags().StringSliceP("platform", "p", []string{}, "Filter by platform (linux, macos, windows, cross-platform)")
+	rootCmd.PersistentFlags().BoolP("all-platforms", "a", false, "Show commands from all platforms (ignore platform filtering)")
+	rootCmd.PersistentFlags().BoolP("no-cross-platform", "", false, "Exclude cross-platform commands when using platform filter")
 }

@@ -305,16 +305,35 @@ type SearchResult struct {
 	Distance    int
 }
 
+// SearchOptions holds platform filtering options
+type SearchOptions struct {
+	Limit            int
+	PlatformFilter   []string // Empty means all platforms
+	IncludeCrossPlatform bool
+	ShowAllPlatforms bool    // Override platform filtering entirely
+}
+
 // FastAdaptiveSearch performs optimized search with caching for speed
 func (es *EnhancedSearcher) FastAdaptiveSearch(query string, limit int) []SearchResult {
-	if limit <= 0 {
-		limit = 5
+	return es.FastAdaptiveSearchWithOptions(query, SearchOptions{
+		Limit:            limit,
+		PlatformFilter:   []string{}, // Default: no filtering
+		IncludeCrossPlatform: true,
+		ShowAllPlatforms: false,
+	})
+}
+
+// FastAdaptiveSearchWithOptions performs search with platform filtering options
+func (es *EnhancedSearcher) FastAdaptiveSearchWithOptions(query string, options SearchOptions) []SearchResult {
+	if options.Limit <= 0 {
+		options.Limit = 5
 	}
 
 	originalQuery := strings.ToLower(query)
 	
-	// Check cache first
-	cacheKey := fmt.Sprintf("%s:%d", originalQuery, limit)
+	// Create cache key including platform options
+	cacheKey := fmt.Sprintf("%s:%d:%v:%v:%v", originalQuery, options.Limit, 
+		options.PlatformFilter, options.IncludeCrossPlatform, options.ShowAllPlatforms)
 	if cached, exists := es.queryCache[cacheKey]; exists {
 		return cached
 	}
@@ -322,26 +341,26 @@ func (es *EnhancedSearcher) FastAdaptiveSearch(query string, limit int) []Search
 	var allResults []SearchResult
 
 	// Strategy 1: Fast exact and fuzzy search (primary - should be instant)
-	exactResults := es.exactSearch(query)
+	exactResults := es.exactSearchWithPlatform(query, options)
 	for i := range exactResults {
 		exactResults[i].Score *= 1.5 // Boost exact matches
 	}
 	allResults = append(allResults, exactResults...)
 
 	// Strategy 2: Fast fuzzy word search
-	fuzzyResults := es.fuzzyWordSearch(query)
+	fuzzyResults := es.fuzzyWordSearchWithPlatform(query, options)
 	allResults = append(allResults, fuzzyResults...)
 
 	// Strategy 3: Fast intent-based search (using lightweight patterns)
-	intentResults := es.fastIntentSearch(query)
+	intentResults := es.fastIntentSearchWithPlatform(query, options)
 	for i := range intentResults {
 		intentResults[i].Score *= 1.3
 	}
 	allResults = append(allResults, intentResults...)
 
 	// Strategy 4: Fast partial search as fallback
-	if len(allResults) < limit {
-		partialResults := es.partialSearch(query)
+	if len(allResults) < options.Limit {
+		partialResults := es.partialSearchWithPlatform(query, options)
 		for i := range partialResults {
 			partialResults[i].Score *= 0.9
 		}
@@ -349,7 +368,7 @@ func (es *EnhancedSearcher) FastAdaptiveSearch(query string, limit int) []Search
 	}
 
 	// Fast deduplication and ranking
-	results := es.fastRanking(allResults, limit, originalQuery)
+	results := es.fastRanking(allResults, options.Limit, originalQuery)
 	
 	// Cache the results
 	if len(es.queryCache) >= es.maxCacheSize {
@@ -381,6 +400,8 @@ func (es *EnhancedSearcher) fastIntentSearch(query string) []SearchResult {
 		"download": {"download", "fetch", "url", "get"},
 		"compress": {"compress", "zip", "archive", "tar"},
 		"search": {"find", "search", "grep", "locate"},
+		"display": {"display", "show", "view", "print"},
+		"calendar": {"calendar", "cal", "date", "time"},
 	}
 	
 	// Quick keyword matching
@@ -501,6 +522,50 @@ func (es *EnhancedSearcher) quickIntentMatch(intent, query string) []SearchResul
 			}
 			return score
 		},
+		"display": func(query string, cmd *database.Command) float64 {
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			score := 0.0
+			
+			// Calendar/date display commands
+			if strings.Contains(cmdLower, "cal") && strings.Contains(query, "calendar") {
+				score += 20.0
+			}
+			if strings.Contains(cmdLower, "date") && (strings.Contains(query, "date") || strings.Contains(query, "time")) {
+				score += 20.0
+			}
+			
+			// General display commands
+			if strings.Contains(descLower, "display") {
+				score += 12.0
+			}
+			if strings.Contains(cmdLower, "show") || strings.Contains(descLower, "show") {
+				score += 10.0
+			}
+			
+			return score
+		},
+		"calendar": func(query string, cmd *database.Command) float64 {
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			score := 0.0
+			
+			// Direct calendar commands
+			if cmdLower == "cal" || cmdLower == "calendar" {
+				score += 25.0
+			}
+			if strings.Contains(cmdLower, "cal") {
+				score += 20.0
+			}
+			if strings.Contains(descLower, "calendar") {
+				score += 15.0
+			}
+			if strings.Contains(descLower, "date") && strings.Contains(query, "calendar") {
+				score += 12.0
+			}
+			
+			return score
+		},
 	}
 	
 	if matcher, exists := quickMatchers[intent]; exists {
@@ -560,6 +625,41 @@ func (es *EnhancedSearcher) fastRanking(results []SearchResult, limit int, origi
 	return deduplicated
 }
 
+// shouldIncludeCommand checks if a command should be included based on platform filtering
+func (es *EnhancedSearcher) shouldIncludeCommand(cmd *database.Command, options SearchOptions) bool {
+	// If ShowAllPlatforms is true, include everything
+	if options.ShowAllPlatforms {
+		return true
+	}
+	
+	// If no platform filter specified, include all
+	if len(options.PlatformFilter) == 0 {
+		return true
+	}
+	
+	// If command has no platform specified, include it
+	if len(cmd.Platform) == 0 {
+		return true
+	}
+	
+	// Check if command matches any of the requested platforms
+	for _, cmdPlatform := range cmd.Platform {
+		// Always include cross-platform commands if IncludeCrossPlatform is true
+		if options.IncludeCrossPlatform && strings.EqualFold(cmdPlatform, "cross-platform") {
+			return true
+		}
+		
+		// Check against specific platform filters
+		for _, filterPlatform := range options.PlatformFilter {
+			if strings.EqualFold(cmdPlatform, filterPlatform) {
+				return true
+			}
+		}
+	}
+	
+	return false
+}
+
 // quickScoreAdjustment provides fast score adjustments
 func (es *EnhancedSearcher) quickScoreAdjustment(result SearchResult, originalQuery string) float64 {
 	score := result.Score
@@ -584,6 +684,46 @@ func (es *EnhancedSearcher) quickScoreAdjustment(result SearchResult, originalQu
 	}
 	
 	return score
+}
+
+// exactSearchWithPlatform performs exact search with platform filtering
+func (es *EnhancedSearcher) exactSearchWithPlatform(query string, options SearchOptions) []SearchResult {
+	results := es.exactSearch(query)
+	return es.filterResultsByPlatform(results, options)
+}
+
+// fuzzyWordSearchWithPlatform performs fuzzy search with platform filtering
+func (es *EnhancedSearcher) fuzzyWordSearchWithPlatform(query string, options SearchOptions) []SearchResult {
+	results := es.fuzzyWordSearch(query)
+	return es.filterResultsByPlatform(results, options)
+}
+
+// fastIntentSearchWithPlatform performs intent search with platform filtering
+func (es *EnhancedSearcher) fastIntentSearchWithPlatform(query string, options SearchOptions) []SearchResult {
+	results := es.fastIntentSearch(query)
+	return es.filterResultsByPlatform(results, options)
+}
+
+// partialSearchWithPlatform performs partial search with platform filtering
+func (es *EnhancedSearcher) partialSearchWithPlatform(query string, options SearchOptions) []SearchResult {
+	results := es.partialSearch(query)
+	return es.filterResultsByPlatform(results, options)
+}
+
+// filterResultsByPlatform filters search results based on platform options
+func (es *EnhancedSearcher) filterResultsByPlatform(results []SearchResult, options SearchOptions) []SearchResult {
+	if options.ShowAllPlatforms || len(options.PlatformFilter) == 0 {
+		return results
+	}
+	
+	var filtered []SearchResult
+	for _, result := range results {
+		if es.shouldIncludeCommand(result.Command, options) {
+			filtered = append(filtered, result)
+		}
+	}
+	
+	return filtered
 }
 
 // AdaptiveSearch now uses the fast version by default
@@ -783,51 +923,76 @@ func (es *EnhancedSearcher) EnhancedSearch(query string, limit int) []SearchResu
 	return es.AdaptiveSearch(query, limit)
 }
 
-// exactSearch performs exact string matching
+// exactSearch performs exact string matching with improved natural language handling
 func (es *EnhancedSearcher) exactSearch(query string) []SearchResult {
 	var results []SearchResult
-	queryWords := strings.Fields(query)
+	queryWords := strings.Fields(strings.ToLower(query))
+	
+	// Filter out stop words but keep important ones
+	filteredWords := es.filterQueryWords(queryWords)
 
 	for i := range es.db.Commands {
 		cmd := &es.db.Commands[i]
 		score := 0.0
 		matchReasons := []string{}
 
-		// Check command name
-		for _, word := range queryWords {
+		// Check command name (highest priority)
+		for _, word := range filteredWords {
 			if strings.Contains(cmd.CommandLower, word) {
 				if cmd.CommandLower == word {
-					score += 20.0
+					score += 25.0 // Boost exact command matches
 					matchReasons = append(matchReasons, "exact command")
 				} else if strings.HasPrefix(cmd.CommandLower, word) {
-					score += 15.0
+					score += 20.0
 					matchReasons = append(matchReasons, "command prefix")
 				} else {
-					score += 10.0
+					score += 15.0
 					matchReasons = append(matchReasons, "command contains")
 				}
 			}
 		}
 
-		// Check description
-		for _, word := range queryWords {
+		// Check description with better scoring
+		descriptionMatches := 0
+		for _, word := range filteredWords {
 			if strings.Contains(cmd.DescriptionLower, word) {
-				score += 8.0
-				matchReasons = append(matchReasons, "description")
+				score += 10.0 // Increased description weight
+				descriptionMatches++
+			}
+		}
+		if descriptionMatches > 0 {
+			matchReasons = append(matchReasons, "description")
+			// Bonus for multiple description matches
+			if descriptionMatches > 1 {
+				score += float64(descriptionMatches) * 2.0
 			}
 		}
 
-		// Check keywords
-		for _, word := range queryWords {
+		// Check keywords with improved matching
+		keywordMatches := 0
+		for _, word := range filteredWords {
 			for _, keyword := range cmd.KeywordsLower {
 				if keyword == word {
-					score += 12.0
-					matchReasons = append(matchReasons, "exact keyword")
+					score += 15.0 // Increased keyword weight
+					keywordMatches++
 				} else if strings.Contains(keyword, word) {
-					score += 6.0
-					matchReasons = append(matchReasons, "keyword contains")
+					score += 8.0
+					keywordMatches++
 				}
 			}
+		}
+		if keywordMatches > 0 {
+			matchReasons = append(matchReasons, "keywords")
+			// Bonus for multiple keyword matches
+			if keywordMatches > 1 {
+				score += float64(keywordMatches) * 1.5
+			}
+		}
+
+		// Boost score based on query coverage
+		if len(filteredWords) > 0 {
+			coverage := float64(descriptionMatches + keywordMatches) / float64(len(filteredWords))
+			score *= (1.0 + coverage)
 		}
 
 		if score > 0 {
@@ -841,6 +1006,32 @@ func (es *EnhancedSearcher) exactSearch(query string) []SearchResult {
 	}
 
 	return results
+}
+
+// filterQueryWords removes stop words but keeps important terms
+func (es *EnhancedSearcher) filterQueryWords(words []string) []string {
+	// Minimal stop words - only remove the most common ones
+	stopWords := map[string]bool{
+		"a": true, "an": true, "the": true, "to": true, "in": true, "on": true,
+		"at": true, "by": true, "for": true, "with": true, "from": true,
+		"i": true, "me": true, "my": true, "we": true, "us": true, "our": true,
+		"you": true, "your": true, "it": true, "its": true, "this": true, "that": true,
+	}
+	
+	var filtered []string
+	for _, word := range words {
+		// Keep words that are 2+ characters and not stop words
+		if len(word) >= 2 && !stopWords[word] {
+			filtered = append(filtered, word)
+		}
+	}
+	
+	// If we filtered out too much, keep the original
+	if len(filtered) == 0 {
+		return words
+	}
+	
+	return filtered
 }
 
 // fuzzyWordSearch performs fuzzy matching on individual words
