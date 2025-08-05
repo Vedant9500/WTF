@@ -175,13 +175,18 @@ func calculateWordScore(word string, cmd *Command) float64 {
 	
 	var wordScore float64
 
-	// HIGHEST PRIORITY: Exact match in command name
-	if strings.Contains(cmdLower, word) {
-		if strings.HasPrefix(cmdLower, word) || cmdLower == word {
-			wordScore += constants.DirectCommandMatchScore
-		} else {
-			wordScore += constants.CommandMatchScore
-		}
+	// HIGHEST PRIORITY: Exact command match (entire command equals the word)
+	if cmdLower == word {
+		wordScore += constants.DirectCommandMatchScore * 2.0 // Double score for exact command match
+	} else if strings.HasPrefix(cmdLower, word+" ") || strings.HasPrefix(cmdLower, word) {
+		// Command starts with the word (like "mkdir" matching "mkdir -p")
+		wordScore += constants.DirectCommandMatchScore * 1.5
+	} else if strings.Contains(cmdLower, " "+word+" ") || strings.Contains(cmdLower, " "+word) {
+		// Word appears as a separate word in command
+		wordScore += constants.CommandMatchScore
+	} else if strings.Contains(cmdLower, word) {
+		// Word appears anywhere in command (partial match)
+		wordScore += constants.CommandMatchScore * 0.7
 	}
 
 	// HIGH PRIORITY: Domain-specific command matching
@@ -189,23 +194,27 @@ func calculateWordScore(word string, cmd *Command) float64 {
 		wordScore += constants.DomainSpecificScore
 	}
 
+	// MEDIUM-HIGH PRIORITY: Exact match in keywords (very important for intent matching)
+	for _, keyword := range keywordsLower {
+		if keyword == word {
+			wordScore += constants.KeywordExactScore * 1.5 // Boost keyword exact matches
+			break
+		}
+	}
+
 	// MEDIUM-HIGH PRIORITY: Exact match in description
-	if strings.Contains(descLower, word) {
+	if strings.Contains(descLower, " "+word+" ") || strings.HasPrefix(descLower, word+" ") || strings.HasSuffix(descLower, " "+word) {
+		// Word appears as complete word in description
 		wordScore += constants.DescriptionMatchScore
+	} else if strings.Contains(descLower, word) {
+		// Partial match in description
+		wordScore += constants.DescriptionMatchScore * 0.6
 	}
 
 	// MEDIUM-HIGH PRIORITY: Exact match in tags
 	for _, tag := range tagsLower {
 		if tag == word {
 			wordScore += constants.TagExactScore
-			break
-		}
-	}
-
-	// MEDIUM PRIORITY: Exact match in keywords
-	for _, keyword := range keywordsLower {
-		if keyword == word {
-			wordScore += constants.KeywordExactScore
 			break
 		}
 	}
@@ -221,7 +230,14 @@ func calculateWordScore(word string, cmd *Command) float64 {
 	}
 
 	// LOW PRIORITY: Partial match in keywords (only if no exact match)
-	if wordScore == 0 {
+	hasExactKeywordMatch := false
+	for _, keyword := range keywordsLower {
+		if keyword == word {
+			hasExactKeywordMatch = true
+			break
+		}
+	}
+	if !hasExactKeywordMatch {
 		for _, keyword := range keywordsLower {
 			if strings.Contains(keyword, word) {
 				wordScore += constants.KeywordPartialScore
@@ -236,6 +252,8 @@ func calculateWordScore(word string, cmd *Command) float64 {
 // calculateScore computes relevance score for a command based on query words and context
 func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]float64) float64 {
 	var score float64
+	var maxWordScore float64
+	matchedWords := 0
 
 	for _, word := range queryWords {
 		// Skip very short words
@@ -244,6 +262,16 @@ func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]
 		}
 
 		wordScore := calculateWordScore(word, cmd)
+		
+		// Track the highest scoring word (indicates best match quality)
+		if wordScore > maxWordScore {
+			maxWordScore = wordScore
+		}
+		
+		// Count words that have some match
+		if wordScore > 0 {
+			matchedWords++
+		}
 
 		// Apply context boost if available
 		if contextBoosts != nil {
@@ -253,6 +281,20 @@ func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]
 		}
 
 		score += wordScore
+	}
+
+	// Boost commands that match more query words (completeness bonus)
+	if len(queryWords) > 1 && matchedWords > 1 {
+		completenessBonus := float64(matchedWords) / float64(len(queryWords))
+		score *= (1.0 + completenessBonus*0.5) // Up to 50% bonus for matching all words
+	}
+
+	// Apply significant boost for very high-scoring individual word matches
+	// This helps exact command matches rise to the top
+	if maxWordScore >= constants.DirectCommandMatchScore {
+		score *= 1.8 // Boost exact command matches
+	} else if maxWordScore >= constants.CommandMatchScore {
+		score *= 1.4 // Boost strong command matches
 	}
 
 	// Apply category-based relevance boost
@@ -276,8 +318,11 @@ func isDomainSpecificMatch(word string, cmd *Command) bool {
 	// Define domain-specific mappings for better relevance
 	domainMappings := map[string][]string{
 		"compress":   {"tar", "gzip", "zip", "bzip", "7z", "compress", "archive"},
+		"archive":    {"tar", "gzip", "zip", "bzip", "7z", "compress", "archive", "unzip"},
 		"extract":    {"tar", "unzip", "gunzip", "extract", "unarchive"},
 		"directory":  {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
+		"folder":     {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
+		"create":     {"mkdir", "touch", "make", "new"},
 		"file":       {"cp", "mv", "rm", "touch", "cat", "less", "more"},
 		"search":     {"grep", "find", "locate", "ag", "rg"},
 		"download":   {"wget", "curl", "fetch", "download"},
@@ -287,12 +332,14 @@ func isDomainSpecificMatch(word string, cmd *Command) bool {
 		"network":    {"ping", "ssh", "scp", "rsync", "nc", "nmap"},
 		"edit":       {"vim", "nano", "emacs", "edit", "sed", "awk"},
 		"permission": {"chmod", "chown", "chgrp", "sudo"},
+		"new":        {"mkdir", "touch", "create", "make"},
 	}
 
 	// Check if the command belongs to the word's domain
 	if commands, exists := domainMappings[word]; exists {
 		for _, domainCmd := range commands {
-			if strings.Contains(cmdLower, domainCmd) {
+			// Check for exact command match or command starting with the domain command
+			if cmdLower == domainCmd || strings.HasPrefix(cmdLower, domainCmd+" ") {
 				return true
 			}
 		}
@@ -304,30 +351,63 @@ func isDomainSpecificMatch(word string, cmd *Command) bool {
 // getCategoryRelevanceBoost applies category-based relevance scoring
 func getCategoryRelevanceBoost(cmd *Command, queryWords []string) float64 {
 	boost := 1.0
+	cmdLower := strings.ToLower(cmd.Command)
 
 	// Check if query suggests specific command categories
 	for _, word := range queryWords {
 		switch word {
-		case "compress", "archive", "zip", "tar":
-			if strings.Contains(strings.ToLower(cmd.Command), "tar") ||
-				strings.Contains(strings.ToLower(cmd.Command), "zip") ||
-				strings.Contains(strings.ToLower(cmd.Command), "gzip") {
-				boost *= 1.5
+		case "compress", "archive":
+			// Boost compression tools
+			if strings.HasPrefix(cmdLower, "tar ") || cmdLower == "tar" ||
+				strings.HasPrefix(cmdLower, "zip ") || cmdLower == "zip" ||
+				strings.HasPrefix(cmdLower, "gzip ") || cmdLower == "gzip" {
+				boost *= constants.CategoryBoostSpecialCompression
 			}
-		case "directory", "folder", "mkdir":
-			if strings.Contains(strings.ToLower(cmd.Command), "mkdir") ||
-				strings.Contains(strings.ToLower(cmd.Command), "dir") {
-				boost *= 1.5
+			// Penalize tools that are not primarily for compression
+			if strings.Contains(cmdLower, "find") || strings.Contains(cmdLower, "locate") {
+				boost *= constants.CategoryBoostSearchPenalty
+			}
+		case "zip":
+			// Exact match for zip command should get highest boost
+			if cmdLower == "zip" || strings.HasPrefix(cmdLower, "zip ") {
+				boost *= 3.0
+			}
+			// Penalize non-zip compression tools when specifically searching for zip
+			if strings.Contains(cmdLower, "bzip") || strings.Contains(cmdLower, "gzip") {
+				boost *= 0.3
+			}
+		case "tar":
+			// Exact match for tar command should get highest boost
+			if cmdLower == "tar" || strings.HasPrefix(cmdLower, "tar ") {
+				boost *= 3.0
+			}
+		case "directory", "folder":
+			if strings.HasPrefix(cmdLower, "mkdir") || cmdLower == "mkdir" {
+				boost *= constants.CategoryBoostDirectory * 2.0 // Extra boost for mkdir
+			}
+			// Penalize package creation tools for directory queries
+			if strings.Contains(cmdLower, "cargo") || strings.Contains(cmdLower, "conda") {
+				boost *= 0.2
+			}
+		case "create":
+			if strings.HasPrefix(cmdLower, "mkdir") || cmdLower == "mkdir" {
+				boost *= constants.CategoryBoostDirectory * 1.8
+			}
+		case "new":
+			if strings.HasPrefix(cmdLower, "mkdir") || cmdLower == "mkdir" {
+				boost *= constants.CategoryBoostDirectory * 1.5
+			}
+			// Penalize package creation tools for simple "new" queries
+			if strings.Contains(cmdLower, "cargo") || strings.Contains(cmdLower, "conda") {
+				boost *= 0.3
 			}
 		case "search", "find":
-			if strings.Contains(strings.ToLower(cmd.Command), "grep") ||
-				strings.Contains(strings.ToLower(cmd.Command), "find") {
-				boost *= 1.3
+			if strings.Contains(cmdLower, "grep") || strings.Contains(cmdLower, "find") {
+				boost *= constants.CategoryBoostSearch
 			}
 		case "download", "get":
-			if strings.Contains(strings.ToLower(cmd.Command), "wget") ||
-				strings.Contains(strings.ToLower(cmd.Command), "curl") {
-				boost *= 1.4
+			if strings.Contains(cmdLower, "wget") || strings.Contains(cmdLower, "curl") {
+				boost *= constants.CategoryBoostDownload
 			}
 		}
 	}

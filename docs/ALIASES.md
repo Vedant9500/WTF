@@ -14,6 +14,11 @@ wtf setup cmd        # Creates 'cmd' command
 hey "compress files"
 miko "git commands"
 cmd "find large files"
+
+# With platform filtering:
+hey "list files" --platform linux
+miko "system tools" --platform windows,macos
+cmd "process management" --all-platforms
 ```
 
 ## 🪟 **Windows Users**

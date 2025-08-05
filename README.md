@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-1.2.0-blue)
 ![Go Version](https://img.shields.io/badge/go-1.24+-green)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Vedant9500/WTF)](https://goreportcard.com/report/github.com/Vedant9500/WTF)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
@@ -17,15 +17,16 @@
 
 🔍 **Advanced Natural Language Search** - Find commands by describing what you want to do in plain English  
 🧠 **Intent Detection** - Understands your intent (create, search, compress, install, etc.) for better results  
-📚 **Massive Command Database** - 3,845+ commands sourced from TLDR pages  
+📚 **Massive Command Database** - 3,268+ commands sourced from TLDR pages and community contributions  
 🎯 **Context-Aware Suggestions** - Smart recommendations based on your current directory and project type  
 ⚡ **Fuzzy Search & Typo Tolerance** - Finds commands even with spelling mistakes  
-📊 **Search History & Analytics** - Tracks your searches to improve recommendations  
+�️ ***Platform Filtering** - Filter commands by platform (Linux, macOS, Windows, cross-platform)  
+� **Searcha History & Analytics** - Tracks your searches to improve recommendations  
 📝 **Personal Command Notebook** - Save and organize your custom commands  
 🎯 **Interactive Command Builder** - Step-by-step wizards for complex commands  
 🔗 **Pipeline Search** - Specialized search for multi-command workflows  
-⚡ **Lightning Fast** - Sub-50ms search performance with advanced scoring  
-🌍 **Cross-Platform** - Works on Windows, macOS, and Linux  
+⚡ **Lightning Fast** - ~200ms search performance with advanced scoring and caching  
+�  **Cross-Platform** - Works on Windows, macOS, and Linux  
 🎨 **Beautiful Output** - Clean, formatted command suggestions with relevance scores
 
 ---
@@ -101,9 +102,16 @@ wtf search "docker" --limit 10       # More results
 wtf search "process" --verbose       # Show relevance scores and NLP analysis
 wtf search "commands" --database custom.yml # Custom database
 
+# Platform-specific searches
+wtf "list files" --platform linux    # Linux-specific commands + cross-platform
+wtf "compress files" --platform windows,macos # Multiple platforms
+wtf "process management" --all-platforms # Override filtering, show all
+wtf "system tools" --platform linux --no-cross-platform # Linux only
+
 # Fuzzy search handles typos
 wtf "comprss files"                  # Still finds compression commands
 wtf "mkdir direectory"               # Still finds directory commands
+wtf "gti comit changez"              # Finds git commit commands
 ```
 
 ### 🧠 Advanced Natural Language Processing
@@ -132,6 +140,7 @@ wtf "I want to compress some files into an archive"
 wtf "help me create a new directory please"  
 # Detects: Intent=create, Action=create, Target=directory
 # Returns: mkdir commands prioritized over other creation tools
+
 ```
 
 ### 🧠 Context-Aware Search
@@ -160,6 +169,45 @@ wtf "install"         # Prioritizes pip commands
 - **File Pattern Recognition**: Detects project files like package.json, Dockerfile, go.mod
 - **Smart Boosts**: Gives relevant commands higher priority scores
 - **Multi-Context Support**: Handles projects with multiple technologies
+
+### 🖥️ Platform-Specific Search
+
+WTF now supports filtering commands by platform, perfect for developers working across multiple operating systems:
+
+```bash
+# Filter by specific platform
+wtf "list files" --platform linux
+wtf "compress files" --platform windows
+wtf "process management" --platform macos
+
+# Multiple platforms
+wtf "text processing" --platform linux,macos
+wtf "network tools" --platform windows,linux
+
+# Cross-platform behavior
+wtf "git commands" --platform linux              # Linux + cross-platform commands
+wtf "docker tools" --platform linux --no-cross-platform  # Linux only
+wtf "system tools" --all-platforms               # All platforms (override filtering)
+
+# Verbose output shows platform filtering
+wtf "compression" --platform linux --verbose
+# Platform filter: [linux] + cross-platform
+# Shows which platforms are being searched
+```
+
+**Platform Filtering Features**:
+- **Supported Platforms**: `linux`, `macos`, `windows`, `cross-platform`
+- **Smart Defaults**: Cross-platform commands included by default
+- **Multiple Selection**: Comma-separated platform lists
+- **Override Options**: `--all-platforms` to disable filtering entirely
+- **Exclusion Control**: `--no-cross-platform` to exclude cross-platform commands
+- **Performance**: Platform filtering with full caching support
+
+**Use Cases**:
+- **Learning**: Discover Linux commands while on Windows
+- **Documentation**: Find platform-specific alternatives
+- **Migration**: Compare commands across different systems
+- **Development**: Work with multi-platform deployment scripts
 
 ### 🎯 Interactive Command Wizards
 
@@ -300,6 +348,21 @@ wtf search "compress files" --verbose
    Domain Specific: +12.0 (compression domain)
    Intent Boost: ×2.5 (compression intent)
    Category Boost: ×1.5 (compression category)
+   Platform Filter: [all platforms]
+```
+
+**Platform Filtering in Verbose Mode**:
+```bash
+wtf "system tools" --platform linux --verbose
+
+🖥️ Platform Analysis:
+   Filter: [linux] + cross-platform
+   Excluded: windows, macos (platform-specific)
+   Included: 1,247 commands (38% of database)
+   
+📊 Results by Platform:
+   Linux-specific: 3 commands
+   Cross-platform: 2 commands
 ```
 
 ---
@@ -408,13 +471,14 @@ make benchmark
 
 WTF is optimized for speed with advanced algorithms:
 
-- **Search Performance**: < 50ms average response time (often < 30ms)
-- **NLP Processing**: < 10ms for intent detection and query analysis  
-- **Database Size**: 3,845+ commands, ~2.5MB total
-- **Memory Usage**: < 15MB RAM (includes NLP models)
-- **Binary Size**: < 20MB (statically linked with all features)
-- **Cold Start**: < 100ms first run
-- **Fuzzy Search**: Real-time typo correction with minimal performance impact
+- **Search Performance**: ~200ms average response time (optimized for accuracy)
+- **NLP Processing**: < 50ms for intent detection and query analysis  
+- **Database Size**: 3,268+ commands, ~2.8MB total
+- **Memory Usage**: < 20MB RAM (includes enhanced search algorithms)
+- **Binary Size**: < 25MB (statically linked with all features)
+- **Cold Start**: < 150ms first run
+- **Fuzzy Search**: Advanced typo correction with Levenshtein distance
+- **Platform Filtering**: Instant filtering with full caching support
 
 **Optimization Features**:
 - **Hybrid Search Algorithm**: Combines exact, fuzzy, and semantic matching
@@ -427,9 +491,11 @@ WTF is optimized for speed with advanced algorithms:
 ## 🗄️ Database
 
 ### Built-in Database
-- **3,845+ curated commands** from [TLDR Pages](https://github.com/tldr-pages/tldr) and [Cheat/Cheatsheets](https://github.com/cheat/cheatsheets)
-- **Categories**: compression, system, networking, development, version-control, and more
-- **Multi-Platform**: Commands for Linux, macOS, and Windows
+- **3,268+ curated commands** from [TLDR Pages](https://github.com/tldr-pages/tldr) and community contributions
+- **Categories**: compression, system, networking, development, version-control, text-processing, and more
+- **Multi-Platform**: Commands for Linux, macOS, Windows, and cross-platform tools
+- **Platform Filtering**: Advanced filtering by platform with smart cross-platform handling
+- **Enhanced Coverage**: Essential commands like `cal`, `wc`, `uniq`, `tr`, `yq` included
 - **Regular updates** with new commands and improvements
 - **Community Driven**: Maintained by multiple open-source communities worldwide
 

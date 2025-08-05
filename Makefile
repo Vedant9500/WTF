@@ -1,7 +1,7 @@
 # Build variables
 BINARY_NAME=wtf
 BUILD_DIR=build
-VERSION=1.1.0
+VERSION=1.2.0
 GIT_HASH=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME=$(shell date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "unknown")
 LDFLAGS=-ldflags "-X github.com/Vedant9500/WTF/internal/version.Version=$(VERSION) -X github.com/Vedant9500/WTF/internal/version.GitHash=$(GIT_HASH) -X github.com/Vedant9500/WTF/internal/version.Build=$(BUILD_TIME)"

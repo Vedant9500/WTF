@@ -25,11 +25,21 @@
    - ✅ Build system detection (Maven, Gradle, CMake)
    - **Impact**: Better relevance in development environments
 
+4. **Platform Filtering** 🖥️ ✅ DONE
+   - ✅ Filter commands by platform (linux, macos, windows, cross-platform)
+   - ✅ Multiple platform selection with comma-separated lists
+   - ✅ Smart cross-platform inclusion by default
+   - ✅ Override options (--all-platforms, --no-cross-platform)
+   - ✅ Platform-aware caching and performance optimization
+   - **Impact**: Perfect for multi-platform developers and learning
+
 ### **Quality Improvements** ✅ IMPLEMENTED
-- ✅ Increased search performance (sub-50ms average)
+- ✅ Optimized search performance (~200ms average, prioritizing accuracy)
 - ✅ Better error messages with suggestions
-- ✅ Enhanced verbose output with timing and context info
-- ✅ Improved scoring algorithm with fuzzy integration
+- ✅ Enhanced verbose output with timing and platform info
+- ✅ Improved scoring algorithm with coverage bonuses
+- ✅ Fixed natural language search accuracy (e.g., "display calendar" → cal)
+- ✅ Better stop word filtering and query preprocessing
 
 ---
 

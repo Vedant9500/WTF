@@ -1,28 +1,30 @@
-# 🎉 WTF v1.1.0 - Advanced NLP Release Summary
+# 🎉 WTF v1.2.0 - Platform Filtering & Search Accuracy Release Summary
 
 ## 🚀 What's New
 
-We've significantly enhanced WTF with advanced Natural Language Processing capabilities and improved search relevance. This release transforms WTF from a basic command finder into an intelligent assistant that truly understands what you're looking for.
+This release introduces powerful platform filtering capabilities and fixes critical search accuracy issues. Now you can find Linux commands while on Windows, filter by multiple platforms, and get accurate results for natural language queries that previously failed.
 
 ## 🧠 Major Features
 
-### Advanced Natural Language Processing
-- **Intent Detection**: Understands 8+ types of user intents (create, compress, search, download, etc.)
-- **Smart Query Processing**: Identifies actions and targets in natural language
-- **Synonym Recognition**: Knows that "folder" means "directory", "get" means "download"
-- **Context Understanding**: Filters out noise words and focuses on meaningful terms
+### Platform Filtering System
+- **Multi-Platform Support**: Filter by linux, macos, windows, cross-platform
+- **Smart Defaults**: Cross-platform commands included automatically
+- **Multiple Selection**: Comma-separated platform lists (--platform linux,macos)
+- **Override Controls**: --all-platforms and --no-cross-platform flags
+- **Performance Optimized**: Full caching support with platform-aware keys
 
-### Enhanced Search Intelligence
-- **Domain-Specific Matching**: Maps compression queries to tar/zip tools, not find commands
-- **Fuzzy Search**: Handles typos and partial matches seamlessly
-- **Hybrid Algorithm**: Combines exact matching with semantic understanding
-- **Advanced Scoring**: Multi-layered relevance calculation for better results
+### Fixed Search Accuracy Issues
+- **Natural Language Queries**: "command to display calendar in terminal" now finds cal
+- **Better Stop Word Filtering**: Preserves important terms while removing noise
+- **Improved Scoring**: Coverage bonuses for commands matching multiple query terms
+- **Enhanced Intent Recognition**: Added display and calendar intent patterns
+- **Query Preprocessing**: Smarter handling of complex natural language queries
 
-### Search History & Analytics
-- **Usage Tracking**: Remembers your search patterns
-- **Success Analytics**: Shows which searches work best
-- **Personalized Results**: Frequently used commands get priority
-- **Smart Management**: Automatic cleanup and optimization
+### Performance & Reliability
+- **Optimized Speed**: ~200ms average (prioritizing accuracy over raw speed)
+- **Enhanced Caching**: Platform-aware query caching with proper eviction
+- **Error Recovery**: Comprehensive error handling with user-friendly messages
+- **Robust Fallbacks**: Multiple search strategies with graceful degradation
 
 ## 🎯 Real-World Impact
 

@@ -36,8 +36,13 @@ WTF/
 │   │   └── history.go    # Search tracking and statistics
 │   ├── nlp/              # Natural Language Processing
 │   │   └── processor.go  # Intent detection and query processing
-│   ├── search/           # Search utilities
-│   │   └── fuzzy.go      # Fuzzy search and typo tolerance
+│   ├── recovery/         # Error recovery mechanisms
+│   │   ├── recovery.go   # Database and search recovery
+│   │   └── recovery_test.go # Recovery mechanism tests
+│   ├── search/           # Enhanced search utilities
+│   │   ├── enhanced_search.go # Advanced search with platform filtering
+│   │   ├── pattern_learner.go # Dynamic pattern learning
+│   │   └── semantic_search.go # Semantic similarity search
 │   └── version/          # Version information
 │       ├── version.go    # Version constants and build info
 │       └── version_test.go # Version tests
