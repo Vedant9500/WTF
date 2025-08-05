@@ -2,6 +2,7 @@
 package search
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -73,14 +74,20 @@ type FuzzyMatch struct {
 	Distance int
 }
 
-// EnhancedSearcher provides improved search capabilities
+// EnhancedSearcher provides improved search capabilities with caching
 type EnhancedSearcher struct {
-	db *database.Database
+	db          *database.Database
+	queryCache  map[string][]SearchResult
+	maxCacheSize int
 }
 
-// NewEnhancedSearcher creates a new enhanced searcher
+// NewEnhancedSearcher creates a new enhanced searcher with caching
 func NewEnhancedSearcher(db *database.Database) *EnhancedSearcher {
-	return &EnhancedSearcher{db: db}
+	return &EnhancedSearcher{
+		db:           db,
+		queryCache:   make(map[string][]SearchResult),
+		maxCacheSize: 100, // Cache up to 100 queries
+	}
 }
 
 // CommonTypos maps common typos to correct spellings
@@ -298,54 +305,482 @@ type SearchResult struct {
 	Distance    int
 }
 
-// EnhancedSearch performs comprehensive search with multiple strategies and smart ranking
-func (es *EnhancedSearcher) EnhancedSearch(query string, limit int) []SearchResult {
+// FastAdaptiveSearch performs optimized search with caching for speed
+func (es *EnhancedSearcher) FastAdaptiveSearch(query string, limit int) []SearchResult {
 	if limit <= 0 {
 		limit = 5
 	}
 
-	// Preprocess query to fix common typos and add synonyms
-	correctedQuery := es.PreprocessQuery(query)
 	originalQuery := strings.ToLower(query)
+	
+	// Check cache first
+	cacheKey := fmt.Sprintf("%s:%d", originalQuery, limit)
+	if cached, exists := es.queryCache[cacheKey]; exists {
+		return cached
+	}
 	
 	var allResults []SearchResult
 
-	// Strategy 1: Exact matching on corrected query (highest priority)
-	exactResults := es.exactSearch(correctedQuery)
+	// Strategy 1: Fast exact and fuzzy search (primary - should be instant)
+	exactResults := es.exactSearch(query)
 	for i := range exactResults {
 		exactResults[i].Score *= 1.5 // Boost exact matches
 	}
 	allResults = append(allResults, exactResults...)
 
-	// Strategy 2: Intent-based matching (high priority for natural language)
-	intentResults := es.intentBasedSearch(originalQuery)
+	// Strategy 2: Fast fuzzy word search
+	fuzzyResults := es.fuzzyWordSearch(query)
+	allResults = append(allResults, fuzzyResults...)
+
+	// Strategy 3: Fast intent-based search (using lightweight patterns)
+	intentResults := es.fastIntentSearch(query)
 	for i := range intentResults {
-		intentResults[i].Score *= 1.3 // Boost intent matches
+		intentResults[i].Score *= 1.3
 	}
 	allResults = append(allResults, intentResults...)
 
-	// Strategy 3: Fuzzy matching on individual words
-	fuzzyResults := es.fuzzyWordSearch(correctedQuery)
-	allResults = append(allResults, fuzzyResults...)
-
-	// Strategy 4: Partial matching with high tolerance
-	partialResults := es.partialSearch(correctedQuery)
-	for i := range partialResults {
-		partialResults[i].Score *= 0.8 // Reduce partial match scores
-	}
-	allResults = append(allResults, partialResults...)
-
-	// Strategy 5: Fallback search on original query if corrected query yields poor results
+	// Strategy 4: Fast partial search as fallback
 	if len(allResults) < limit {
-		fallbackResults := es.exactSearch(originalQuery)
-		for i := range fallbackResults {
-			fallbackResults[i].Score *= 0.9 // Slightly reduce fallback scores
+		partialResults := es.partialSearch(query)
+		for i := range partialResults {
+			partialResults[i].Score *= 0.9
 		}
-		allResults = append(allResults, fallbackResults...)
+		allResults = append(allResults, partialResults...)
 	}
 
-	// Deduplicate and sort by score with enhanced ranking
-	return es.deduplicateAndSortWithRanking(allResults, limit, originalQuery)
+	// Fast deduplication and ranking
+	results := es.fastRanking(allResults, limit, originalQuery)
+	
+	// Cache the results
+	if len(es.queryCache) >= es.maxCacheSize {
+		// Simple cache eviction - clear half the cache
+		for k := range es.queryCache {
+			delete(es.queryCache, k)
+			if len(es.queryCache) <= es.maxCacheSize/2 {
+				break
+			}
+		}
+	}
+	es.queryCache[cacheKey] = results
+	
+	return results
+}
+
+// fastIntentSearch uses lightweight intent detection without heavy computation
+func (es *EnhancedSearcher) fastIntentSearch(query string) []SearchResult {
+	var results []SearchResult
+	queryLower := strings.ToLower(query)
+	
+	// Lightweight intent patterns (no complex computation)
+	intentKeywords := map[string][]string{
+		"convert": {"convert", "transform", "json", "yaml", "format"},
+		"count": {"count", "number", "words", "lines", "characters"},
+		"remove": {"remove", "delete", "duplicate", "clean"},
+		"extract": {"extract", "get", "between", "pattern"},
+		"split": {"split", "divide", "chunk", "break"},
+		"download": {"download", "fetch", "url", "get"},
+		"compress": {"compress", "zip", "archive", "tar"},
+		"search": {"find", "search", "grep", "locate"},
+	}
+	
+	// Quick keyword matching
+	for intent, keywords := range intentKeywords {
+		for _, keyword := range keywords {
+			if strings.Contains(queryLower, keyword) {
+				// Fast command matching for this intent
+				intentResults := es.quickIntentMatch(intent, queryLower)
+				results = append(results, intentResults...)
+				break
+			}
+		}
+	}
+	
+	return results
+}
+
+// quickIntentMatch provides fast intent-based matching
+func (es *EnhancedSearcher) quickIntentMatch(intent, query string) []SearchResult {
+	var results []SearchResult
+	
+	// Pre-defined quick matchers for performance
+	quickMatchers := map[string]func(string, *database.Command) float64{
+		"convert": func(query string, cmd *database.Command) float64 {
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			score := 0.0
+			
+			if strings.Contains(cmdLower, "yq") || strings.Contains(cmdLower, "jq") {
+				score += 15.0
+			}
+			if strings.Contains(descLower, "json") || strings.Contains(descLower, "yaml") {
+				score += 10.0
+			}
+			if strings.Contains(descLower, "convert") {
+				score += 8.0
+			}
+			return score
+		},
+		"count": func(query string, cmd *database.Command) float64 {
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			score := 0.0
+			
+			if strings.HasPrefix(cmdLower, "wc") {
+				score += 15.0
+			}
+			if strings.Contains(descLower, "count") {
+				score += 10.0
+			}
+			return score
+		},
+		"remove": func(query string, cmd *database.Command) float64 {
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			score := 0.0
+			
+			if strings.Contains(cmdLower, "uniq") {
+				score += 15.0
+			}
+			if strings.Contains(cmdLower, "rm") {
+				score += 12.0
+			}
+			if strings.Contains(descLower, "remove") || strings.Contains(descLower, "duplicate") {
+				score += 10.0
+			}
+			return score
+		},
+		"extract": func(query string, cmd *database.Command) float64 {
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			score := 0.0
+			
+			if strings.Contains(cmdLower, "sed") {
+				score += 15.0
+			}
+			if strings.Contains(descLower, "extract") || strings.Contains(descLower, "between") {
+				score += 10.0
+			}
+			return score
+		},
+		"download": func(query string, cmd *database.Command) float64 {
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			score := 0.0
+			
+			if strings.Contains(cmdLower, "wget") || strings.Contains(cmdLower, "curl") {
+				score += 15.0
+			}
+			if strings.Contains(descLower, "download") {
+				score += 10.0
+			}
+			return score
+		},
+		"compress": func(query string, cmd *database.Command) float64 {
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			score := 0.0
+			
+			if strings.Contains(cmdLower, "zip") || strings.Contains(cmdLower, "tar") {
+				score += 15.0
+			}
+			if strings.Contains(descLower, "compress") || strings.Contains(descLower, "archive") {
+				score += 10.0
+			}
+			return score
+		},
+		"search": func(query string, cmd *database.Command) float64 {
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			score := 0.0
+			
+			if strings.Contains(cmdLower, "grep") || strings.Contains(cmdLower, "find") {
+				score += 15.0
+			}
+			if strings.Contains(descLower, "search") || strings.Contains(descLower, "find") {
+				score += 10.0
+			}
+			return score
+		},
+	}
+	
+	if matcher, exists := quickMatchers[intent]; exists {
+		for i := range es.db.Commands {
+			cmd := &es.db.Commands[i]
+			score := matcher(query, cmd)
+			
+			if score > 5.0 {
+				results = append(results, SearchResult{
+					Command:     cmd,
+					Score:       score,
+					MatchReason: "fast intent: " + intent,
+					Distance:    -1,
+				})
+			}
+		}
+	}
+	
+	return results
+}
+
+// fastRanking provides quick ranking without heavy computation
+func (es *EnhancedSearcher) fastRanking(results []SearchResult, limit int, originalQuery string) []SearchResult {
+	seen := make(map[string]*SearchResult)
+	
+	// Quick deduplication
+	for _, result := range results {
+		key := result.Command.Command + "|" + result.Command.Description
+		if existing, exists := seen[key]; exists {
+			if result.Score > existing.Score {
+				seen[key] = &result
+			}
+		} else {
+			seen[key] = &result
+		}
+	}
+
+	// Convert to slice
+	var deduplicated []SearchResult
+	for _, result := range seen {
+		// Quick score adjustment
+		adjustedResult := *result
+		adjustedResult.Score = es.quickScoreAdjustment(adjustedResult, originalQuery)
+		deduplicated = append(deduplicated, adjustedResult)
+	}
+
+	// Fast sort
+	sort.Slice(deduplicated, func(i, j int) bool {
+		return deduplicated[i].Score > deduplicated[j].Score
+	})
+
+	// Apply limit
+	if len(deduplicated) > limit {
+		deduplicated = deduplicated[:limit]
+	}
+
+	return deduplicated
+}
+
+// quickScoreAdjustment provides fast score adjustments
+func (es *EnhancedSearcher) quickScoreAdjustment(result SearchResult, originalQuery string) float64 {
+	score := result.Score
+	cmd := result.Command
+	
+	// Quick boosts based on simple criteria
+	if strings.Contains(result.MatchReason, "exact") {
+		score *= 1.2
+	}
+	
+	// Boost popular commands (simple heuristic)
+	if len(cmd.Keywords) > 3 {
+		score *= 1.1
+	}
+	
+	// Boost cross-platform
+	for _, platform := range cmd.Platform {
+		if platform == "cross-platform" {
+			score *= 1.05
+			break
+		}
+	}
+	
+	return score
+}
+
+// AdaptiveSearch now uses the fast version by default
+func (es *EnhancedSearcher) AdaptiveSearch(query string, limit int) []SearchResult {
+	return es.FastAdaptiveSearch(query, limit)
+}
+
+// semanticFuzzySearch combines fuzzy matching with semantic similarity
+func (es *EnhancedSearcher) semanticFuzzySearch(query string, semanticSearcher *SemanticSearcher) []SearchResult {
+	var results []SearchResult
+	queryWords := strings.Fields(strings.ToLower(query))
+	
+	for i := range es.db.Commands {
+		cmd := &es.db.Commands[i]
+		
+		// Get all words from command
+		cmdText := strings.Join([]string{
+			cmd.Command,
+			cmd.Description,
+			strings.Join(cmd.Keywords, " "),
+		}, " ")
+		cmdWords := strings.Fields(strings.ToLower(cmdText))
+		
+		var totalScore float64
+		matchCount := 0
+		
+		for _, queryWord := range queryWords {
+			bestScore := 0.0
+			
+			for _, cmdWord := range cmdWords {
+				// Combine edit distance with semantic similarity
+				editSim := 1.0 - float64(LevenshteinDistance(queryWord, cmdWord))/float64(max(len(queryWord), len(cmdWord)))
+				semanticSim := semanticSearcher.calculateSemanticSimilarity(queryWord, cmdWord)
+				
+				// Weighted combination
+				combinedScore := 0.6*editSim + 0.4*semanticSim
+				
+				if combinedScore > bestScore {
+					bestScore = combinedScore
+				}
+			}
+			
+			if bestScore > 0.4 { // Threshold for meaningful similarity
+				totalScore += bestScore
+				matchCount++
+			}
+		}
+		
+		if matchCount > 0 {
+			// Normalize and boost for coverage
+			normalizedScore := totalScore / float64(len(queryWords))
+			coverageBoost := float64(matchCount) / float64(len(queryWords))
+			finalScore := normalizedScore * (1.0 + coverageBoost)
+			
+			if finalScore > 0.3 {
+				results = append(results, SearchResult{
+					Command:     cmd,
+					Score:       finalScore,
+					MatchReason: "semantic fuzzy match",
+					Distance:    -1,
+				})
+			}
+		}
+	}
+	
+	return results
+}
+
+// findCommandsByDynamicIntent uses learned patterns to find commands by intent
+func (es *EnhancedSearcher) findCommandsByDynamicIntent(intent string, confidence float64, patternLearner *PatternLearner) []SearchResult {
+	var results []SearchResult
+	
+	for i := range es.db.Commands {
+		cmd := &es.db.Commands[i]
+		
+		// Use pattern learner to calculate intent score
+		intentScore := patternLearner.GetDynamicIntentScore(intent, cmd)
+		
+		if intentScore > 0.2 {
+			finalScore := intentScore * confidence
+			
+			results = append(results, SearchResult{
+				Command:     cmd,
+				Score:       finalScore,
+				MatchReason: "dynamic intent: " + intent,
+				Distance:    -1,
+			})
+		}
+	}
+	
+	return results
+}
+
+// traditionalSearch falls back to the original enhanced search methods
+func (es *EnhancedSearcher) traditionalSearch(query string, limit int) []SearchResult {
+	correctedQuery := es.PreprocessQuery(query)
+	
+	var results []SearchResult
+	
+	// Exact search
+	exactResults := es.exactSearch(correctedQuery)
+	results = append(results, exactResults...)
+	
+	// Fuzzy search
+	fuzzyResults := es.fuzzyWordSearch(correctedQuery)
+	results = append(results, fuzzyResults...)
+	
+	return results
+}
+
+// adaptiveRanking provides intelligent ranking based on multiple factors
+func (es *EnhancedSearcher) adaptiveRanking(results []SearchResult, limit int, originalQuery string, patternLearner *PatternLearner) []SearchResult {
+	seen := make(map[string]*SearchResult)
+	
+	// Deduplicate, keeping the highest score for each command
+	for _, result := range results {
+		key := result.Command.Command + "|" + result.Command.Description
+		if existing, exists := seen[key]; exists {
+			if result.Score > existing.Score {
+				seen[key] = &result
+			}
+		} else {
+			seen[key] = &result
+		}
+	}
+
+	// Convert back to slice and apply adaptive scoring
+	var deduplicated []SearchResult
+	for _, result := range seen {
+		adaptiveResult := *result
+		adaptiveResult.Score = es.calculateAdaptiveScore(adaptiveResult, originalQuery, patternLearner)
+		deduplicated = append(deduplicated, adaptiveResult)
+	}
+
+	// Sort by adaptive score
+	sort.Slice(deduplicated, func(i, j int) bool {
+		// Primary sort by score
+		if math.Abs(deduplicated[i].Score-deduplicated[j].Score) > 0.01 {
+			return deduplicated[i].Score > deduplicated[j].Score
+		}
+		// Secondary sort by command simplicity (shorter commands often better)
+		return len(deduplicated[i].Command.Command) < len(deduplicated[j].Command.Command)
+	})
+
+	// Apply limit
+	if len(deduplicated) > limit {
+		deduplicated = deduplicated[:limit]
+	}
+
+	return deduplicated
+}
+
+// calculateAdaptiveScore applies advanced scoring based on multiple factors
+func (es *EnhancedSearcher) calculateAdaptiveScore(result SearchResult, originalQuery string, patternLearner *PatternLearner) float64 {
+	score := result.Score
+	cmd := result.Command
+	
+	// Boost based on match reason
+	switch {
+	case strings.Contains(result.MatchReason, "semantic"):
+		score *= 1.3 // Semantic matches are high quality
+	case strings.Contains(result.MatchReason, "learned patterns"):
+		score *= 1.2 // Pattern-based matches are reliable
+	case strings.Contains(result.MatchReason, "dynamic intent"):
+		score *= 1.1 // Intent-based matches are good
+	}
+	
+	// Boost for command popularity (estimated by keyword count and description quality)
+	if len(cmd.Keywords) > 3 {
+		score *= 1.1
+	}
+	
+	// Boost for well-documented commands
+	if len(cmd.Description) > 20 && len(cmd.Description) < 150 {
+		score *= 1.05
+	}
+	
+	// Boost for cross-platform commands
+	for _, platform := range cmd.Platform {
+		if platform == "cross-platform" {
+			score *= 1.03
+			break
+		}
+	}
+	
+	// Penalize overly complex commands for simple queries
+	queryWords := strings.Fields(originalQuery)
+	if len(queryWords) <= 3 && len(cmd.Command) > 50 {
+		score *= 0.9
+	}
+	
+	return score
+}
+
+// EnhancedSearch maintains backward compatibility while using adaptive search
+func (es *EnhancedSearcher) EnhancedSearch(query string, limit int) []SearchResult {
+	return es.AdaptiveSearch(query, limit)
 }
 
 // exactSearch performs exact string matching
@@ -1180,62 +1615,80 @@ func max(a, b int) int {
 	return b
 }
 
-// GenerateSuggestions creates intelligent "Did you mean?" suggestions for failed searches
-func (es *EnhancedSearcher) GenerateSuggestions(query string, maxSuggestions int) []string {
+// GenerateDynamicSuggestions creates intelligent suggestions without hardcoded dictionaries
+func (es *EnhancedSearcher) GenerateDynamicSuggestions(query string, maxSuggestions int) []string {
 	if maxSuggestions <= 0 {
 		maxSuggestions = 3
 	}
 
-	queryLower := strings.ToLower(query)
-	queryWords := strings.Fields(queryLower)
+	// Initialize dynamic components
+	semanticSearcher := NewSemanticSearcher(es.db)
+	patternLearner := NewPatternLearner(es.db)
 	
-	// Strategy 1: Check for common typos first
 	var suggestions []string
 	suggestionSet := make(map[string]bool)
 	
-	// Check entire query for common typo patterns
-	for typo, correction := range CommonTypos {
-		if strings.Contains(queryLower, typo) {
-			correctedQuery := strings.ReplaceAll(queryLower, typo, correction)
-			if correctedQuery != queryLower && !suggestionSet[correctedQuery] {
-				suggestions = append(suggestions, correctedQuery)
-				suggestionSet[correctedQuery] = true
+	// Strategy 1: Semantic-based typo correction
+	queryWords := strings.Fields(strings.ToLower(query))
+	for _, word := range queryWords {
+		if len(word) > 2 {
+			semanticSuggestions := semanticSearcher.DynamicTypoCorrection(word, 2)
+			for _, suggestion := range semanticSuggestions {
+				if !suggestionSet[suggestion] && len(suggestions) < maxSuggestions {
+					suggestions = append(suggestions, suggestion)
+					suggestionSet[suggestion] = true
+				}
 			}
 		}
 	}
 	
-	// Strategy 2: Find similar command names using Levenshtein distance
-	commandSuggestions := es.findSimilarCommands(queryLower, maxSuggestions-len(suggestions))
-	for _, suggestion := range commandSuggestions {
-		if !suggestionSet[suggestion] {
-			suggestions = append(suggestions, suggestion)
-			suggestionSet[suggestion] = true
-		}
-	}
-	
-	// Strategy 3: Suggest based on partial matches in descriptions
+	// Strategy 2: Pattern-based query expansion
 	if len(suggestions) < maxSuggestions {
-		descriptionSuggestions := es.findDescriptionBasedSuggestions(queryWords, maxSuggestions-len(suggestions))
-		for _, suggestion := range descriptionSuggestions {
-			if !suggestionSet[suggestion] {
-				suggestions = append(suggestions, suggestion)
-				suggestionSet[suggestion] = true
+		expandedTerms := patternLearner.ExpandQuery(query)
+		for _, term := range expandedTerms {
+			if term != strings.ToLower(query) && !suggestionSet[term] && len(suggestions) < maxSuggestions {
+				suggestions = append(suggestions, term)
+				suggestionSet[term] = true
 			}
 		}
 	}
 	
-	// Strategy 4: Suggest simpler alternatives
+	// Strategy 3: Similar command suggestions
 	if len(suggestions) < maxSuggestions {
-		simplifiedSuggestions := es.generateSimplifiedSuggestions(queryLower)
-		for _, suggestion := range simplifiedSuggestions {
-			if !suggestionSet[suggestion] && len(suggestions) < maxSuggestions {
-				suggestions = append(suggestions, suggestion)
-				suggestionSet[suggestion] = true
+		// Find the most likely command the user was looking for
+		partialResults := es.semanticFuzzySearch(query, semanticSearcher)
+		if len(partialResults) > 0 {
+			bestMatch := partialResults[0]
+			cmdName := strings.Fields(strings.ToLower(bestMatch.Command.Command))[0]
+			similarCommands := patternLearner.SuggestSimilarCommands(cmdName, maxSuggestions-len(suggestions))
+			
+			for _, similar := range similarCommands {
+				if !suggestionSet[similar] && len(suggestions) < maxSuggestions {
+					suggestions = append(suggestions, similar)
+					suggestionSet[similar] = true
+				}
+			}
+		}
+	}
+	
+	// Strategy 4: Intent-based suggestions
+	if len(suggestions) < maxSuggestions {
+		intents := semanticSearcher.AnalyzeQueryIntent(query)
+		for intent, confidence := range intents {
+			if confidence > 0.3 && !suggestionSet[intent] && len(suggestions) < maxSuggestions {
+				// Suggest the intent as a simpler query
+				suggestions = append(suggestions, intent)
+				suggestionSet[intent] = true
 			}
 		}
 	}
 
 	return suggestions
+}
+
+// GenerateSuggestions maintains backward compatibility
+func (es *EnhancedSearcher) GenerateSuggestions(query string, maxSuggestions int) []string {
+	return es.GenerateDynamicSuggestions(query, maxSuggestions)
 }
 
 // findSimilarCommands finds commands with names similar to the query

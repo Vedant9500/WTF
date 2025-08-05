@@ -130,13 +130,13 @@ Examples:
 			searchOptions.ContextBoosts = projectContext.GetContextBoosts()
 		}
 
-		// Use enhanced search for better results
-		enhancedSearcher := search.NewEnhancedSearcher(db)
-		enhancedResults := enhancedSearcher.EnhancedSearch(query, cfg.MaxResults)
+		// Use lightning-fast search
+		fastSearcher := search.NewFastSearcher(db)
+		fastResults := fastSearcher.SmartSearch(query, cfg.MaxResults)
 		
-		// Convert enhanced results to database.SearchResult format
-		results := make([]database.SearchResult, len(enhancedResults))
-		for i, result := range enhancedResults {
+		// Convert fast results to database.SearchResult format
+		results := make([]database.SearchResult, len(fastResults))
+		for i, result := range fastResults {
 			results[i] = database.SearchResult{
 				Command: result.Command,
 				Score:   result.Score,
@@ -168,8 +168,8 @@ Examples:
 		_ = searchHistory.Save() // Ignore errors for history saving
 
 		if len(results) == 0 {
-			// Use enhanced suggestions
-			suggestions := enhancedSearcher.GenerateSuggestions(query, 5)
+			// Use fast suggestions
+			suggestions := fastSearcher.FastTypoCorrection(query, 5)
 			
 			fmt.Printf("No commands found matching '%s'.\n\n", query)
 			
