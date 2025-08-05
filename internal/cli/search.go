@@ -11,7 +11,6 @@ import (
 	"github.com/Vedant9500/WTF/internal/errors"
 	"github.com/Vedant9500/WTF/internal/history"
 	"github.com/Vedant9500/WTF/internal/recovery"
-	"github.com/Vedant9500/WTF/internal/search"
 	"github.com/Vedant9500/WTF/internal/validation"
 
 	"github.com/spf13/cobra"
@@ -144,42 +143,23 @@ Examples:
 		}
 		fmt.Printf("Searching for: %s\n\n", query)
 
-		// Prepare search options with context boosts, fuzzy search, and NLP
+		// Use the original database search which was working well
 		searchOptions := database.SearchOptions{
 			Limit:          cfg.MaxResults,
-			UseFuzzy:       true, // Enable fuzzy search for better typo handling
-			FuzzyThreshold: -30,  // Reasonable threshold for fuzzy matches
-			UseNLP:         true, // Enable natural language processing
+			UseFuzzy:       true,
+			FuzzyThreshold: -30,
+			UseNLP:         true,
 		}
 		if projectContext != nil {
 			searchOptions.ContextBoosts = projectContext.GetContextBoosts()
 		}
-
-		// Use enhanced search with platform filtering
-		enhancedSearcher := search.NewEnhancedSearcher(db)
 		
-		// Create search options with platform filtering
-		enhancedSearchOptions := search.SearchOptions{
-			Limit:                cfg.MaxResults,
-			PlatformFilter:       flags.platforms,
-			IncludeCrossPlatform: !flags.noCrossPlatform,
-			ShowAllPlatforms:     flags.allPlatforms,
-		}
-		
-		enhancedResults := enhancedSearcher.FastAdaptiveSearchWithOptions(query, enhancedSearchOptions)
-		
-		// Convert enhanced results to database.SearchResult format
-		results := make([]database.SearchResult, len(enhancedResults))
-		for i, result := range enhancedResults {
-			results[i] = database.SearchResult{
-				Command: result.Command,
-				Score:   result.Score,
-			}
-		}
+		// Use the robust database search instead of the over-engineered enhanced search
+		results := db.SearchWithNLP(query, searchOptions)
 		
 		searchDuration := time.Since(startTime)
 		
-		// If enhanced search failed, try recovery mechanisms
+		// If search failed, try recovery mechanisms
 		if len(results) == 0 {
 			searchRecovery := recovery.NewSearchRecovery()
 			recoveredResults, recoveryErr := searchRecovery.RecoverFromSearchFailure(query, nil, db)
@@ -202,8 +182,8 @@ Examples:
 		_ = searchHistory.Save() // Ignore errors for history saving
 
 		if len(results) == 0 {
-			// Use enhanced suggestions
-			suggestions := enhancedSearcher.GenerateDynamicSuggestions(query, 5)
+			// Use database suggestions
+			suggestions := db.GetSuggestions(query, 5)
 			
 			fmt.Printf("No commands found matching '%s'.\n\n", query)
 			

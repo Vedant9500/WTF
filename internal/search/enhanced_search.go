@@ -338,37 +338,23 @@ func (es *EnhancedSearcher) FastAdaptiveSearchWithOptions(query string, options 
 		return cached
 	}
 	
+	// Simplified search approach - use the original query processing but with better scoring
 	var allResults []SearchResult
 
-	// Strategy 1: Fast exact and fuzzy search (primary - should be instant)
-	exactResults := es.exactSearchWithPlatform(query, options)
-	for i := range exactResults {
-		exactResults[i].Score *= 1.5 // Boost exact matches
-	}
+	// Strategy 1: Enhanced exact search (handles natural language better)
+	exactResults := es.enhancedExactSearchWithPlatform(query, options)
 	allResults = append(allResults, exactResults...)
 
-	// Strategy 2: Fast fuzzy word search
+	// Strategy 2: Fuzzy search for typos and variations
 	fuzzyResults := es.fuzzyWordSearchWithPlatform(query, options)
 	allResults = append(allResults, fuzzyResults...)
 
-	// Strategy 3: Fast intent-based search (using lightweight patterns)
-	intentResults := es.fastIntentSearchWithPlatform(query, options)
-	for i := range intentResults {
-		intentResults[i].Score *= 1.3
-	}
-	allResults = append(allResults, intentResults...)
+	// Strategy 3: Partial search as fallback
+	partialResults := es.partialSearchWithPlatform(query, options)
+	allResults = append(allResults, partialResults...)
 
-	// Strategy 4: Fast partial search as fallback
-	if len(allResults) < options.Limit {
-		partialResults := es.partialSearchWithPlatform(query, options)
-		for i := range partialResults {
-			partialResults[i].Score *= 0.9
-		}
-		allResults = append(allResults, partialResults...)
-	}
-
-	// Fast deduplication and ranking
-	results := es.fastRanking(allResults, options.Limit, originalQuery)
+	// Simplified ranking that prioritizes relevance over complexity
+	results := es.simpleRanking(allResults, options.Limit, originalQuery)
 	
 	// Cache the results
 	if len(es.queryCache) >= es.maxCacheSize {
@@ -731,6 +717,12 @@ func (es *EnhancedSearcher) exactSearchWithPlatform(query string, options Search
 	return es.filterResultsByPlatform(results, options)
 }
 
+// enhancedExactSearchWithPlatform performs better natural language search with platform filtering
+func (es *EnhancedSearcher) enhancedExactSearchWithPlatform(query string, options SearchOptions) []SearchResult {
+	results := es.enhancedExactSearch(query)
+	return es.filterResultsByPlatform(results, options)
+}
+
 // fuzzyWordSearchWithPlatform performs fuzzy search with platform filtering
 func (es *EnhancedSearcher) fuzzyWordSearchWithPlatform(query string, options SearchOptions) []SearchResult {
 	results := es.fuzzyWordSearch(query)
@@ -763,6 +755,238 @@ func (es *EnhancedSearcher) filterResultsByPlatform(results []SearchResult, opti
 	}
 	
 	return filtered
+}
+
+// enhancedExactSearch performs better natural language search
+func (es *EnhancedSearcher) enhancedExactSearch(query string) []SearchResult {
+	var results []SearchResult
+	queryLower := strings.ToLower(query)
+	
+	// Extract key terms from natural language query
+	keyTerms := es.extractKeyTerms(queryLower)
+	
+	for i := range es.db.Commands {
+		cmd := &es.db.Commands[i]
+		score := 0.0
+		matchReasons := []string{}
+
+		// Score based on key terms matching
+		for _, term := range keyTerms {
+			// Check command name
+			if strings.Contains(cmd.CommandLower, term) {
+				if cmd.CommandLower == term {
+					score += 30.0
+					matchReasons = append(matchReasons, "exact command")
+				} else if strings.HasPrefix(cmd.CommandLower, term+" ") || strings.HasPrefix(cmd.CommandLower, term+"-") {
+					score += 25.0
+					matchReasons = append(matchReasons, "command prefix")
+				} else {
+					score += 15.0
+					matchReasons = append(matchReasons, "command contains")
+				}
+			}
+
+			// Check description
+			if strings.Contains(cmd.DescriptionLower, term) {
+				score += 12.0
+				matchReasons = append(matchReasons, "description")
+			}
+
+			// Check keywords
+			for _, keyword := range cmd.KeywordsLower {
+				if keyword == term {
+					score += 18.0
+					matchReasons = append(matchReasons, "keyword exact")
+				} else if strings.Contains(keyword, term) {
+					score += 10.0
+					matchReasons = append(matchReasons, "keyword contains")
+				}
+			}
+		}
+
+		// Apply intent-based boosts
+		score += es.getIntentBoost(queryLower, cmd)
+
+		if score > 5.0 {
+			results = append(results, SearchResult{
+				Command:     cmd,
+				Score:       score,
+				MatchReason: strings.Join(matchReasons, ", "),
+				Distance:    0,
+			})
+		}
+	}
+
+	return results
+}
+
+// extractKeyTerms extracts meaningful terms from natural language queries
+func (es *EnhancedSearcher) extractKeyTerms(query string) []string {
+	words := strings.Fields(query)
+	var keyTerms []string
+	
+	// Minimal stop words - only remove the most useless ones
+	stopWords := map[string]bool{
+		"a": true, "an": true, "the": true, "and": true, "or": true, "but": true,
+		"in": true, "on": true, "at": true, "by": true, "for": true, "with": true,
+		"from": true, "to": true, "of": true, "is": true, "are": true, "was": true,
+		"were": true, "be": true, "been": true, "have": true, "has": true, "had": true,
+		"will": true, "would": true, "could": true, "should": true, "can": true,
+		"it": true, "its": true, "this": true, "that": true, "these": true, "those": true,
+	}
+	
+	for _, word := range words {
+		// Clean word
+		cleanWord := strings.Map(func(r rune) rune {
+			if unicode.IsLetter(r) || unicode.IsNumber(r) {
+				return r
+			}
+			return -1
+		}, word)
+		
+		if len(cleanWord) < 2 {
+			continue
+		}
+		
+		// Keep important words even if they might be considered stop words
+		if !stopWords[cleanWord] || es.isImportantTerm(cleanWord) {
+			// Apply typo correction
+			if correction, exists := CommonTypos[cleanWord]; exists {
+				keyTerms = append(keyTerms, correction)
+			} else {
+				keyTerms = append(keyTerms, cleanWord)
+			}
+		}
+	}
+	
+	// Add synonyms for key terms
+	expandedTerms := make([]string, len(keyTerms))
+	copy(expandedTerms, keyTerms)
+	
+	for _, term := range keyTerms {
+		if synonyms, exists := KeywordSynonyms[term]; exists {
+			// Add first 2 most relevant synonyms
+			for i, synonym := range synonyms {
+				if i >= 2 {
+					break
+				}
+				if synonym != term {
+					expandedTerms = append(expandedTerms, synonym)
+				}
+			}
+		}
+	}
+	
+	return expandedTerms
+}
+
+// isImportantTerm checks if a term should be kept even if it's normally a stop word
+func (es *EnhancedSearcher) isImportantTerm(term string) bool {
+	importantTerms := map[string]bool{
+		"do": true, "how": true, "what": true, "where": true, "when": true, "why": true,
+		"i": true, "me": true, "my": true, "you": true, "your": true,
+		"help": true, "please": true, "need": true, "want": true, "use": true,
+		"see": true, "show": true, "get": true, "make": true, "run": true,
+	}
+	return importantTerms[term]
+}
+
+// getIntentBoost provides scoring boost based on detected intent
+func (es *EnhancedSearcher) getIntentBoost(query string, cmd *database.Command) float64 {
+	boost := 0.0
+	cmdLower := cmd.CommandLower
+	descLower := cmd.DescriptionLower
+	
+	// Process-related queries
+	if strings.Contains(query, "process") || strings.Contains(query, "running") {
+		if cmdLower == "ps" || strings.HasPrefix(cmdLower, "ps ") {
+			boost += 25.0
+		}
+		if strings.Contains(cmdLower, "top") || strings.Contains(cmdLower, "htop") {
+			boost += 20.0
+		}
+		if strings.Contains(descLower, "process") {
+			boost += 15.0
+		}
+	}
+	
+	// File listing queries
+	if (strings.Contains(query, "list") && strings.Contains(query, "file")) ||
+	   strings.Contains(query, "show file") {
+		if cmdLower == "ls" || strings.HasPrefix(cmdLower, "ls ") {
+			boost += 25.0
+		}
+		if strings.Contains(descLower, "list") && strings.Contains(descLower, "file") {
+			boost += 15.0
+		}
+	}
+	
+	// Permission queries
+	if strings.Contains(query, "permission") || strings.Contains(query, "chmod") {
+		if cmdLower == "chmod" || strings.HasPrefix(cmdLower, "chmod ") {
+			boost += 25.0
+		}
+		if strings.Contains(descLower, "permission") {
+			boost += 15.0
+		}
+	}
+	
+	// Find queries
+	if strings.Contains(query, "find") && strings.Contains(query, "file") {
+		if cmdLower == "find" || strings.HasPrefix(cmdLower, "find ") {
+			boost += 25.0
+		}
+		if strings.Contains(descLower, "find") {
+			boost += 15.0
+		}
+	}
+	
+	// Download queries
+	if strings.Contains(query, "download") {
+		if strings.Contains(cmdLower, "wget") || strings.Contains(cmdLower, "curl") {
+			boost += 25.0
+		}
+		if strings.Contains(descLower, "download") {
+			boost += 15.0
+		}
+	}
+	
+	return boost
+}
+
+// simpleRanking provides straightforward ranking focused on relevance
+func (es *EnhancedSearcher) simpleRanking(results []SearchResult, limit int, originalQuery string) []SearchResult {
+	seen := make(map[string]*SearchResult)
+	
+	// Deduplicate
+	for _, result := range results {
+		key := result.Command.Command + "|" + result.Command.Description
+		if existing, exists := seen[key]; exists {
+			if result.Score > existing.Score {
+				seen[key] = &result
+			}
+		} else {
+			seen[key] = &result
+		}
+	}
+
+	// Convert to slice
+	var deduplicated []SearchResult
+	for _, result := range seen {
+		deduplicated = append(deduplicated, *result)
+	}
+
+	// Simple sort by score
+	sort.Slice(deduplicated, func(i, j int) bool {
+		return deduplicated[i].Score > deduplicated[j].Score
+	})
+
+	// Apply limit
+	if len(deduplicated) > limit {
+		deduplicated = deduplicated[:limit]
+	}
+
+	return deduplicated
 }
 
 // AdaptiveSearch now uses the fast version by default
