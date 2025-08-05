@@ -402,6 +402,7 @@ func (es *EnhancedSearcher) fastIntentSearch(query string) []SearchResult {
 		"search": {"find", "search", "grep", "locate"},
 		"display": {"display", "show", "view", "print"},
 		"calendar": {"calendar", "cal", "date", "time"},
+		"create_directory": {"create", "new", "make", "directory", "folder", "dir"},
 	}
 	
 	// Quick keyword matching
@@ -501,9 +502,23 @@ func (es *EnhancedSearcher) quickIntentMatch(intent, query string) []SearchResul
 			descLower := cmd.DescriptionLower
 			score := 0.0
 			
-			if strings.Contains(cmdLower, "zip") || strings.Contains(cmdLower, "tar") {
-				score += 15.0
+			// Boost tar commands significantly for compression queries
+			if strings.HasPrefix(cmdLower, "tar ") || cmdLower == "tar" {
+				score += 25.0
 			}
+			// Boost zip commands significantly
+			if strings.HasPrefix(cmdLower, "zip ") || cmdLower == "zip" {
+				score += 25.0
+			}
+			// Boost gzip commands
+			if strings.Contains(cmdLower, "gzip") {
+				score += 20.0
+			}
+			// Other compression tools
+			if strings.Contains(cmdLower, "7z") {
+				score += 18.0
+			}
+			// General compression mentions
 			if strings.Contains(descLower, "compress") || strings.Contains(descLower, "archive") {
 				score += 10.0
 			}
@@ -562,6 +577,30 @@ func (es *EnhancedSearcher) quickIntentMatch(intent, query string) []SearchResul
 			}
 			if strings.Contains(descLower, "date") && strings.Contains(query, "calendar") {
 				score += 12.0
+			}
+			
+			return score
+		},
+		"create_directory": func(query string, cmd *database.Command) float64 {
+			cmdLower := cmd.CommandLower
+			descLower := cmd.DescriptionLower
+			score := 0.0
+			
+			// Direct mkdir command gets highest score
+			if cmdLower == "mkdir" {
+				score += 30.0
+			}
+			// Commands that start with mkdir
+			if strings.HasPrefix(cmdLower, "mkdir ") {
+				score += 25.0
+			}
+			// Description mentions creating directories
+			if strings.Contains(descLower, "create") && (strings.Contains(descLower, "directory") || strings.Contains(descLower, "folder")) {
+				score += 20.0
+			}
+			// General directory creation mentions
+			if strings.Contains(descLower, "create directory") {
+				score += 18.0
 			}
 			
 			return score
@@ -930,6 +969,23 @@ func (es *EnhancedSearcher) exactSearch(query string) []SearchResult {
 	
 	// Filter out stop words but keep important ones
 	filteredWords := es.filterQueryWords(queryWords)
+	
+	// Add explicit compression tool matching for compression queries
+	compressionQuery := false
+	directoryCreationQuery := false
+	for _, word := range filteredWords {
+		if word == "compress" || word == "archive" || word == "zip" {
+			compressionQuery = true
+		}
+		if word == "create" || word == "new" || word == "make" {
+			for _, w2 := range filteredWords {
+				if w2 == "directory" || w2 == "folder" || w2 == "dir" {
+					directoryCreationQuery = true
+					break
+				}
+			}
+		}
+	}
 
 	for i := range es.db.Commands {
 		cmd := &es.db.Commands[i]
@@ -949,6 +1005,43 @@ func (es *EnhancedSearcher) exactSearch(query string) []SearchResult {
 					score += 15.0
 					matchReasons = append(matchReasons, "command contains")
 				}
+			}
+		}
+		
+		// Special boost for common compression commands when query contains compression terms
+		if compressionQuery {
+			if strings.HasPrefix(cmd.CommandLower, "tar ") || cmd.CommandLower == "tar" {
+				score += 50.0 // Major boost for tar commands
+				matchReasons = append(matchReasons, "compression tool")
+			}
+			if strings.HasPrefix(cmd.CommandLower, "zip ") || cmd.CommandLower == "zip" {
+				score += 50.0 // Major boost for zip commands
+				matchReasons = append(matchReasons, "compression tool")
+			}
+			if strings.Contains(cmd.CommandLower, "gzip") {
+				score += 40.0
+				matchReasons = append(matchReasons, "compression tool")
+			}
+			if strings.Contains(cmd.CommandLower, "7z") {
+				score += 35.0
+				matchReasons = append(matchReasons, "compression tool")
+			}
+		}
+		
+		// Special boost for directory creation commands
+		if directoryCreationQuery {
+			if cmd.CommandLower == "mkdir" {
+				score += 60.0 // Major boost for mkdir
+				matchReasons = append(matchReasons, "directory creation")
+			}
+			if strings.HasPrefix(cmd.CommandLower, "mkdir ") {
+				score += 55.0
+				matchReasons = append(matchReasons, "directory creation")
+			}
+			if strings.Contains(cmd.DescriptionLower, "create") && 
+			   (strings.Contains(cmd.DescriptionLower, "directory") || strings.Contains(cmd.DescriptionLower, "folder")) {
+				score += 30.0
+				matchReasons = append(matchReasons, "directory creation")
 			}
 		}
 
@@ -977,6 +1070,15 @@ func (es *EnhancedSearcher) exactSearch(query string) []SearchResult {
 					keywordMatches++
 				} else if strings.Contains(keyword, word) {
 					score += 8.0
+					keywordMatches++
+				}
+				// Handle word variations (compress/compression, file/files)
+				if (word == "compress" && strings.Contains(keyword, "compression")) ||
+				   (word == "compression" && strings.Contains(keyword, "compress")) ||
+				   (word == "files" && keyword == "file-system") ||
+				   (word == "file" && keyword == "files") ||
+				   (word == "files" && keyword == "file") {
+					score += 12.0
 					keywordMatches++
 				}
 			}
