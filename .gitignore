@@ -5,6 +5,7 @@ dist/
 tmp/
 *.exe
 *.bin
+*.prof
 
 # OS generated files
 .DS_Store

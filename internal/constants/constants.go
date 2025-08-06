@@ -61,7 +61,8 @@ const (
 
 // Cache settings
 const (
-	DefaultCacheTTL = 5 * time.Minute
+	DefaultCacheTTL      = 5 * time.Minute
+	DefaultCacheCapacity = 1000 // Number of cached search results
 )
 
 // File size limits
