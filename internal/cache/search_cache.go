@@ -18,13 +18,13 @@ type SearchResult struct {
 
 // SearchOptions represents search options for cache key generation
 type SearchOptions struct {
-	Limit          int                    `json:"limit"`
-	ContextBoosts  map[string]float64     `json:"context_boosts,omitempty"`
-	PipelineOnly   bool                   `json:"pipeline_only,omitempty"`
-	PipelineBoost  float64                `json:"pipeline_boost,omitempty"`
-	UseFuzzy       bool                   `json:"use_fuzzy,omitempty"`
-	FuzzyThreshold int                    `json:"fuzzy_threshold,omitempty"`
-	UseNLP         bool                   `json:"use_nlp,omitempty"`
+	Limit          int                `json:"limit"`
+	ContextBoosts  map[string]float64 `json:"context_boosts,omitempty"`
+	PipelineOnly   bool               `json:"pipeline_only,omitempty"`
+	PipelineBoost  float64            `json:"pipeline_boost,omitempty"`
+	UseFuzzy       bool               `json:"use_fuzzy,omitempty"`
+	FuzzyThreshold int                `json:"fuzzy_threshold,omitempty"`
+	UseNLP         bool               `json:"use_nlp,omitempty"`
 }
 
 // SearchCache provides caching for search results
@@ -48,14 +48,14 @@ func (sc *SearchCache) Get(query string, options SearchOptions) ([]SearchResult,
 	if !sc.enabled {
 		return nil, false
 	}
-	
+
 	key := sc.generateCacheKey(query, options)
 	if value, found := sc.cache.Get(key); found {
 		if results, ok := value.([]SearchResult); ok {
 			return results, true
 		}
 	}
-	
+
 	return nil, false
 }
 
@@ -64,13 +64,13 @@ func (sc *SearchCache) Put(query string, options SearchOptions, results []Search
 	if !sc.enabled || len(results) == 0 {
 		return
 	}
-	
+
 	key := sc.generateCacheKey(query, options)
-	
+
 	// Create a copy of results to avoid reference issues
 	cachedResults := make([]SearchResult, len(results))
 	copy(cachedResults, results)
-	
+
 	sc.cache.Put(key, cachedResults)
 }
 
@@ -83,7 +83,7 @@ func (sc *SearchCache) Invalidate() {
 func (sc *SearchCache) InvalidatePattern(pattern string) int {
 	keys := sc.cache.Keys()
 	removed := 0
-	
+
 	for _, key := range keys {
 		if strings.Contains(key, pattern) {
 			if sc.cache.Delete(key) {
@@ -91,7 +91,7 @@ func (sc *SearchCache) InvalidatePattern(pattern string) int {
 			}
 		}
 	}
-	
+
 	return removed
 }
 
@@ -124,7 +124,7 @@ func (sc *SearchCache) CleanupExpired() int {
 func (sc *SearchCache) generateCacheKey(query string, options SearchOptions) string {
 	// Normalize query for consistent caching
 	normalizedQuery := strings.ToLower(strings.TrimSpace(query))
-	
+
 	// Create a deterministic key that includes all relevant options
 	keyData := struct {
 		Query   string        `json:"query"`
@@ -133,14 +133,14 @@ func (sc *SearchCache) generateCacheKey(query string, options SearchOptions) str
 		Query:   normalizedQuery,
 		Options: options,
 	}
-	
+
 	// Serialize to JSON for consistent key generation
 	jsonData, err := json.Marshal(keyData)
 	if err != nil {
 		// Fallback to simple key if JSON marshaling fails
 		return fmt.Sprintf("%s%s:%d", sc.keyPrefix, normalizedQuery, options.Limit)
 	}
-	
+
 	// Generate MD5 hash for compact key
 	hash := md5.Sum(jsonData)
 	return fmt.Sprintf("%s%x", sc.keyPrefix, hash)

@@ -37,7 +37,7 @@ func NewDatabaseErrorWithContext(op, path string, cause error) error {
 			WithContext("operation", op).
 			WithContext("file_path", path)
 	}
-	
+
 	// Determine the specific error type and create appropriate user-friendly error
 	errStr := cause.Error()
 	switch {
@@ -87,13 +87,13 @@ func NewSearchError(query string, cause error) *SearchError {
 type ErrorType string
 
 const (
-	ErrorTypeDatabase    ErrorType = "database"
-	ErrorTypeValidation  ErrorType = "validation"
-	ErrorTypeSearch      ErrorType = "search"
-	ErrorTypeConfig      ErrorType = "config"
-	ErrorTypeNetwork     ErrorType = "network"
-	ErrorTypeFileSystem  ErrorType = "filesystem"
-	ErrorTypePermission  ErrorType = "permission"
+	ErrorTypeDatabase   ErrorType = "database"
+	ErrorTypeValidation ErrorType = "validation"
+	ErrorTypeSearch     ErrorType = "search"
+	ErrorTypeConfig     ErrorType = "config"
+	ErrorTypeNetwork    ErrorType = "network"
+	ErrorTypeFileSystem ErrorType = "filesystem"
+	ErrorTypePermission ErrorType = "permission"
 )
 
 // AppError represents application-specific errors with context and user-friendly messages
@@ -172,16 +172,16 @@ func (e *AppError) WithSuggestions(suggestions ...string) *AppError {
 
 // Error message templates for common scenarios
 var errorTemplates = map[string]string{
-	"database_not_found": "The command database file could not be found at '%s'.\n\nThis usually happens when:\n• The database file is missing or moved\n• You're running WTF from the wrong directory\n• The database path is incorrectly configured",
+	"database_not_found":   "The command database file could not be found at '%s'.\n\nThis usually happens when:\n• The database file is missing or moved\n• You're running WTF from the wrong directory\n• The database path is incorrectly configured",
 	"database_parse_error": "The command database file at '%s' contains invalid data.\n\nThis could be due to:\n• Corrupted YAML syntax\n• Invalid command structure\n• File encoding issues",
-	"database_permission": "Permission denied when trying to access the database file at '%s'.\n\nTo fix this:\n• Check file permissions with 'ls -la %s'\n• Ensure you have read access to the file\n• Try running with appropriate permissions",
-	"query_too_long": "Your search query is too long (%d characters). Please keep queries under %d characters.\n\nTip: Try using more specific keywords instead of full sentences.",
-	"query_empty": "Please provide a search query.\n\nExample: wtf \"compress a directory\"",
-	"query_invalid_chars": "Your search query contains invalid characters.\n\nPlease use only letters, numbers, spaces, and common punctuation.",
-	"limit_invalid": "The result limit must be between 1 and %d, but you specified %d.\n\nExample: wtf --limit 10 \"your query\"",
-	"config_invalid": "The configuration file contains invalid settings.\n\nPlease check your configuration and ensure all values are valid.",
-	"search_failed": "Search operation failed for query '%s'.\n\nThis might be due to:\n• Database corruption\n• Memory issues\n• Invalid search parameters",
-	"no_results": "No commands found matching '%s'.\n\nTry:\n• Using different keywords\n• Checking for typos\n• Being more specific or more general",
+	"database_permission":  "Permission denied when trying to access the database file at '%s'.\n\nTo fix this:\n• Check file permissions with 'ls -la %s'\n• Ensure you have read access to the file\n• Try running with appropriate permissions",
+	"query_too_long":       "Your search query is too long (%d characters). Please keep queries under %d characters.\n\nTip: Try using more specific keywords instead of full sentences.",
+	"query_empty":          "Please provide a search query.\n\nExample: wtf \"compress a directory\"",
+	"query_invalid_chars":  "Your search query contains invalid characters.\n\nPlease use only letters, numbers, spaces, and common punctuation.",
+	"limit_invalid":        "The result limit must be between 1 and %d, but you specified %d.\n\nExample: wtf --limit 10 \"your query\"",
+	"config_invalid":       "The configuration file contains invalid settings.\n\nPlease check your configuration and ensure all values are valid.",
+	"search_failed":        "Search operation failed for query '%s'.\n\nThis might be due to:\n• Database corruption\n• Memory issues\n• Invalid search parameters",
+	"no_results":           "No commands found matching '%s'.\n\nTry:\n• Using different keywords\n• Checking for typos\n• Being more specific or more general",
 }
 
 // Common error creation functions with user-friendly messages
@@ -288,7 +288,7 @@ func NewNoResultsError(query string, suggestions []string) *AppError {
 	err := NewAppError(ErrorTypeSearch, fmt.Sprintf("no results for: %s", query), nil).
 		WithUserMessage(fmt.Sprintf(errorTemplates["no_results"], query)).
 		WithContext("query", query)
-	
+
 	if len(suggestions) > 0 {
 		err = err.WithSuggestions(suggestions...)
 		// Add "Did you mean" suggestions to the user message
@@ -298,7 +298,7 @@ func NewNoResultsError(query string, suggestions []string) *AppError {
 		}
 		err.UserMessage = userMsg
 	}
-	
+
 	return err
 }
 
@@ -332,7 +332,7 @@ func GetUserFriendlyMessage(err error) string {
 	if appErr, ok := err.(*AppError); ok {
 		return appErr.Error()
 	}
-	
+
 	// For non-AppError types, provide generic user-friendly messages
 	errStr := err.Error()
 	switch {

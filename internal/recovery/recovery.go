@@ -158,7 +158,7 @@ func (dr *DatabaseRecovery) shouldRetry(err error) bool {
 // calculateDelay calculates the delay for exponential backoff
 func (dr *DatabaseRecovery) calculateDelay(attempt int) time.Duration {
 	delay := float64(dr.retryConfig.BaseDelay) * math.Pow(dr.retryConfig.BackoffFactor, float64(attempt-1))
-	
+
 	if delay > float64(dr.retryConfig.MaxDelay) {
 		delay = float64(dr.retryConfig.MaxDelay)
 	}
@@ -261,7 +261,7 @@ func (dr *DatabaseRecovery) loadEmbeddedDatabase() (*database.Database, error) {
 // loadBackupDatabase attempts to load from a backup file
 func (dr *DatabaseRecovery) loadBackupDatabase(primaryPath string) (*database.Database, error) {
 	backupPath := primaryPath + ".backup"
-	
+
 	// Check if backup exists
 	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("backup database not found at %s", backupPath)
@@ -362,7 +362,7 @@ func (sr *SearchRecovery) basicKeywordSearch(query string, db *database.Database
 	// Simple implementation - just look for exact matches in command names
 	var results []database.SearchResult
 	queryLower := strings.ToLower(query)
-	
+
 	for i := range db.Commands {
 		cmd := &db.Commands[i]
 		if strings.Contains(cmd.CommandLower, queryLower) {
@@ -372,7 +372,7 @@ func (sr *SearchRecovery) basicKeywordSearch(query string, db *database.Database
 			})
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -382,21 +382,21 @@ func (sr *SearchRecovery) singleWordSearch(query string, db *database.Database) 
 	if len(words) == 0 {
 		return nil, fmt.Errorf("no words in query")
 	}
-	
+
 	firstWord := words[0]
 	var results []database.SearchResult
-	
+
 	for i := range db.Commands {
 		cmd := &db.Commands[i]
-		if strings.Contains(cmd.CommandLower, firstWord) || 
-		   strings.Contains(cmd.DescriptionLower, firstWord) {
+		if strings.Contains(cmd.CommandLower, firstWord) ||
+			strings.Contains(cmd.DescriptionLower, firstWord) {
 			results = append(results, database.SearchResult{
 				Command: cmd,
 				Score:   0.8,
 			})
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -404,13 +404,13 @@ func (sr *SearchRecovery) singleWordSearch(query string, db *database.Database) 
 func (sr *SearchRecovery) partialMatchSearch(query string, db *database.Database) ([]database.SearchResult, error) {
 	var results []database.SearchResult
 	queryLower := strings.ToLower(query)
-	
+
 	for i := range db.Commands {
 		cmd := &db.Commands[i]
 		// Check if any part of the query matches any part of the command
 		for _, word := range strings.Fields(queryLower) {
-			if len(word) >= 2 && (strings.Contains(cmd.CommandLower, word) || 
-			   strings.Contains(cmd.DescriptionLower, word)) {
+			if len(word) >= 2 && (strings.Contains(cmd.CommandLower, word) ||
+				strings.Contains(cmd.DescriptionLower, word)) {
 				results = append(results, database.SearchResult{
 					Command: cmd,
 					Score:   0.6,
@@ -419,6 +419,6 @@ func (sr *SearchRecovery) partialMatchSearch(query string, db *database.Database
 			}
 		}
 	}
-	
+
 	return results, nil
 }

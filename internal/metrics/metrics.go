@@ -1,3 +1,25 @@
+// Package metrics provides comprehensive performance monitoring and metrics collection.
+//
+// This package implements a complete metrics system including:
+//   - Counters for monotonically increasing values
+//   - Gauges for values that can go up and down
+//   - Histograms for tracking value distributions
+//   - Timers for measuring operation durations
+//   - System metrics collection (memory, GC, goroutines)
+//   - Thread-safe operations with atomic operations and mutexes
+//
+// The MetricsCollector provides a centralized way to manage all metrics,
+// while individual metric types can be used independently.
+//
+// Example usage:
+//
+//	collector := NewMetricsCollector()
+//	counter := collector.Counter("requests_total", map[string]string{"method": "GET"})
+//	counter.Inc()
+//
+//	timer := collector.Timer("request_duration", nil)
+//	defer timer.Time()()
+//	// ... perform operation
 package metrics
 
 import (
@@ -20,12 +42,12 @@ const (
 
 // Metric represents a single metric with metadata
 type Metric struct {
-	Name        string      `json:"name"`
-	Type        MetricType  `json:"type"`
-	Value       float64     `json:"value"`
-	Unit        string      `json:"unit"`
-	Description string      `json:"description"`
-	Timestamp   time.Time   `json:"timestamp"`
+	Name        string            `json:"name"`
+	Type        MetricType        `json:"type"`
+	Value       float64           `json:"value"`
+	Unit        string            `json:"unit"`
+	Description string            `json:"description"`
+	Timestamp   time.Time         `json:"timestamp"`
 	Tags        map[string]string `json:"tags,omitempty"`
 }
 
@@ -136,10 +158,10 @@ func NewHistogramWithBuckets(name string, buckets []float64, tags map[string]str
 func (h *Histogram) Observe(value float64) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	
+
 	h.sum += value
 	h.count++
-	
+
 	// Find the appropriate bucket
 	for i, bucket := range h.buckets {
 		if value <= bucket {
@@ -147,7 +169,7 @@ func (h *Histogram) Observe(value float64) {
 			return
 		}
 	}
-	
+
 	// Value is larger than all buckets, put in overflow bucket
 	h.counts[len(h.buckets)]++
 }
@@ -180,14 +202,14 @@ func (h *Histogram) Mean() float64 {
 func (h *Histogram) Percentile(p float64) float64 {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	
+
 	if h.count == 0 {
 		return 0
 	}
-	
+
 	target := int64(float64(h.count) * p / 100.0)
 	cumulative := int64(0)
-	
+
 	for i, count := range h.counts {
 		cumulative += count
 		if cumulative >= target {
@@ -198,7 +220,7 @@ func (h *Histogram) Percentile(p float64) float64 {
 			return h.buckets[len(h.buckets)-1]
 		}
 	}
-	
+
 	return 0
 }
 
@@ -240,12 +262,12 @@ func (t *Timer) Histogram() *Histogram {
 
 // MetricsCollector collects and manages metrics
 type MetricsCollector struct {
-	mu        sync.RWMutex
-	counters  map[string]*Counter
-	gauges    map[string]*Gauge
+	mu         sync.RWMutex
+	counters   map[string]*Counter
+	gauges     map[string]*Gauge
 	histograms map[string]*Histogram
-	timers    map[string]*Timer
-	startTime time.Time
+	timers     map[string]*Timer
+	startTime  time.Time
 }
 
 // NewMetricsCollector creates a new metrics collector
@@ -262,22 +284,22 @@ func NewMetricsCollector() *MetricsCollector {
 // Counter gets or creates a counter
 func (mc *MetricsCollector) Counter(name string, tags map[string]string) *Counter {
 	key := mc.metricKey(name, tags)
-	
+
 	mc.mu.RLock()
 	if counter, exists := mc.counters[key]; exists {
 		mc.mu.RUnlock()
 		return counter
 	}
 	mc.mu.RUnlock()
-	
+
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	
+
 	// Double-check after acquiring write lock
 	if counter, exists := mc.counters[key]; exists {
 		return counter
 	}
-	
+
 	counter := NewCounter(name, tags)
 	mc.counters[key] = counter
 	return counter
@@ -286,21 +308,21 @@ func (mc *MetricsCollector) Counter(name string, tags map[string]string) *Counte
 // Gauge gets or creates a gauge
 func (mc *MetricsCollector) Gauge(name string, tags map[string]string) *Gauge {
 	key := mc.metricKey(name, tags)
-	
+
 	mc.mu.RLock()
 	if gauge, exists := mc.gauges[key]; exists {
 		mc.mu.RUnlock()
 		return gauge
 	}
 	mc.mu.RUnlock()
-	
+
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	
+
 	if gauge, exists := mc.gauges[key]; exists {
 		return gauge
 	}
-	
+
 	gauge := NewGauge(name, tags)
 	mc.gauges[key] = gauge
 	return gauge
@@ -309,21 +331,21 @@ func (mc *MetricsCollector) Gauge(name string, tags map[string]string) *Gauge {
 // Histogram gets or creates a histogram
 func (mc *MetricsCollector) Histogram(name string, tags map[string]string) *Histogram {
 	key := mc.metricKey(name, tags)
-	
+
 	mc.mu.RLock()
 	if histogram, exists := mc.histograms[key]; exists {
 		mc.mu.RUnlock()
 		return histogram
 	}
 	mc.mu.RUnlock()
-	
+
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	
+
 	if histogram, exists := mc.histograms[key]; exists {
 		return histogram
 	}
-	
+
 	histogram := NewHistogram(name, tags)
 	mc.histograms[key] = histogram
 	return histogram
@@ -332,21 +354,21 @@ func (mc *MetricsCollector) Histogram(name string, tags map[string]string) *Hist
 // Timer gets or creates a timer
 func (mc *MetricsCollector) Timer(name string, tags map[string]string) *Timer {
 	key := mc.metricKey(name, tags)
-	
+
 	mc.mu.RLock()
 	if timer, exists := mc.timers[key]; exists {
 		mc.mu.RUnlock()
 		return timer
 	}
 	mc.mu.RUnlock()
-	
+
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	
+
 	if timer, exists := mc.timers[key]; exists {
 		return timer
 	}
-	
+
 	timer := NewTimer(name, tags)
 	mc.timers[key] = timer
 	return timer
@@ -356,10 +378,10 @@ func (mc *MetricsCollector) Timer(name string, tags map[string]string) *Timer {
 func (mc *MetricsCollector) GetAllMetrics() []Metric {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
-	
+
 	var metrics []Metric
 	now := time.Now()
-	
+
 	// Add counters
 	for _, counter := range mc.counters {
 		metrics = append(metrics, Metric{
@@ -371,7 +393,7 @@ func (mc *MetricsCollector) GetAllMetrics() []Metric {
 			Tags:      counter.tags,
 		})
 	}
-	
+
 	// Add gauges
 	for _, gauge := range mc.gauges {
 		metrics = append(metrics, Metric{
@@ -383,7 +405,7 @@ func (mc *MetricsCollector) GetAllMetrics() []Metric {
 			Tags:      gauge.tags,
 		})
 	}
-	
+
 	// Add histograms
 	for _, histogram := range mc.histograms {
 		metrics = append(metrics, Metric{
@@ -394,7 +416,7 @@ func (mc *MetricsCollector) GetAllMetrics() []Metric {
 			Timestamp: now,
 			Tags:      histogram.tags,
 		})
-		
+
 		metrics = append(metrics, Metric{
 			Name:      histogram.name + "_sum",
 			Type:      MetricTypeHistogram,
@@ -403,7 +425,7 @@ func (mc *MetricsCollector) GetAllMetrics() []Metric {
 			Timestamp: now,
 			Tags:      histogram.tags,
 		})
-		
+
 		metrics = append(metrics, Metric{
 			Name:      histogram.name + "_mean",
 			Type:      MetricTypeHistogram,
@@ -412,7 +434,7 @@ func (mc *MetricsCollector) GetAllMetrics() []Metric {
 			Timestamp: now,
 			Tags:      histogram.tags,
 		})
-		
+
 		// Add percentiles
 		for _, p := range []float64{50, 90, 95, 99} {
 			metrics = append(metrics, Metric{
@@ -425,7 +447,7 @@ func (mc *MetricsCollector) GetAllMetrics() []Metric {
 			})
 		}
 	}
-	
+
 	return metrics
 }
 
@@ -433,57 +455,57 @@ func (mc *MetricsCollector) GetAllMetrics() []Metric {
 func (mc *MetricsCollector) GetSystemMetrics() []Metric {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	
+
 	now := time.Now()
 	uptime := now.Sub(mc.startTime)
-	
+
 	return []Metric{
 		{
-			Name:      "system_memory_alloc",
-			Type:      MetricTypeGauge,
-			Value:     float64(m.Alloc),
-			Unit:      "bytes",
-			Timestamp: now,
+			Name:        "system_memory_alloc",
+			Type:        MetricTypeGauge,
+			Value:       float64(m.Alloc),
+			Unit:        "bytes",
+			Timestamp:   now,
 			Description: "Bytes allocated and still in use",
 		},
 		{
-			Name:      "system_memory_total_alloc",
-			Type:      MetricTypeCounter,
-			Value:     float64(m.TotalAlloc),
-			Unit:      "bytes",
-			Timestamp: now,
+			Name:        "system_memory_total_alloc",
+			Type:        MetricTypeCounter,
+			Value:       float64(m.TotalAlloc),
+			Unit:        "bytes",
+			Timestamp:   now,
 			Description: "Cumulative bytes allocated",
 		},
 		{
-			Name:      "system_memory_sys",
-			Type:      MetricTypeGauge,
-			Value:     float64(m.Sys),
-			Unit:      "bytes",
-			Timestamp: now,
+			Name:        "system_memory_sys",
+			Type:        MetricTypeGauge,
+			Value:       float64(m.Sys),
+			Unit:        "bytes",
+			Timestamp:   now,
 			Description: "Total bytes obtained from OS",
 		},
 		{
-			Name:      "system_gc_runs",
-			Type:      MetricTypeCounter,
-			Value:     float64(m.NumGC),
-			Unit:      "count",
-			Timestamp: now,
+			Name:        "system_gc_runs",
+			Type:        MetricTypeCounter,
+			Value:       float64(m.NumGC),
+			Unit:        "count",
+			Timestamp:   now,
 			Description: "Number of GC runs",
 		},
 		{
-			Name:      "system_goroutines",
-			Type:      MetricTypeGauge,
-			Value:     float64(runtime.NumGoroutine()),
-			Unit:      "count",
-			Timestamp: now,
+			Name:        "system_goroutines",
+			Type:        MetricTypeGauge,
+			Value:       float64(runtime.NumGoroutine()),
+			Unit:        "count",
+			Timestamp:   now,
 			Description: "Number of goroutines",
 		},
 		{
-			Name:      "system_uptime",
-			Type:      MetricTypeGauge,
-			Value:     uptime.Seconds(),
-			Unit:      "seconds",
-			Timestamp: now,
+			Name:        "system_uptime",
+			Type:        MetricTypeGauge,
+			Value:       uptime.Seconds(),
+			Unit:        "seconds",
+			Timestamp:   now,
 			Description: "Application uptime",
 		},
 	}
@@ -493,7 +515,7 @@ func (mc *MetricsCollector) GetSystemMetrics() []Metric {
 func (mc *MetricsCollector) Reset() {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	
+
 	mc.counters = make(map[string]*Counter)
 	mc.gauges = make(map[string]*Gauge)
 	mc.histograms = make(map[string]*Histogram)
@@ -506,7 +528,7 @@ func (mc *MetricsCollector) metricKey(name string, tags map[string]string) strin
 	if len(tags) == 0 {
 		return name
 	}
-	
+
 	key := name
 	for k, v := range tags {
 		key += ":" + k + "=" + v

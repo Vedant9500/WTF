@@ -98,7 +98,7 @@ func setupUnix(aliasName, execPath string) error {
 			if !containsAlias(string(existingContent), aliasName) {
 				file, err := os.OpenFile(shellFile, os.O_APPEND|os.O_WRONLY, 0644)
 				if err == nil {
-					file.WriteString(content)
+					_, _ = file.WriteString(content)
 					file.Close()
 					fmt.Printf("✅ Added alias to %s\n", shellFile)
 				}

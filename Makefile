@@ -21,7 +21,7 @@ build-all:
 
 # Default target
 .PHONY: all
-all: test build
+all: quality build
 
 # Build the application
 .PHONY: build
@@ -71,6 +71,43 @@ run:
 test:
 	@echo "Running tests..."
 	go test ./...
+
+# Code quality checks
+.PHONY: lint
+lint:
+	@echo "Running linter..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run; \
+	else \
+		echo "golangci-lint not found. Please install it: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+		exit 1; \
+	fi
+
+# Format code
+.PHONY: fmt
+fmt:
+	@echo "Formatting code..."
+	go fmt ./...
+
+# Check code formatting
+.PHONY: fmt-check
+fmt-check:
+	@echo "Checking code formatting..."
+	@if [ -n "$$(gofmt -l .)" ]; then \
+		echo "Code is not formatted. Run 'make fmt' to fix."; \
+		gofmt -l .; \
+		exit 1; \
+	fi
+
+# Run all quality checks
+.PHONY: quality
+quality: fmt-check lint test
+	@echo "All quality checks passed!"
+
+# Pre-commit checks
+.PHONY: pre-commit
+pre-commit: fmt lint test
+	@echo "Pre-commit checks completed successfully!"
 
 # Test with coverage
 .PHONY: test-coverage
@@ -159,6 +196,13 @@ help:
 	@echo "  test-verbose    - Run tests with verbose output"
 	@echo "  benchmark       - Run performance benchmarks"
 	@echo "  dev-search      - Quick search (use: make dev-search QUERY='your query')"
+	@echo ""
+	@echo "Code Quality:"
+	@echo "  fmt             - Format code"
+	@echo "  fmt-check       - Check code formatting"
+	@echo "  lint            - Run linter"
+	@echo "  quality         - Run all quality checks (format, lint, test)"
+	@echo "  pre-commit      - Run pre-commit checks"
 	@echo ""
 	@echo "Release:"
 	@echo "  build-all       - Build for all platforms (Linux, macOS, Windows)"

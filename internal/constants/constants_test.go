@@ -24,7 +24,7 @@ func TestSearchScoringConstants(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.value < tc.minValue || tc.value > tc.maxValue {
-				t.Errorf("%s = %f, expected between %f and %f", 
+				t.Errorf("%s = %f, expected between %f and %f",
 					tc.name, tc.value, tc.minValue, tc.maxValue)
 			}
 		})
@@ -49,7 +49,7 @@ func TestIntentBoostConstants(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.value < tc.minValue || tc.value > tc.maxValue {
-				t.Errorf("%s = %f, expected between %f and %f", 
+				t.Errorf("%s = %f, expected between %f and %f",
 					tc.name, tc.value, tc.minValue, tc.maxValue)
 			}
 		})
@@ -75,7 +75,7 @@ func TestCategoryBoostConstants(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.value < tc.minValue || tc.value > tc.maxValue {
-				t.Errorf("%s = %f, expected between %f and %f", 
+				t.Errorf("%s = %f, expected between %f and %f",
 					tc.name, tc.value, tc.minValue, tc.maxValue)
 			}
 		})
@@ -167,34 +167,34 @@ func TestNLPConstants(t *testing.T) {
 
 func TestConstantRelationships(t *testing.T) {
 	// Test that constants have logical relationships
-	
+
 	// Direct command match should be higher than regular command match
 	if ScoreDirectCommandMatch <= ScoreCommandMatch {
-		t.Errorf("ScoreDirectCommandMatch (%f) should be > ScoreCommandMatch (%f)", 
+		t.Errorf("ScoreDirectCommandMatch (%f) should be > ScoreCommandMatch (%f)",
 			ScoreDirectCommandMatch, ScoreCommandMatch)
 	}
 
 	// Command match should be higher than description match
 	if ScoreCommandMatch <= ScoreDescriptionMatch {
-		t.Errorf("ScoreCommandMatch (%f) should be > ScoreDescriptionMatch (%f)", 
+		t.Errorf("ScoreCommandMatch (%f) should be > ScoreDescriptionMatch (%f)",
 			ScoreCommandMatch, ScoreDescriptionMatch)
 	}
 
 	// Exact keyword match should be higher than partial match
 	if ScoreKeywordExactMatch <= ScoreKeywordPartialMatch {
-		t.Errorf("ScoreKeywordExactMatch (%f) should be > ScoreKeywordPartialMatch (%f)", 
+		t.Errorf("ScoreKeywordExactMatch (%f) should be > ScoreKeywordPartialMatch (%f)",
 			ScoreKeywordExactMatch, ScoreKeywordPartialMatch)
 	}
 
 	// Intent boost should be higher than action boost
 	if IntentBoostMultiplier <= ActionBoostExact {
-		t.Errorf("IntentBoostMultiplier (%f) should be > ActionBoostExact (%f)", 
+		t.Errorf("IntentBoostMultiplier (%f) should be > ActionBoostExact (%f)",
 			IntentBoostMultiplier, ActionBoostExact)
 	}
 
 	// Action boost exact should be higher than description boost
 	if ActionBoostExact <= ActionBoostDescription {
-		t.Errorf("ActionBoostExact (%f) should be > ActionBoostDescription (%f)", 
+		t.Errorf("ActionBoostExact (%f) should be > ActionBoostDescription (%f)",
 			ActionBoostExact, ActionBoostDescription)
 	}
 }

@@ -60,7 +60,7 @@ func readInput(prompt string) string {
 	input, err := reader.ReadString('\n')
 	if err != nil {
 		// Handle EOF or other errors gracefully
-		fmt.Println("\nOperation cancelled.")
+		fmt.Println("\nOperation canceled.")
 		os.Exit(0)
 	}
 	return strings.TrimSpace(input)
@@ -76,7 +76,7 @@ func readChoice(prompt string, options []string) int {
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		choice := readInput("Enter choice (number): ")
 		if choice == "" {
-			fmt.Println("Operation cancelled.")
+			fmt.Println("Operation canceled.")
 			os.Exit(0)
 		}
 
@@ -99,7 +99,7 @@ func readYesNo(prompt string) bool {
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		response := strings.ToLower(readInput(prompt + " (y/n): "))
 		if response == "" {
-			fmt.Println("Operation cancelled.")
+			fmt.Println("Operation canceled.")
 			os.Exit(0)
 		}
 		if response == "y" || response == "yes" {

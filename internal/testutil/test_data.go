@@ -401,14 +401,14 @@ func (tds *TestDataSets) GetEdgeCaseCommands() []database.Command {
 // GetAllTestCommands returns all test commands combined
 func (tds *TestDataSets) GetAllTestCommands() []database.Command {
 	var allCommands []database.Command
-	
+
 	allCommands = append(allCommands, tds.GetGitCommands()...)
 	allCommands = append(allCommands, tds.GetFileOperationCommands()...)
 	allCommands = append(allCommands, tds.GetArchiveCommands()...)
 	allCommands = append(allCommands, tds.GetNetworkCommands()...)
 	allCommands = append(allCommands, tds.GetPipelineCommands()...)
 	allCommands = append(allCommands, tds.GetWindowsCommands()...)
-	
+
 	return allCommands
 }
 
@@ -438,14 +438,14 @@ func (tds *TestDataSets) GetTestCommandsByCategory(category string) []database.C
 func (tds *TestDataSets) GetTestCommandsByPlatform(platform string) []database.Command {
 	allCommands := tds.GetAllTestCommands()
 	var filteredCommands []database.Command
-	
+
 	for _, cmd := range allCommands {
 		if len(cmd.Platform) == 0 {
 			// Commands with no platform specified work on all platforms
 			filteredCommands = append(filteredCommands, cmd)
 			continue
 		}
-		
+
 		for _, p := range cmd.Platform {
 			if p == platform {
 				filteredCommands = append(filteredCommands, cmd)
@@ -453,6 +453,6 @@ func (tds *TestDataSets) GetTestCommandsByPlatform(platform string) []database.C
 			}
 		}
 	}
-	
+
 	return filteredCommands
 }

@@ -85,131 +85,176 @@ func (a *Analyzer) AnalyzeDirectory(dir string) (*Context, error) {
 		return ctx, nil // Return what we have, don't fail
 	}
 
+	// Process each file to detect project types
 	for _, file := range files {
-		name := file.Name()
-
-		switch {
-		// Git repository
-		case name == ".git":
-			ctx.HasGit = true
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeGit)
-
-		// Docker
-		case name == "Dockerfile" || name == "docker-compose.yml" || name == "docker-compose.yaml":
-			ctx.HasDocker = true
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeDocker)
-
-		// Node.js
-		case name == "package.json":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeNode)
-			if ctx.Language == "" {
-				ctx.Language = "javascript"
-			}
-			// Extract npm scripts
-			a.extractPackageScripts(filepath.Join(dir, name), ctx)
-
-		case name == "node_modules" || name == "yarn.lock" || name == "pnpm-lock.yaml":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeNode)
-			if ctx.Language == "" {
-				ctx.Language = "javascript"
-			}
-
-		// Webpack/Vite
-		case name == "webpack.config.js" || name == "webpack.config.ts":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeWebpack)
-		case name == "vite.config.js" || name == "vite.config.ts":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeVite)
-
-		// Python
-		case name == "requirements.txt" || name == "setup.py" || name == "pyproject.toml" || name == "Pipfile":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypePython)
-			if ctx.Language == "" {
-				ctx.Language = "python"
-			}
-
-		// Go
-		case name == "go.mod" || name == "go.sum":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeGo)
-			if ctx.Language == "" {
-				ctx.Language = "go"
-			}
-
-		// Rust
-		case name == "Cargo.toml" || name == "Cargo.lock":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeRust)
-			if ctx.Language == "" {
-				ctx.Language = "rust"
-			}
-
-		// Java/Maven/Gradle
-		case name == "pom.xml":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeJava)
-			ctx.BuildSystem = "maven"
-			if ctx.Language == "" {
-				ctx.Language = "java"
-			}
-		case name == "build.gradle" || name == "build.gradle.kts":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeJava)
-			ctx.BuildSystem = "gradle"
-			if ctx.Language == "" {
-				ctx.Language = "java"
-			}
-
-		// .NET
-		case strings.HasSuffix(name, ".csproj") || strings.HasSuffix(name, ".vbproj") || strings.HasSuffix(name, ".fsproj"):
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeDotNet)
-			if ctx.Language == "" {
-				ctx.Language = "csharp"
-			}
-		case name == "global.json" || name == "nuget.config":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeDotNet)
-
-		// Ruby
-		case name == "Gemfile" || name == "Rakefile":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeRuby)
-			if ctx.Language == "" {
-				ctx.Language = "ruby"
-			}
-
-		// PHP
-		case name == "composer.json" || name == "composer.lock":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypePHP)
-			if ctx.Language == "" {
-				ctx.Language = "php"
-			}
-
-		// C/C++
-		case name == "CMakeLists.txt":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeC)
-			ctx.BuildSystem = "cmake"
-			if ctx.Language == "" {
-				ctx.Language = "c"
-			}
-		case name == "Makefile" || name == "makefile":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeMake)
-			// Extract make targets
-			a.extractMakeTargets(filepath.Join(dir, name), ctx)
-
-		// Kubernetes
-		case strings.Contains(name, "k8s") || strings.Contains(name, "kubernetes"):
-			if strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml") {
-				ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeKubernetes)
-			}
-		case name == "kustomization.yaml" || name == "kustomization.yml":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeKubernetes)
-
-		// Terraform
-		case strings.HasSuffix(name, ".tf") || strings.HasSuffix(name, ".tfvars"):
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeTerraform)
-
-		// Ansible
-		case name == "ansible.cfg" || name == "hosts" || name == "inventory":
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeAnsible)
-		case strings.Contains(name, "playbook") && (strings.HasSuffix(name, ".yml") || strings.HasSuffix(name, ".yaml")):
-			ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeAnsible)
-		}
+		a.analyzeFile(file.Name(), dir, ctx)
 	}
 
+	// Finalize context
+	a.finalizeContext(ctx)
+
+	return ctx, nil
+}
+
+// analyzeFile processes a single file to detect project indicators
+func (a *Analyzer) analyzeFile(filename, dir string, ctx *Context) {
+	// Check different categories of files
+	a.checkVersionControl(filename, ctx)
+	a.checkContainerization(filename, ctx)
+	a.checkJavaScript(filename, dir, ctx)
+	a.checkPython(filename, ctx)
+	a.checkGo(filename, ctx)
+	a.checkRust(filename, ctx)
+	a.checkJava(filename, ctx)
+	a.checkDotNet(filename, ctx)
+	a.checkRuby(filename, ctx)
+	a.checkPHP(filename, ctx)
+	a.checkCCpp(filename, dir, ctx)
+	a.checkInfrastructure(filename, ctx)
+}
+
+// checkVersionControl detects version control systems
+func (a *Analyzer) checkVersionControl(filename string, ctx *Context) {
+	if filename == ".git" {
+		ctx.HasGit = true
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeGit)
+	}
+}
+
+// checkContainerization detects containerization tools
+func (a *Analyzer) checkContainerization(filename string, ctx *Context) {
+	if filename == "Dockerfile" || filename == "docker-compose.yml" || filename == "docker-compose.yaml" {
+		ctx.HasDocker = true
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeDocker)
+	}
+}
+
+// checkJavaScript detects JavaScript/Node.js projects
+func (a *Analyzer) checkJavaScript(filename, dir string, ctx *Context) {
+	switch filename {
+	case "package.json":
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeNode)
+		a.setLanguageIfEmpty(ctx, "javascript")
+		a.extractPackageScripts(filepath.Join(dir, filename), ctx)
+	case "node_modules", "yarn.lock", "pnpm-lock.yaml":
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeNode)
+		a.setLanguageIfEmpty(ctx, "javascript")
+	case "webpack.config.js", "webpack.config.ts":
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeWebpack)
+	case "vite.config.js", "vite.config.ts":
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeVite)
+	}
+}
+
+// checkPython detects Python projects
+func (a *Analyzer) checkPython(filename string, ctx *Context) {
+	if filename == "requirements.txt" || filename == "setup.py" || filename == "pyproject.toml" || filename == "Pipfile" {
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypePython)
+		a.setLanguageIfEmpty(ctx, "python")
+	}
+}
+
+// checkGo detects Go projects
+func (a *Analyzer) checkGo(filename string, ctx *Context) {
+	if filename == "go.mod" || filename == "go.sum" {
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeGo)
+		a.setLanguageIfEmpty(ctx, "go")
+	}
+}
+
+// checkRust detects Rust projects
+func (a *Analyzer) checkRust(filename string, ctx *Context) {
+	if filename == "Cargo.toml" || filename == "Cargo.lock" {
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeRust)
+		a.setLanguageIfEmpty(ctx, "rust")
+	}
+}
+
+// checkJava detects Java projects and build systems
+func (a *Analyzer) checkJava(filename string, ctx *Context) {
+	switch filename {
+	case "pom.xml":
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeJava)
+		ctx.BuildSystem = "maven"
+		a.setLanguageIfEmpty(ctx, "java")
+	case "build.gradle", "build.gradle.kts":
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeJava)
+		ctx.BuildSystem = "gradle"
+		a.setLanguageIfEmpty(ctx, "java")
+	}
+}
+
+// checkDotNet detects .NET projects
+func (a *Analyzer) checkDotNet(filename string, ctx *Context) {
+	if strings.HasSuffix(filename, ".csproj") || strings.HasSuffix(filename, ".vbproj") || strings.HasSuffix(filename, ".fsproj") {
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeDotNet)
+		a.setLanguageIfEmpty(ctx, "csharp")
+	} else if filename == "global.json" || filename == "nuget.config" {
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeDotNet)
+	}
+}
+
+// checkRuby detects Ruby projects
+func (a *Analyzer) checkRuby(filename string, ctx *Context) {
+	if filename == "Gemfile" || filename == "Rakefile" {
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeRuby)
+		a.setLanguageIfEmpty(ctx, "ruby")
+	}
+}
+
+// checkPHP detects PHP projects
+func (a *Analyzer) checkPHP(filename string, ctx *Context) {
+	if filename == "composer.json" || filename == "composer.lock" {
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypePHP)
+		a.setLanguageIfEmpty(ctx, "php")
+	}
+}
+
+// checkCCpp detects C/C++ projects and build systems
+func (a *Analyzer) checkCCpp(filename, dir string, ctx *Context) {
+	switch filename {
+	case "CMakeLists.txt":
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeC)
+		ctx.BuildSystem = "cmake"
+		a.setLanguageIfEmpty(ctx, "c")
+	case "Makefile", "makefile":
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeMake)
+		a.extractMakeTargets(filepath.Join(dir, filename), ctx)
+	}
+}
+
+// checkInfrastructure detects infrastructure and DevOps tools
+func (a *Analyzer) checkInfrastructure(filename string, ctx *Context) {
+	// Kubernetes
+	if (strings.Contains(filename, "k8s") || strings.Contains(filename, "kubernetes")) &&
+		(strings.HasSuffix(filename, ".yaml") || strings.HasSuffix(filename, ".yml")) {
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeKubernetes)
+	} else if filename == "kustomization.yaml" || filename == "kustomization.yml" {
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeKubernetes)
+	}
+
+	// Terraform
+	if strings.HasSuffix(filename, ".tf") || strings.HasSuffix(filename, ".tfvars") {
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeTerraform)
+	}
+
+	// Ansible
+	if filename == "ansible.cfg" || filename == "hosts" || filename == "inventory" {
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeAnsible)
+	} else if strings.Contains(filename, "playbook") && (strings.HasSuffix(filename, ".yml") || strings.HasSuffix(filename, ".yaml")) {
+		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeAnsible)
+	}
+}
+
+// setLanguageIfEmpty sets the language if it's not already set
+func (a *Analyzer) setLanguageIfEmpty(ctx *Context, language string) {
+	if ctx.Language == "" {
+		ctx.Language = language
+	}
+}
+
+// finalizeContext performs final processing on the context
+func (a *Analyzer) finalizeContext(ctx *Context) {
 	// Remove duplicates from project types
 	ctx.ProjectTypes = removeDuplicateProjectTypes(ctx.ProjectTypes)
 
@@ -217,8 +262,6 @@ func (a *Analyzer) AnalyzeDirectory(dir string) (*Context, error) {
 	if len(ctx.ProjectTypes) == 0 {
 		ctx.ProjectTypes = append(ctx.ProjectTypes, ProjectTypeGeneric)
 	}
-
-	return ctx, nil
 }
 
 // GetContextBoosts returns keyword boosts based on the detected context

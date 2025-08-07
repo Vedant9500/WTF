@@ -312,7 +312,7 @@ func TestValidateLimitErrorMessages(t *testing.T) {
 
 func TestValidationWithConstants(t *testing.T) {
 	// Test that validation uses constants correctly
-	
+
 	// Test max query length
 	maxLengthQuery := strings.Repeat("a", constants.MaxQueryLength)
 	result, err := ValidateQuery(maxLengthQuery)
@@ -324,18 +324,18 @@ func TestValidationWithConstants(t *testing.T) {
 	}
 
 	// Test default search limit
-	result_limit, err := ValidateLimit(0)
+	resultLimit, err := ValidateLimit(0)
 	if err != nil {
 		t.Errorf("Expected no error for zero limit, got: %v", err)
 	}
-	if result_limit != constants.DefaultSearchLimit {
-		t.Errorf("Expected default limit %d, got %d", constants.DefaultSearchLimit, result_limit)
+	if resultLimit != constants.DefaultSearchLimit {
+		t.Errorf("Expected default limit %d, got %d", constants.DefaultSearchLimit, resultLimit)
 	}
 }
 
 func TestSanitizeFilenameEdgeCases(t *testing.T) {
 	// Test edge cases for filename sanitization
-	
+
 	testCases := []struct {
 		name     string
 		input    string
@@ -390,7 +390,7 @@ func TestSanitizeFilenameEdgeCases(t *testing.T) {
 
 func TestValidationIntegration(t *testing.T) {
 	// Test validation functions working together
-	
+
 	// Valid query and limit
 	query, err := ValidateQuery("git commit")
 	if err != nil {
@@ -420,16 +420,16 @@ func TestValidationIntegration(t *testing.T) {
 
 func TestValidationPerformance(t *testing.T) {
 	// Test that validation functions perform reasonably with large inputs
-	
+
 	// Large but valid query
 	largeQuery := strings.Repeat("word ", constants.MaxQueryLength/5)
 	largeQuery = largeQuery[:constants.MaxQueryLength] // Ensure exact max length
-	
+
 	result, err := ValidateQuery(largeQuery)
 	if err != nil {
 		t.Errorf("Expected no error for large valid query, got: %v", err)
 	}
-	
+
 	if len(result) > constants.MaxQueryLength {
 		t.Errorf("Result query too long: %d characters", len(result))
 	}
@@ -437,7 +437,7 @@ func TestValidationPerformance(t *testing.T) {
 	// Large filename
 	largeFilename := strings.Repeat("file", 100) + ".txt"
 	sanitized := SanitizeFilename(largeFilename)
-	
+
 	if len(sanitized) > 255 {
 		t.Errorf("Sanitized filename too long: %d characters", len(sanitized))
 	}

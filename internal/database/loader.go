@@ -9,7 +9,25 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// LoadDatabase loads commands from a YAML file
+// LoadDatabase loads commands from a YAML file and returns a populated Database.
+//
+// This function reads a YAML file containing an array of Command objects,
+// parses the YAML content, and populates performance-optimized cache fields
+// for faster search operations. The cache fields include lowercased versions
+// of all searchable text fields.
+//
+// Parameters:
+//   - filename: Path to the YAML file containing command definitions
+//
+// Returns:
+//   - *Database: Populated database with all commands and cache fields
+//   - error: Database loading error with user-friendly context
+//
+// The function handles various error conditions:
+//   - File not found errors
+//   - Permission denied errors
+//   - YAML parsing errors
+//   - Invalid command structure errors
 func LoadDatabase(filename string) (*Database, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -40,7 +58,25 @@ func LoadDatabase(filename string) (*Database, error) {
 	}, nil
 }
 
-// LoadDatabaseWithPersonal loads both main and personal database files
+// LoadDatabaseWithPersonal loads both main and personal database files and merges them.
+//
+// This function loads the main command database and optionally merges it with
+// a personal database file containing user-specific commands. The personal
+// database is optional - if it doesn't exist, only the main database is loaded.
+//
+// Parameters:
+//   - mainDBPath: Path to the main command database file (required)
+//   - personalDBPath: Path to the personal command database file (optional)
+//
+// Returns:
+//   - *Database: Combined database with commands from both files
+//   - error: Loading error if the main database fails to load
+//
+// Behavior:
+//   - Main database loading failure results in an error
+//   - Personal database not found is silently ignored
+//   - Personal database parsing errors are reported
+//   - Commands from personal database are appended to main database commands
 func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, error) {
 	// Load main database
 	mainDB, err := LoadDatabase(mainDBPath)
@@ -81,7 +117,10 @@ func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, err
 	}, nil
 }
 
-// Size returns the number of commands in the database
+// Size returns the total number of commands in the database.
+//
+// This method provides a quick way to get the count of all loaded commands,
+// which is useful for metrics, debugging, and capacity planning.
 func (db *Database) Size() int {
 	return len(db.Commands)
 }

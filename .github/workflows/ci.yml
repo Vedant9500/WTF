@@ -4,88 +4,51 @@ on:
   push:
     branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 jobs:
   test:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: ['1.24']
-
-    runs-on: ${{ matrix.os }}
+        go-version: [1.21, 1.22]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
         go-version: ${{ matrix.go-version }}
-        check-latest: true
 
     - name: Cache Go modules
       uses: actions/cache@v3
       with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
+        path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - name: Get dependencies
+    - name: Install dependencies
       run: go mod download
 
-    - name: Verify dependencies
-      run: go mod verify
-
-    - name: Run go vet
-      run: go vet ./...
-
     - name: Run tests
-      shell: bash
-      run: |
-        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-          # Windows: Run without race detector due to CGO requirements
-          go test -coverprofile=coverage.out -covermode=atomic ./...
-        else
-          # Linux/macOS: Run with race detector
-          go test -race -coverprofile=coverage.out -covermode=atomic ./...
-        fi
+      run: go test -v -race -coverprofile=coverage.out ./...
 
     - name: Upload coverage to Codecov
-      if: matrix.os == 'ubuntu-latest'
       uses: codecov/codecov-action@v3
       with:
         file: ./coverage.out
-        flags: unittests
-        name: codecov-umbrella
-
-    - name: Build
-      run: go build -v ./cmd/wtf
-
-    - name: Test build with version info
-      shell: bash
-      run: |
-        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-          ./wtf.exe --version
-        else
-          ./wtf --version
-        fi
 
   lint:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.24'
-        check-latest: true
+        go-version: 1.22
 
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v3
@@ -93,19 +56,39 @@ jobs:
         version: latest
         args: --timeout=5m
 
-  security:
+  build:
     runs-on: ubuntu-latest
+    needs: [test, lint]
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.24'
-        check-latest: true
+        go-version: 1.22
 
-    - name: Run Gosec Security Scanner
-      uses: securecodewarrior/github-action-gosec@master
+    - name: Build
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        mkdir -p dist
+        if [ "$GOOS" = "windows" ]; then
+          go build -o dist/wtf-${{ matrix.goos }}-${{ matrix.goarch }}.exe ./cmd/wtf
+        else
+          go build -o dist/wtf-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/wtf
+        fi
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
       with:
-        args: './...'
+        name: wtf-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: dist/

@@ -1,4 +1,14 @@
-// Package constants defines application-wide constants.
+// Package constants defines application-wide constants and configuration values.
+//
+// This package centralizes all constant values used throughout the WTF application
+// including:
+//   - Search scoring weights and multipliers
+//   - Default limits and thresholds
+//   - Cache configuration values
+//   - NLP processing parameters
+//   - File size and query length limits
+//
+// These constants are tuned for optimal search performance and user experience.
 package constants
 
 import "time"
@@ -34,28 +44,28 @@ const (
 	DefaultFuzzyThreshold = -30
 	DefaultMaxResults     = 5
 	DefaultHistorySize    = 100
-	
+
 	// Search algorithm constants
-	CrossPlatformPenalty     = 0.9
-	ResultsBufferMultiplier  = 3
-	FuzzySearchMultiplier    = 2
+	CrossPlatformPenalty    = 0.9
+	ResultsBufferMultiplier = 3
+	FuzzySearchMultiplier   = 2
 	MinWordLength           = 2
 	FuzzyScoreThreshold     = 0.5
 	FuzzyNormalizationBase  = 100.0
 	NicheBoostFactor        = 0.2
-	
+
 	// Word scoring constants
 	DirectCommandMatchScore = 15.0
-	CommandMatchScore      = 10.0
-	DomainSpecificScore    = 12.0
-	DescriptionMatchScore  = 6.0
-	KeywordExactScore      = 4.0
-	KeywordPartialScore    = 1.0
-	TagExactScore         = 5.0
-	TagPartialScore       = 2.0
-	
+	CommandMatchScore       = 10.0
+	DomainSpecificScore     = 12.0
+	DescriptionMatchScore   = 6.0
+	KeywordExactScore       = 4.0
+	KeywordPartialScore     = 1.0
+	TagExactScore           = 5.0
+	TagPartialScore         = 2.0
+
 	// Suggestion constants
-	DefaultMaxSuggestions  = 3
+	DefaultMaxSuggestions    = 3
 	FuzzySuggestionThreshold = -20
 )
 

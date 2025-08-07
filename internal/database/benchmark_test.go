@@ -9,7 +9,7 @@ import (
 // BenchmarkSearch benchmarks the basic search functionality
 func BenchmarkSearch(b *testing.B) {
 	db := createBenchmarkDatabase(1000) // 1000 commands for realistic testing
-	
+
 	queries := []string{
 		"git commit",
 		"find files",
@@ -20,10 +20,10 @@ func BenchmarkSearch(b *testing.B) {
 		"grep search",
 		"curl download",
 	}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		query := queries[i%len(queries)]
 		results := db.Search(query, 10)
@@ -34,7 +34,7 @@ func BenchmarkSearch(b *testing.B) {
 // BenchmarkSearchWithOptions benchmarks search with various options
 func BenchmarkSearchWithOptions(b *testing.B) {
 	db := createBenchmarkDatabase(1000)
-	
+
 	options := SearchOptions{
 		Limit:         10,
 		ContextBoosts: map[string]float64{"git": 2.0, "docker": 1.5},
@@ -42,10 +42,10 @@ func BenchmarkSearchWithOptions(b *testing.B) {
 		UseFuzzy:      false,
 		UseNLP:        false,
 	}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		results := db.SearchWithOptions("git commit", options)
 		_ = results
@@ -62,13 +62,13 @@ func BenchmarkCalculateScore(b *testing.B) {
 		DescriptionLower: "commit changes with message",
 		KeywordsLower:    []string{"git", "commit", "version-control"},
 	}
-	
+
 	queryWords := []string{"git", "commit"}
 	contextBoosts := map[string]float64{"git": 2.0}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		score := calculateScore(cmd, queryWords, contextBoosts)
 		_ = score
@@ -87,10 +87,10 @@ func BenchmarkCalculateWordScore(b *testing.B) {
 		KeywordsLower:    []string{"git", "commit", "version-control"},
 		TagsLower:        []string{"vcs", "development"},
 	}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		score := calculateWordScore("git", cmd)
 		_ = score
@@ -100,7 +100,7 @@ func BenchmarkCalculateWordScore(b *testing.B) {
 // BenchmarkStringOperations benchmarks string operations in hot paths
 func BenchmarkStringOperations(b *testing.B) {
 	text := "git commit -m 'initial commit'"
-	
+
 	b.Run("ToLower", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -108,7 +108,7 @@ func BenchmarkStringOperations(b *testing.B) {
 			_ = result
 		}
 	})
-	
+
 	b.Run("Fields", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -116,7 +116,7 @@ func BenchmarkStringOperations(b *testing.B) {
 			_ = result
 		}
 	})
-	
+
 	b.Run("Contains", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -129,7 +129,7 @@ func BenchmarkStringOperations(b *testing.B) {
 // BenchmarkMemoryAllocations benchmarks memory allocation patterns
 func BenchmarkMemoryAllocations(b *testing.B) {
 	db := createBenchmarkDatabase(100)
-	
+
 	b.Run("SearchResults", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -143,7 +143,7 @@ func BenchmarkMemoryAllocations(b *testing.B) {
 			_ = results
 		}
 	})
-	
+
 	b.Run("QueryWords", func(b *testing.B) {
 		query := "git commit -m message"
 		b.ReportAllocs()
@@ -157,13 +157,13 @@ func BenchmarkMemoryAllocations(b *testing.B) {
 // BenchmarkLargeDatabase benchmarks performance with large datasets
 func BenchmarkLargeDatabase(b *testing.B) {
 	sizes := []int{100, 500, 1000, 5000}
-	
+
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("Size%d", size), func(b *testing.B) {
 			db := createBenchmarkDatabase(size)
 			b.ResetTimer()
 			b.ReportAllocs()
-			
+
 			for i := 0; i < b.N; i++ {
 				results := db.Search("git commit", 10)
 				_ = results
@@ -179,10 +179,10 @@ func BenchmarkConcurrentSearch(b *testing.B) {
 		"git commit", "find files", "tar compress", "docker run",
 		"npm install", "mkdir directory", "grep search", "curl download",
 	}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	b.RunParallel(func(pb *testing.PB) {
 		i := 0
 		for pb.Next() {
@@ -197,7 +197,7 @@ func BenchmarkConcurrentSearch(b *testing.B) {
 // createBenchmarkDatabase creates a database with specified number of commands for benchmarking
 func createBenchmarkDatabase(size int) *Database {
 	commands := make([]Command, size)
-	
+
 	// Base command templates for realistic data
 	templates := []struct {
 		command     string
@@ -216,18 +216,18 @@ func createBenchmarkDatabase(size int) *Database {
 		{"ssh user@%s", "connect via SSH", []string{"ssh", "remote", "connect"}, []string{"network", "remote-access"}},
 		{"cp -r %s %s", "copy files recursively", []string{"cp", "copy", "files"}, []string{"filesystem", "file-operations"}},
 	}
-	
+
 	for i := 0; i < size; i++ {
 		template := templates[i%len(templates)]
 		suffix := fmt.Sprintf("item%d", i)
-		
+
 		cmd := Command{
 			Command:     fmt.Sprintf(template.command, suffix),
 			Description: template.description,
 			Keywords:    template.keywords,
 			Tags:        template.tags,
 		}
-		
+
 		// Pre-compute lowercased fields for performance
 		cmd.CommandLower = strings.ToLower(cmd.Command)
 		cmd.DescriptionLower = strings.ToLower(cmd.Description)
@@ -239,17 +239,17 @@ func createBenchmarkDatabase(size int) *Database {
 		for j, tag := range cmd.Tags {
 			cmd.TagsLower[j] = strings.ToLower(tag)
 		}
-		
+
 		commands[i] = cmd
 	}
-	
+
 	return &Database{Commands: commands}
 }
 
 // BenchmarkSearchResultsAllocation benchmarks different allocation strategies
 func BenchmarkSearchResultsAllocation(b *testing.B) {
 	db := createBenchmarkDatabase(1000)
-	
+
 	b.Run("PreAllocated", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -263,7 +263,7 @@ func BenchmarkSearchResultsAllocation(b *testing.B) {
 			_ = results
 		}
 	})
-	
+
 	b.Run("GrowingSlice", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -282,7 +282,7 @@ func BenchmarkSearchResultsAllocation(b *testing.B) {
 // BenchmarkMemoryProfile runs a memory-intensive search operation for profiling
 func BenchmarkMemoryProfile(b *testing.B) {
 	db := createBenchmarkDatabase(5000)
-	
+
 	queries := []string{
 		"git commit message",
 		"find text files recursively",
@@ -290,10 +290,10 @@ func BenchmarkMemoryProfile(b *testing.B) {
 		"docker container management",
 		"npm package installation",
 	}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		for _, query := range queries {
 			results := db.SearchWithOptions(query, SearchOptions{
@@ -310,7 +310,7 @@ func BenchmarkMemoryProfile(b *testing.B) {
 // BenchmarkOptimizedSearch benchmarks the optimized search functionality
 func BenchmarkOptimizedSearch(b *testing.B) {
 	db := createBenchmarkDatabase(1000)
-	
+
 	queries := []string{
 		"git commit",
 		"find files",
@@ -321,10 +321,10 @@ func BenchmarkOptimizedSearch(b *testing.B) {
 		"grep search",
 		"curl download",
 	}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		query := queries[i%len(queries)]
 		results := db.OptimizedSearch(query, 10)
@@ -336,7 +336,7 @@ func BenchmarkOptimizedSearch(b *testing.B) {
 func BenchmarkSearchComparison(b *testing.B) {
 	db := createBenchmarkDatabase(1000)
 	query := "git commit"
-	
+
 	b.Run("Original", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -344,7 +344,7 @@ func BenchmarkSearchComparison(b *testing.B) {
 			_ = results
 		}
 	})
-	
+
 	b.Run("Optimized", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -357,7 +357,7 @@ func BenchmarkSearchComparison(b *testing.B) {
 // BenchmarkQueryParsing compares query parsing methods
 func BenchmarkQueryParsing(b *testing.B) {
 	query := "git commit -m message"
-	
+
 	b.Run("StringsFields", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -365,7 +365,7 @@ func BenchmarkQueryParsing(b *testing.B) {
 			_ = words
 		}
 	})
-	
+
 	b.Run("OptimizedParsing", func(b *testing.B) {
 		words := make([]string, 0, 10)
 		b.ResetTimer()
@@ -391,7 +391,7 @@ func BenchmarkObjectPools(b *testing.B) {
 			_ = results
 		}
 	})
-	
+
 	b.Run("WithPool", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -409,12 +409,12 @@ func BenchmarkBatchSearch(b *testing.B) {
 	db := createBenchmarkDatabase(1000)
 	queries := []string{
 		"git commit",
-		"find files", 
+		"find files",
 		"tar compress",
 		"docker run",
 		"npm install",
 	}
-	
+
 	b.Run("Individual", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -424,7 +424,7 @@ func BenchmarkBatchSearch(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("Batch", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -438,7 +438,7 @@ func BenchmarkBatchSearch(b *testing.B) {
 func BenchmarkCachedSearch(b *testing.B) {
 	db := createBenchmarkDatabase(1000)
 	cachedDB := NewCachedDatabase(db)
-	
+
 	queries := []string{
 		"git commit",
 		"find files",
@@ -446,10 +446,10 @@ func BenchmarkCachedSearch(b *testing.B) {
 		"docker run",
 		"npm install",
 	}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		query := queries[i%len(queries)]
 		results := cachedDB.SearchWithCache(query, 10)
@@ -462,7 +462,7 @@ func BenchmarkCacheComparison(b *testing.B) {
 	db := createBenchmarkDatabase(1000)
 	cachedDB := NewCachedDatabase(db)
 	query := "git commit"
-	
+
 	b.Run("WithoutCache", func(b *testing.B) {
 		cachedDB.EnableCache(false)
 		b.ResetTimer()
@@ -472,7 +472,7 @@ func BenchmarkCacheComparison(b *testing.B) {
 			_ = results
 		}
 	})
-	
+
 	b.Run("WithCache", func(b *testing.B) {
 		cachedDB.EnableCache(true)
 		b.ResetTimer()
@@ -488,19 +488,19 @@ func BenchmarkCacheComparison(b *testing.B) {
 func BenchmarkCacheHitRatio(b *testing.B) {
 	db := createBenchmarkDatabase(1000)
 	cachedDB := NewCachedDatabase(db)
-	
+
 	// Queries with different repetition patterns
 	queries := []string{
 		"git commit", "git commit", "git commit", // High repetition
-		"find files", "find files",               // Medium repetition  
-		"tar compress",                           // Low repetition
+		"find files", "find files", // Medium repetition
+		"tar compress", // Low repetition
 		"docker run",
 		"npm install",
 	}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		query := queries[i%len(queries)]
 		results := cachedDB.SearchWithCache(query, 10)
@@ -512,11 +512,11 @@ func BenchmarkCacheHitRatio(b *testing.B) {
 func BenchmarkCacheMemoryUsage(b *testing.B) {
 	db := createBenchmarkDatabase(1000)
 	cachedDB := NewCachedDatabase(db)
-	
+
 	// Use many different queries to fill cache
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		query := fmt.Sprintf("query%d", i%100) // 100 different queries
 		results := cachedDB.SearchWithCache(query, 10)
@@ -528,7 +528,7 @@ func BenchmarkCacheMemoryUsage(b *testing.B) {
 func BenchmarkMonitoredSearch(b *testing.B) {
 	db := createBenchmarkDatabase(1000)
 	monitoredDB := NewMonitoredDatabase(db)
-	
+
 	queries := []string{
 		"git commit",
 		"find files",
@@ -536,10 +536,10 @@ func BenchmarkMonitoredSearch(b *testing.B) {
 		"docker run",
 		"npm install",
 	}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		query := queries[i%len(queries)]
 		results := monitoredDB.SearchWithMonitoring(query, 10)
@@ -553,7 +553,7 @@ func BenchmarkMonitoringOverhead(b *testing.B) {
 	cachedDB := NewCachedDatabase(db)
 	monitoredDB := NewMonitoredDatabase(db)
 	query := "git commit"
-	
+
 	b.Run("WithoutMonitoring", func(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
@@ -562,7 +562,7 @@ func BenchmarkMonitoringOverhead(b *testing.B) {
 			_ = results
 		}
 	})
-	
+
 	b.Run("WithMonitoring", func(b *testing.B) {
 		b.ResetTimer()
 		b.ReportAllocs()
@@ -577,15 +577,15 @@ func BenchmarkMonitoringOverhead(b *testing.B) {
 func BenchmarkPerformanceReport(b *testing.B) {
 	db := createBenchmarkDatabase(1000)
 	monitoredDB := NewMonitoredDatabase(db)
-	
+
 	// Generate some metrics
 	for i := 0; i < 100; i++ {
 		monitoredDB.SearchWithMonitoring("test query", 10)
 	}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		report := monitoredDB.GetPerformanceReport()
 		_ = report
@@ -597,12 +597,12 @@ func BenchmarkSearchAnalysis(b *testing.B) {
 	db := createBenchmarkDatabase(1000)
 	monitoredDB := NewMonitoredDatabase(db)
 	analyzer := NewSearchPerformanceAnalyzer(monitoredDB)
-	
+
 	queries := []string{"git commit", "find files", "tar compress"}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		query := queries[i%len(queries)]
 		result := analyzer.AnalyzeQuery(query, 10)

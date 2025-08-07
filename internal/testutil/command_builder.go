@@ -2,7 +2,7 @@ package testutil
 
 import (
 	"strings"
-	
+
 	"github.com/Vedant9500/WTF/internal/database"
 )
 
@@ -70,7 +70,7 @@ func (cb *CommandBuilder) Build() database.Command {
 		Pipeline:    cb.pipeline,
 		Niche:       cb.niche,
 	}
-	
+
 	// Populate cached fields
 	cmd.CommandLower = strings.ToLower(cmd.Command)
 	cmd.DescriptionLower = strings.ToLower(cmd.Description)
@@ -78,23 +78,23 @@ func (cb *CommandBuilder) Build() database.Command {
 	for i, keyword := range cmd.Keywords {
 		cmd.KeywordsLower[i] = strings.ToLower(keyword)
 	}
-	
+
 	return cmd
 }
 
 // CommonPlatforms provides common platform combinations
 var (
-	AllPlatforms    = []string{"linux", "macos", "windows"}
-	UnixPlatforms   = []string{"linux", "macos"}
-	WindowsOnly     = []string{"windows"}
-	LinuxOnly       = []string{"linux"}
-	MacOSOnly       = []string{"macos"}
+	AllPlatforms  = []string{"linux", "macos", "windows"}
+	UnixPlatforms = []string{"linux", "macos"}
+	WindowsOnly   = []string{"windows"}
+	LinuxOnly     = []string{"linux"}
+	MacOSOnly     = []string{"macos"}
 )
 
 // Predefined command builders for common scenarios
 func GitCommand(subcommand, description string) *CommandBuilder {
 	return NewCommandBuilder().
-		Command("git " + subcommand).
+		Command("git "+subcommand).
 		Description(description).
 		Keywords("git", "version-control", subcommand).
 		Platform(AllPlatforms...).

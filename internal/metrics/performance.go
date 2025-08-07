@@ -36,27 +36,27 @@ func (pm *PerformanceMonitor) RecordSearchOperation(duration time.Duration, resu
 	if !pm.enabled {
 		return
 	}
-	
+
 	// Record search duration
 	searchTimer := pm.collector.Timer("search_duration", map[string]string{
 		"cache_hit": fmt.Sprintf("%t", cacheHit),
 	})
 	searchTimer.Histogram().Observe(float64(duration.Nanoseconds()) / 1e6) // Convert to milliseconds
-	
+
 	// Record result count
 	resultGauge := pm.collector.Gauge("search_results", nil)
 	resultGauge.Set(float64(resultCount))
-	
+
 	// Record query length
 	queryLengthHist := pm.collector.Histogram("query_length", nil)
 	queryLengthHist.Observe(float64(queryLength))
-	
+
 	// Increment search counter
 	searchCounter := pm.collector.Counter("searches_total", map[string]string{
 		"cache_hit": fmt.Sprintf("%t", cacheHit),
 	})
 	searchCounter.Inc()
-	
+
 	// Record cache hit ratio
 	if cacheHit {
 		cacheHitCounter := pm.collector.Counter("cache_hits_total", nil)
@@ -72,14 +72,14 @@ func (pm *PerformanceMonitor) RecordDatabaseOperation(operation string, duration
 	if !pm.enabled {
 		return
 	}
-	
+
 	// Record operation duration
 	dbTimer := pm.collector.Timer("database_operation_duration", map[string]string{
 		"operation": operation,
 		"success":   fmt.Sprintf("%t", success),
 	})
 	dbTimer.Histogram().Observe(float64(duration.Nanoseconds()) / 1e6)
-	
+
 	// Increment operation counter
 	dbCounter := pm.collector.Counter("database_operations_total", map[string]string{
 		"operation": operation,
@@ -93,20 +93,20 @@ func (pm *PerformanceMonitor) RecordMemoryUsage() {
 	if !pm.enabled {
 		return
 	}
-	
+
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	
+
 	// Record various memory metrics
 	allocGauge := pm.collector.Gauge("memory_alloc_bytes", nil)
 	allocGauge.Set(float64(m.Alloc))
-	
+
 	sysGauge := pm.collector.Gauge("memory_sys_bytes", nil)
 	sysGauge.Set(float64(m.Sys))
-	
+
 	gcGauge := pm.collector.Gauge("gc_runs_total", nil)
 	gcGauge.Set(float64(m.NumGC))
-	
+
 	goroutineGauge := pm.collector.Gauge("goroutines_active", nil)
 	goroutineGauge.Set(float64(runtime.NumGoroutine()))
 }
@@ -116,10 +116,10 @@ func (pm *PerformanceMonitor) StartMemoryMonitoring(ctx context.Context, interva
 	if !pm.enabled {
 		return
 	}
-	
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -134,16 +134,16 @@ func (pm *PerformanceMonitor) StartMemoryMonitoring(ctx context.Context, interva
 func (pm *PerformanceMonitor) GetPerformanceReport() PerformanceReport {
 	metrics := pm.collector.GetAllMetrics()
 	systemMetrics := pm.collector.GetSystemMetrics()
-	
+
 	report := PerformanceReport{
-		Timestamp:     time.Now(),
+		Timestamp:          time.Now(),
 		ApplicationMetrics: metrics,
-		SystemMetrics:     systemMetrics,
+		SystemMetrics:      systemMetrics,
 	}
-	
+
 	// Calculate derived metrics
 	report.calculateDerivedMetrics()
-	
+
 	return report
 }
 
@@ -152,19 +152,19 @@ type PerformanceReport struct {
 	Timestamp          time.Time `json:"timestamp"`
 	ApplicationMetrics []Metric  `json:"application_metrics"`
 	SystemMetrics      []Metric  `json:"system_metrics"`
-	
+
 	// Derived metrics
-	AverageSearchTime  float64 `json:"average_search_time_ms"`
-	CacheHitRatio      float64 `json:"cache_hit_ratio"`
-	SearchesPerSecond  float64 `json:"searches_per_second"`
-	MemoryUsageMB      float64 `json:"memory_usage_mb"`
-	GoroutineCount     int     `json:"goroutine_count"`
+	AverageSearchTime float64 `json:"average_search_time_ms"`
+	CacheHitRatio     float64 `json:"cache_hit_ratio"`
+	SearchesPerSecond float64 `json:"searches_per_second"`
+	MemoryUsageMB     float64 `json:"memory_usage_mb"`
+	GoroutineCount    int     `json:"goroutine_count"`
 }
 
 // calculateDerivedMetrics calculates derived performance metrics
 func (pr *PerformanceReport) calculateDerivedMetrics() {
 	metricMap := make(map[string]float64)
-	
+
 	// Build metric map for easy lookup
 	for _, metric := range pr.ApplicationMetrics {
 		metricMap[metric.Name] = metric.Value
@@ -172,14 +172,14 @@ func (pr *PerformanceReport) calculateDerivedMetrics() {
 	for _, metric := range pr.SystemMetrics {
 		metricMap[metric.Name] = metric.Value
 	}
-	
+
 	// Calculate average search time
 	if searchCount := metricMap["search_duration_count"]; searchCount > 0 {
 		if searchSum := metricMap["search_duration_sum"]; searchSum > 0 {
 			pr.AverageSearchTime = searchSum / searchCount
 		}
 	}
-	
+
 	// Calculate cache hit ratio
 	cacheHits := metricMap["cache_hits_total"]
 	cacheMisses := metricMap["cache_misses_total"]
@@ -187,18 +187,18 @@ func (pr *PerformanceReport) calculateDerivedMetrics() {
 	if totalRequests > 0 {
 		pr.CacheHitRatio = cacheHits / totalRequests
 	}
-	
+
 	// Calculate searches per second (approximate)
 	if uptime := metricMap["system_uptime"]; uptime > 0 {
 		totalSearches := metricMap["searches_total"]
 		pr.SearchesPerSecond = totalSearches / uptime
 	}
-	
+
 	// Memory usage in MB
 	if memAlloc := metricMap["system_memory_alloc"]; memAlloc > 0 {
 		pr.MemoryUsageMB = memAlloc / (1024 * 1024)
 	}
-	
+
 	// Goroutine count
 	pr.GoroutineCount = int(metricMap["system_goroutines"])
 }
@@ -221,14 +221,14 @@ func (pr *PerformanceReport) String() string {
 
 // BenchmarkResult represents the result of a performance benchmark
 type BenchmarkResult struct {
-	Name           string        `json:"name"`
-	Iterations     int           `json:"iterations"`
-	Duration       time.Duration `json:"duration"`
-	NsPerOp        int64         `json:"ns_per_op"`
-	BytesPerOp     int64         `json:"bytes_per_op"`
-	AllocsPerOp    int64         `json:"allocs_per_op"`
-	MemoryUsed     int64         `json:"memory_used"`
-	Timestamp      time.Time     `json:"timestamp"`
+	Name        string        `json:"name"`
+	Iterations  int           `json:"iterations"`
+	Duration    time.Duration `json:"duration"`
+	NsPerOp     int64         `json:"ns_per_op"`
+	BytesPerOp  int64         `json:"bytes_per_op"`
+	AllocsPerOp int64         `json:"allocs_per_op"`
+	MemoryUsed  int64         `json:"memory_used"`
+	Timestamp   time.Time     `json:"timestamp"`
 }
 
 // String returns a string representation of the benchmark result
@@ -255,18 +255,18 @@ func (b *Benchmarker) BenchmarkFunction(name string, fn func(), iterations int) 
 	var m1, m2 runtime.MemStats
 	runtime.GC()
 	runtime.ReadMemStats(&m1)
-	
+
 	start := time.Now()
-	
+
 	for i := 0; i < iterations; i++ {
 		fn()
 	}
-	
+
 	duration := time.Since(start)
-	
+
 	// Record final memory stats
 	runtime.ReadMemStats(&m2)
-	
+
 	return BenchmarkResult{
 		Name:        name,
 		Iterations:  iterations,
@@ -282,28 +282,28 @@ func (b *Benchmarker) BenchmarkFunction(name string, fn func(), iterations int) 
 // ProfileMemory profiles memory usage during function execution
 func (b *Benchmarker) ProfileMemory(name string, fn func()) MemoryProfile {
 	var m1, m2 runtime.MemStats
-	
+
 	// Force GC and get baseline
 	runtime.GC()
 	runtime.ReadMemStats(&m1)
-	
+
 	start := time.Now()
 	fn()
 	duration := time.Since(start)
-	
+
 	runtime.ReadMemStats(&m2)
-	
+
 	return MemoryProfile{
-		Name:           name,
-		Duration:       duration,
-		AllocBefore:    m1.Alloc,
-		AllocAfter:     m2.Alloc,
-		AllocDelta:     m2.Alloc - m1.Alloc,
+		Name:            name,
+		Duration:        duration,
+		AllocBefore:     m1.Alloc,
+		AllocAfter:      m2.Alloc,
+		AllocDelta:      m2.Alloc - m1.Alloc,
 		TotalAllocDelta: m2.TotalAlloc - m1.TotalAlloc,
-		MallocsDelta:   m2.Mallocs - m1.Mallocs,
-		FreeDelta:      m2.Frees - m1.Frees,
-		GCRuns:         m2.NumGC - m1.NumGC,
-		Timestamp:      time.Now(),
+		MallocsDelta:    m2.Mallocs - m1.Mallocs,
+		FreeDelta:       m2.Frees - m1.Frees,
+		GCRuns:          m2.NumGC - m1.NumGC,
+		Timestamp:       time.Now(),
 	}
 }
 

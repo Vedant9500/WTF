@@ -1,3 +1,13 @@
+// Package config provides application configuration management.
+//
+// This package handles all configuration-related functionality including:
+//   - Default configuration values
+//   - Configuration validation
+//   - Database path resolution with fallbacks
+//   - User directory management
+//
+// The Config struct is the main configuration container and provides
+// methods for validation and path resolution.
 package config
 
 import (
@@ -6,16 +16,40 @@ import (
 	"path/filepath"
 )
 
-// Config holds application configuration
+// Config holds application configuration settings.
+//
+// Config manages all configurable aspects of the WTF application including
+// database paths, result limits, caching preferences, and directory locations.
+// It provides intelligent defaults and validation to ensure the application
+// runs correctly across different environments.
 type Config struct {
-	DatabasePath   string
+	// DatabasePath is the path to the main command database file
+	DatabasePath string
+
+	// PersonalDBPath is the path to the user's personal command database
 	PersonalDBPath string
-	MaxResults     int
-	CacheEnabled   bool
-	ConfigDir      string
+
+	// MaxResults is the maximum number of search results to return
+	MaxResults int
+
+	// CacheEnabled determines whether search result caching is active
+	CacheEnabled bool
+
+	// ConfigDir is the directory where configuration files are stored
+	ConfigDir string
 }
 
-// DefaultConfig returns default configuration
+// DefaultConfig returns a new Config instance with sensible default values.
+//
+// The default configuration includes:
+//   - Database path pointing to the bundled commands.yml file
+//   - Personal database in the user's config directory
+//   - Maximum of 5 search results
+//   - Caching enabled for better performance
+//   - Config directory in ~/.config/cmd-finder
+//
+// This function automatically determines the user's home directory and
+// creates appropriate paths for cross-platform compatibility.
 func DefaultConfig() *Config {
 	homeDir, _ := os.UserHomeDir()
 	configDir := filepath.Join(homeDir, ".config", "cmd-finder")
@@ -29,7 +63,14 @@ func DefaultConfig() *Config {
 	}
 }
 
-// Validate checks if the configuration is valid
+// Validate checks if the configuration contains valid values.
+//
+// This method performs comprehensive validation of all configuration fields:
+//   - MaxResults must be positive and not exceed 100
+//   - DatabasePath must not be empty
+//   - All paths must be valid (though files don't need to exist yet)
+//
+// Returns an error if any validation fails, nil if all values are valid.
 func (c *Config) Validate() error {
 	if c.MaxResults <= 0 {
 		return fmt.Errorf("MaxResults must be positive, got %d", c.MaxResults)
@@ -43,7 +84,18 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// GetDatabasePath returns the database path, checking if file exists
+// GetDatabasePath returns the path to the command database file.
+//
+// This method implements intelligent path resolution with multiple fallback
+// locations. It first tries the configured DatabasePath, then falls back to
+// common installation locations in this order:
+//  1. Configured path
+//  2. System-wide installations (/usr/local/share, /usr/share)
+//  3. Local development paths (assets/, internal/)
+//  4. Legacy file names for backward compatibility
+//
+// If no file is found, it returns the originally configured path, allowing
+// the calling code to handle the error appropriately.
 func (c *Config) GetDatabasePath() string {
 	// First try the configured path
 	if _, err := os.Stat(c.DatabasePath); err == nil {
@@ -71,12 +123,24 @@ func (c *Config) GetDatabasePath() string {
 	return c.DatabasePath
 }
 
-// GetPersonalDatabasePath returns the path to the personal database file
+// GetPersonalDatabasePath returns the path to the user's personal database file.
+//
+// The personal database allows users to add their own custom commands
+// that are stored separately from the main command database. This file
+// is typically located in the user's configuration directory.
 func (c *Config) GetPersonalDatabasePath() string {
 	return c.PersonalDBPath
 }
 
-// EnsureConfigDir creates the config directory if it doesn't exist
+// EnsureConfigDir creates the configuration directory if it doesn't exist.
+//
+// This method creates the full directory path with appropriate permissions (0755)
+// for storing configuration files, personal databases, and other user data.
+// It's safe to call multiple times - if the directory already exists, no error
+// is returned.
+//
+// Returns an error if the directory cannot be created due to permissions or
+// other filesystem issues.
 func (c *Config) EnsureConfigDir() error {
 	return os.MkdirAll(c.ConfigDir, 0755)
 }

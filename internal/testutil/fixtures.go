@@ -1,7 +1,6 @@
 package testutil
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,11 +27,11 @@ type TestFixtures interface {
 
 // TestQuery represents a test query with expected results
 type TestQuery struct {
-	Query           string
-	ExpectedResults int
-	MinScore        float64
-	MaxScore        float64
-	ShouldContain   []string
+	Query            string
+	ExpectedResults  int
+	MinScore         float64
+	MaxScore         float64
+	ShouldContain    []string
 	ShouldNotContain []string
 }
 
@@ -309,43 +308,43 @@ func (tf *DefaultTestFixtures) GetSampleCommands() []database.Command {
 func (tf *DefaultTestFixtures) GetTestQueries() []TestQuery {
 	return []TestQuery{
 		{
-			Query:           "git commit",
-			ExpectedResults: 1,
-			MinScore:        10.0,
-			MaxScore:        50.0,
-			ShouldContain:   []string{"git", "commit"},
+			Query:            "git commit",
+			ExpectedResults:  1,
+			MinScore:         10.0,
+			MaxScore:         50.0,
+			ShouldContain:    []string{"git", "commit"},
 			ShouldNotContain: []string{"find", "tar"},
 		},
 		{
-			Query:           "find files",
-			ExpectedResults: 1,
-			MinScore:        5.0,
-			MaxScore:        30.0,
-			ShouldContain:   []string{"find", "files"},
+			Query:            "find files",
+			ExpectedResults:  1,
+			MinScore:         5.0,
+			MaxScore:         30.0,
+			ShouldContain:    []string{"find", "files"},
 			ShouldNotContain: []string{"git", "commit"},
 		},
 		{
-			Query:           "compress archive",
-			ExpectedResults: 1,
-			MinScore:        5.0,
-			MaxScore:        30.0,
-			ShouldContain:   []string{"tar", "compress"},
+			Query:            "compress archive",
+			ExpectedResults:  1,
+			MinScore:         5.0,
+			MaxScore:         30.0,
+			ShouldContain:    []string{"tar", "compress"},
 			ShouldNotContain: []string{"git", "find"},
 		},
 		{
-			Query:           "search pattern",
-			ExpectedResults: 1,
-			MinScore:        5.0,
-			MaxScore:        30.0,
-			ShouldContain:   []string{"grep", "search"},
+			Query:            "search pattern",
+			ExpectedResults:  1,
+			MinScore:         5.0,
+			MaxScore:         30.0,
+			ShouldContain:    []string{"grep", "search"},
 			ShouldNotContain: []string{"git", "tar"},
 		},
 		{
-			Query:           "nonexistent command",
-			ExpectedResults: 0,
-			MinScore:        0.0,
-			MaxScore:        0.0,
-			ShouldContain:   []string{},
+			Query:            "nonexistent command",
+			ExpectedResults:  0,
+			MinScore:         0.0,
+			MaxScore:         0.0,
+			ShouldContain:    []string{},
 			ShouldNotContain: []string{},
 		},
 	}
@@ -353,7 +352,7 @@ func (tf *DefaultTestFixtures) GetTestQueries() []TestQuery {
 
 // CreateTempDir creates a temporary directory for testing
 func (tf *DefaultTestFixtures) CreateTempDir() (string, func()) {
-	tempDir, err := ioutil.TempDir("", "wtf_test_")
+	tempDir, err := os.MkdirTemp("", "wtf_test_")
 	if err != nil {
 		panic("Failed to create temp directory: " + err.Error())
 	}
@@ -367,7 +366,7 @@ func (tf *DefaultTestFixtures) CreateTempDir() (string, func()) {
 
 // CreateTempFile creates a temporary file with the given content
 func (tf *DefaultTestFixtures) CreateTempFile(content string) (string, func()) {
-	tempFile, err := ioutil.TempFile("", "wtf_test_*.txt")
+	tempFile, err := os.CreateTemp("", "wtf_test_*.txt")
 	if err != nil {
 		panic("Failed to create temp file: " + err.Error())
 	}
@@ -465,22 +464,22 @@ func GetTestDataPath() string {
 // SetupTestEnvironment sets up a complete test environment
 func SetupTestEnvironment(t *testing.T) (*database.Database, func()) {
 	t.Helper()
-	
+
 	// Create test database
 	testDB := NewTestDatabase()
 	db := testDB.CreateLargeDB()
-	
+
 	// Create temporary directory for test files
 	tempDir, cleanup := NewTestFixtures().CreateTempDir()
-	
+
 	// Set up any environment variables if needed
 	originalDir, _ := os.Getwd()
-	os.Chdir(tempDir)
-	
+	_ = os.Chdir(tempDir)
+
 	cleanupFunc := func() {
-		os.Chdir(originalDir)
+		_ = os.Chdir(originalDir)
 		cleanup()
 	}
-	
+
 	return db, cleanupFunc
 }

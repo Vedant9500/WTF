@@ -99,7 +99,7 @@ func TestAddEntryDuplicate(t *testing.T) {
 	history := NewSearchHistory("/tmp/test.json", 10)
 
 	query := "git commit"
-	
+
 	// Add same query twice
 	history.AddEntry(query, 3, "ctx1", 30*time.Millisecond)
 	history.AddEntry(query, 5, "ctx2", 50*time.Millisecond)
@@ -366,7 +366,7 @@ func TestLoadEmptyFile(t *testing.T) {
 	// Create empty file
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "empty_history.json")
-	
+
 	file, err := os.Create(filePath)
 	if err != nil {
 		t.Fatalf("Failed to create empty file: %v", err)
@@ -388,7 +388,7 @@ func TestLoadInvalidJSON(t *testing.T) {
 	// Create file with invalid JSON
 	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "invalid_history.json")
-	
+
 	err := os.WriteFile(filePath, []byte("invalid json content"), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create invalid JSON file: %v", err)

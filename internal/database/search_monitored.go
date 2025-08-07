@@ -26,52 +26,52 @@ func NewMonitoredDatabase(db *Database) *MonitoredDatabase {
 // SearchWithMonitoring performs search with performance monitoring
 func (mdb *MonitoredDatabase) SearchWithMonitoring(query string, limit int) []SearchResult {
 	start := time.Now()
-	
+
 	// Check if result will come from cache
 	searchCache := mdb.cacheManager.GetSearchCache()
 	cacheOptions := mdb.convertToCacheOptions(SearchOptions{Limit: limit})
 	_, cacheHit := searchCache.Get(query, cacheOptions)
-	
+
 	// Perform the search
 	results := mdb.SearchWithCache(query, limit)
-	
+
 	// Record metrics
 	duration := time.Since(start)
 	mdb.monitor.RecordSearchOperation(duration, len(results), cacheHit, len(query))
-	
+
 	return results
 }
 
 // SearchWithOptionsAndMonitoring performs search with options and monitoring
 func (mdb *MonitoredDatabase) SearchWithOptionsAndMonitoring(query string, options SearchOptions) []SearchResult {
 	start := time.Now()
-	
+
 	// Check cache hit
 	searchCache := mdb.cacheManager.GetSearchCache()
 	cacheOptions := mdb.convertToCacheOptions(options)
 	_, cacheHit := searchCache.Get(query, cacheOptions)
-	
+
 	// Perform the search
 	results := mdb.SearchWithOptionsAndCache(query, options)
-	
+
 	// Record metrics
 	duration := time.Since(start)
 	mdb.monitor.RecordSearchOperation(duration, len(results), cacheHit, len(query))
-	
+
 	return results
 }
 
 // LoadDatabaseWithMonitoring loads database with performance monitoring
 func (mdb *MonitoredDatabase) LoadDatabaseWithMonitoring(commands []Command) error {
 	start := time.Now()
-	
+
 	// Update the database
 	mdb.UpdateDatabase(commands)
-	
+
 	// Record metrics
 	duration := time.Since(start)
 	mdb.monitor.RecordDatabaseOperation("load", duration, true)
-	
+
 	return nil
 }
 
@@ -99,7 +99,7 @@ func (mdb *MonitoredDatabase) RecordMemoryUsage() {
 func (mdb *MonitoredDatabase) BenchmarkSearch(queries []string, iterations int) []metrics.BenchmarkResult {
 	benchmarker := metrics.NewBenchmarker(mdb.monitor)
 	results := make([]metrics.BenchmarkResult, len(queries))
-	
+
 	for i, query := range queries {
 		results[i] = benchmarker.BenchmarkFunction(
 			"search_"+query,
@@ -109,14 +109,14 @@ func (mdb *MonitoredDatabase) BenchmarkSearch(queries []string, iterations int) 
 			iterations,
 		)
 	}
-	
+
 	return results
 }
 
 // ProfileSearchMemory profiles memory usage during search
 func (mdb *MonitoredDatabase) ProfileSearchMemory(query string) metrics.MemoryProfile {
 	benchmarker := metrics.NewBenchmarker(mdb.monitor)
-	
+
 	return benchmarker.ProfileMemory("search_memory_"+query, func() {
 		mdb.SearchWithMonitoring(query, 10)
 	})
@@ -143,13 +143,13 @@ type SearchPerformanceAnalyzer struct {
 
 // SearchAnalysisResult contains analysis of search performance
 type SearchAnalysisResult struct {
-	Query           string        `json:"query"`
-	AverageTime     time.Duration `json:"average_time"`
-	MinTime         time.Duration `json:"min_time"`
-	MaxTime         time.Duration `json:"max_time"`
-	CacheHitRatio   float64       `json:"cache_hit_ratio"`
-	ResultCount     int           `json:"result_count"`
-	Iterations      int           `json:"iterations"`
+	Query         string        `json:"query"`
+	AverageTime   time.Duration `json:"average_time"`
+	MinTime       time.Duration `json:"min_time"`
+	MaxTime       time.Duration `json:"max_time"`
+	CacheHitRatio float64       `json:"cache_hit_ratio"`
+	ResultCount   int           `json:"result_count"`
+	Iterations    int           `json:"iterations"`
 }
 
 // NewSearchPerformanceAnalyzer creates a new search performance analyzer
@@ -165,13 +165,13 @@ func (spa *SearchPerformanceAnalyzer) AnalyzeQuery(query string, iterations int)
 	times := make([]time.Duration, iterations)
 	var totalResults int
 	cacheHits := 0
-	
+
 	// Clear cache to get accurate measurements
 	spa.database.InvalidateCache()
-	
+
 	for i := 0; i < iterations; i++ {
 		start := time.Now()
-		
+
 		// Check if this will be a cache hit (after first iteration)
 		if i > 0 {
 			searchCache := spa.database.cacheManager.GetSearchCache()
@@ -180,20 +180,20 @@ func (spa *SearchPerformanceAnalyzer) AnalyzeQuery(query string, iterations int)
 				cacheHits++
 			}
 		}
-		
+
 		results := spa.database.SearchWithMonitoring(query, 10)
 		times[i] = time.Since(start)
-		
+
 		if i == 0 {
 			totalResults = len(results)
 		}
 	}
-	
+
 	// Calculate statistics
 	var totalTime time.Duration
 	minTime := times[0]
 	maxTime := times[0]
-	
+
 	for _, t := range times {
 		totalTime += t
 		if t < minTime {
@@ -203,7 +203,7 @@ func (spa *SearchPerformanceAnalyzer) AnalyzeQuery(query string, iterations int)
 			maxTime = t
 		}
 	}
-	
+
 	result := SearchAnalysisResult{
 		Query:         query,
 		AverageTime:   totalTime / time.Duration(iterations),
@@ -213,7 +213,7 @@ func (spa *SearchPerformanceAnalyzer) AnalyzeQuery(query string, iterations int)
 		ResultCount:   totalResults,
 		Iterations:    iterations,
 	}
-	
+
 	spa.results = append(spa.results, result)
 	return result
 }
@@ -221,11 +221,11 @@ func (spa *SearchPerformanceAnalyzer) AnalyzeQuery(query string, iterations int)
 // AnalyzeQueries analyzes multiple queries
 func (spa *SearchPerformanceAnalyzer) AnalyzeQueries(queries []string, iterations int) []SearchAnalysisResult {
 	results := make([]SearchAnalysisResult, len(queries))
-	
+
 	for i, query := range queries {
 		results[i] = spa.AnalyzeQuery(query, iterations)
 	}
-	
+
 	return results
 }
 
@@ -239,10 +239,10 @@ func (spa *SearchPerformanceAnalyzer) GenerateReport() string {
 	if len(spa.results) == 0 {
 		return "No analysis results available"
 	}
-	
+
 	report := "Search Performance Analysis Report\n"
 	report += "==================================\n\n"
-	
+
 	for _, result := range spa.results {
 		report += fmt.Sprintf("Query: %s\n", result.Query)
 		report += fmt.Sprintf("  Average Time: %v\n", result.AverageTime)
@@ -252,6 +252,6 @@ func (spa *SearchPerformanceAnalyzer) GenerateReport() string {
 		report += fmt.Sprintf("  Result Count: %d\n", result.ResultCount)
 		report += fmt.Sprintf("  Iterations: %d\n\n", result.Iterations)
 	}
-	
+
 	return report
 }

@@ -9,24 +9,24 @@ import (
 
 // CacheEntry represents a cached item with metadata
 type CacheEntry struct {
-	Key        string
-	Value      interface{}
-	CreatedAt  time.Time
-	AccessedAt time.Time
+	Key         string
+	Value       interface{}
+	CreatedAt   time.Time
+	AccessedAt  time.Time
 	AccessCount int64
 }
 
 // LRUCache implements a thread-safe LRU cache with TTL support
 type LRUCache struct {
-	mu       sync.RWMutex
-	capacity int
-	ttl      time.Duration
-	items    map[string]*list.Element
+	mu        sync.RWMutex
+	capacity  int
+	ttl       time.Duration
+	items     map[string]*list.Element
 	evictList *list.List
-	
+
 	// Metrics
-	hits   int64
-	misses int64
+	hits      int64
+	misses    int64
 	evictions int64
 }
 
@@ -35,7 +35,7 @@ func NewLRUCache(capacity int, ttl time.Duration) *LRUCache {
 	if capacity <= 0 {
 		capacity = 100 // Default capacity
 	}
-	
+
 	return &LRUCache{
 		capacity:  capacity,
 		ttl:       ttl,
@@ -48,29 +48,29 @@ func NewLRUCache(capacity int, ttl time.Duration) *LRUCache {
 func (c *LRUCache) Get(key string) (interface{}, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	element, exists := c.items[key]
 	if !exists {
 		c.misses++
 		return nil, false
 	}
-	
+
 	entry := element.Value.(*CacheEntry)
-	
+
 	// Check TTL expiration
 	if c.ttl > 0 && time.Since(entry.CreatedAt) > c.ttl {
 		c.removeElement(element)
 		c.misses++
 		return nil, false
 	}
-	
+
 	// Update access information
 	entry.AccessedAt = time.Now()
 	entry.AccessCount++
-	
+
 	// Move to front (most recently used)
 	c.evictList.MoveToFront(element)
-	
+
 	c.hits++
 	return entry.Value, true
 }
@@ -79,9 +79,9 @@ func (c *LRUCache) Get(key string) (interface{}, bool) {
 func (c *LRUCache) Put(key string, value interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	now := time.Now()
-	
+
 	// Check if key already exists
 	if element, exists := c.items[key]; exists {
 		// Update existing entry
@@ -92,7 +92,7 @@ func (c *LRUCache) Put(key string, value interface{}) {
 		c.evictList.MoveToFront(element)
 		return
 	}
-	
+
 	// Create new entry
 	entry := &CacheEntry{
 		Key:         key,
@@ -101,11 +101,11 @@ func (c *LRUCache) Put(key string, value interface{}) {
 		AccessedAt:  now,
 		AccessCount: 1,
 	}
-	
+
 	// Add to front of list
 	element := c.evictList.PushFront(entry)
 	c.items[key] = element
-	
+
 	// Check if we need to evict
 	if c.evictList.Len() > c.capacity {
 		c.evictOldest()
@@ -116,7 +116,7 @@ func (c *LRUCache) Put(key string, value interface{}) {
 func (c *LRUCache) Delete(key string) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	if element, exists := c.items[key]; exists {
 		c.removeElement(element)
 		return true
@@ -128,7 +128,7 @@ func (c *LRUCache) Delete(key string) bool {
 func (c *LRUCache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	c.items = make(map[string]*list.Element)
 	c.evictList.Init()
 	c.hits = 0
@@ -152,13 +152,13 @@ func (c *LRUCache) Capacity() int {
 func (c *LRUCache) Stats() CacheStats {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	total := c.hits + c.misses
 	var hitRatio float64
 	if total > 0 {
 		hitRatio = float64(c.hits) / float64(total)
 	}
-	
+
 	return CacheStats{
 		Hits:      c.hits,
 		Misses:    c.misses,
@@ -173,7 +173,7 @@ func (c *LRUCache) Stats() CacheStats {
 func (c *LRUCache) Keys() []string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	keys := make([]string, 0, len(c.items))
 	for key := range c.items {
 		keys = append(keys, key)
@@ -186,17 +186,17 @@ func (c *LRUCache) CleanupExpired() int {
 	if c.ttl <= 0 {
 		return 0 // No TTL configured
 	}
-	
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	now := time.Now()
 	removed := 0
-	
+
 	// Walk from back to front (oldest to newest)
 	for element := c.evictList.Back(); element != nil; {
 		entry := element.Value.(*CacheEntry)
-		
+
 		if now.Sub(entry.CreatedAt) > c.ttl {
 			next := element.Prev()
 			c.removeElement(element)
@@ -207,7 +207,7 @@ func (c *LRUCache) CleanupExpired() int {
 			break
 		}
 	}
-	
+
 	return removed
 }
 

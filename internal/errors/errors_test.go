@@ -101,7 +101,7 @@ func TestErrorChaining(t *testing.T) {
 func TestErrorWithNilCause(t *testing.T) {
 	// Test behavior with nil cause
 	dbErr := NewDatabaseError("test", "/path", nil)
-	
+
 	expectedMsg := "database test failed for '/path': <nil>"
 	if dbErr.Error() != expectedMsg {
 		t.Errorf("Expected error message '%s', got '%s'", expectedMsg, dbErr.Error())
@@ -219,30 +219,30 @@ func TestErrorEquality(t *testing.T) {
 
 func TestComplexErrorScenarios(t *testing.T) {
 	// Test realistic error scenarios
-	
+
 	// Database loading error
 	fileErr := errors.New("permission denied")
 	dbErr := NewDatabaseError("load", "/etc/wtf/commands.yaml", fileErr)
-	
+
 	// Search error wrapping database error
 	searchErr := NewSearchError("git commit", dbErr)
-	
+
 	// Verify error messages
-	expectedDbMsg := "database load failed for '/etc/wtf/commands.yaml': permission denied"
-	if dbErr.Error() != expectedDbMsg {
-		t.Errorf("Expected db error message '%s', got '%s'", expectedDbMsg, dbErr.Error())
+	expectedDBMsg := "database load failed for '/etc/wtf/commands.yaml': permission denied"
+	if dbErr.Error() != expectedDBMsg {
+		t.Errorf("Expected db error message '%s', got '%s'", expectedDBMsg, dbErr.Error())
 	}
-	
-	expectedSearchMsg := "search failed for query 'git commit': " + expectedDbMsg
+
+	expectedSearchMsg := "search failed for query 'git commit': " + expectedDBMsg
 	if searchErr.Error() != expectedSearchMsg {
 		t.Errorf("Expected search error message '%s', got '%s'", expectedSearchMsg, searchErr.Error())
 	}
-	
+
 	// Verify error chain traversal
 	if !errors.Is(searchErr, fileErr) {
 		t.Error("Expected to find original file error in search error chain")
 	}
-	
+
 	if !errors.Is(searchErr, dbErr) {
 		t.Error("Expected to find database error in search error chain")
 	}

@@ -27,9 +27,9 @@ func NewDatabaseTestSuite(db *database.Database) *DatabaseTestSuite {
 // RunBasicSearchTests runs basic search functionality tests
 func (dts *DatabaseTestSuite) RunBasicSearchTests(t *testing.T) {
 	t.Helper()
-	
+
 	testQueries := dts.fixtures.GetTestQueries()
-	
+
 	for _, query := range testQueries {
 		t.Run(fmt.Sprintf("Search_%s", strings.ReplaceAll(query.Query, " ", "_")), func(t *testing.T) {
 			results := dts.db.Search(query.Query, 10)
@@ -41,11 +41,11 @@ func (dts *DatabaseTestSuite) RunBasicSearchTests(t *testing.T) {
 // RunSearchOptionsTests runs tests for search with options
 func (dts *DatabaseTestSuite) RunSearchOptionsTests(t *testing.T) {
 	t.Helper()
-	
+
 	testCases := []struct {
-		name    string
-		query   string
-		options database.SearchOptions
+		name     string
+		query    string
+		options  database.SearchOptions
 		validate func(t *testing.T, results []database.SearchResult)
 	}{
 		{
@@ -95,7 +95,7 @@ func (dts *DatabaseTestSuite) RunSearchOptionsTests(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			results := dts.db.SearchWithOptions(tc.query, tc.options)
@@ -107,7 +107,7 @@ func (dts *DatabaseTestSuite) RunSearchOptionsTests(t *testing.T) {
 // RunEdgeCaseTests runs edge case tests
 func (dts *DatabaseTestSuite) RunEdgeCaseTests(t *testing.T) {
 	t.Helper()
-	
+
 	testCases := []struct {
 		name     string
 		query    string
@@ -145,7 +145,7 @@ func (dts *DatabaseTestSuite) RunEdgeCaseTests(t *testing.T) {
 			expected: 0, // Should handle gracefully
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			results := dts.db.Search(tc.query, tc.limit)
@@ -164,18 +164,18 @@ func (dts *DatabaseTestSuite) RunEdgeCaseTests(t *testing.T) {
 // RunPerformanceTests runs performance-related tests
 func (dts *DatabaseTestSuite) RunPerformanceTests(t *testing.T) {
 	t.Helper()
-	
+
 	// Create a large database for performance testing
 	largeDB := dts.helper.CreateLargeDatabase()
 	largeSuite := NewDatabaseTestSuite(largeDB)
-	
+
 	t.Run("LargeDatasetSearch", func(t *testing.T) {
 		results := largeSuite.db.Search("git", 10)
 		if len(results) == 0 {
 			t.Error("Expected results from large dataset search")
 		}
 	})
-	
+
 	t.Run("MultipleSearches", func(t *testing.T) {
 		queries := []string{"git", "find", "tar", "grep", "curl"}
 		for _, query := range queries {
@@ -196,15 +196,15 @@ func NewDatabaseValidator() *DatabaseValidator {
 // ValidateDatabase validates the structure and content of a database
 func (dv *DatabaseValidator) ValidateDatabase(t *testing.T, db *database.Database) {
 	t.Helper()
-	
+
 	if db == nil {
 		t.Fatal("Database is nil")
 	}
-	
+
 	if db.Commands == nil {
 		t.Fatal("Database commands slice is nil")
 	}
-	
+
 	// Validate each command
 	for i, cmd := range db.Commands {
 		dv.ValidateCommand(t, &cmd, i)
@@ -214,41 +214,41 @@ func (dv *DatabaseValidator) ValidateDatabase(t *testing.T, db *database.Databas
 // ValidateCommand validates a single command structure
 func (dv *DatabaseValidator) ValidateCommand(t *testing.T, cmd *database.Command, index int) {
 	t.Helper()
-	
+
 	if cmd.Command == "" {
 		t.Errorf("Command at index %d has empty command field", index)
 	}
-	
+
 	if cmd.Description == "" {
 		t.Errorf("Command at index %d has empty description field", index)
 	}
-	
+
 	if len(cmd.Keywords) == 0 {
 		t.Errorf("Command at index %d has no keywords", index)
 	}
-	
+
 	// Validate cached fields are populated
 	if cmd.CommandLower == "" && cmd.Command != "" {
 		t.Errorf("Command at index %d has empty CommandLower field", index)
 	}
-	
+
 	if cmd.DescriptionLower == "" && cmd.Description != "" {
 		t.Errorf("Command at index %d has empty DescriptionLower field", index)
 	}
-	
+
 	if len(cmd.KeywordsLower) != len(cmd.Keywords) {
 		t.Errorf("Command at index %d has mismatched KeywordsLower length", index)
 	}
-	
+
 	// Validate lowercased fields are actually lowercase
 	if cmd.CommandLower != strings.ToLower(cmd.Command) {
 		t.Errorf("Command at index %d has incorrect CommandLower field", index)
 	}
-	
+
 	if cmd.DescriptionLower != strings.ToLower(cmd.Description) {
 		t.Errorf("Command at index %d has incorrect DescriptionLower field", index)
 	}
-	
+
 	for j, keyword := range cmd.KeywordsLower {
 		if j < len(cmd.Keywords) && keyword != strings.ToLower(cmd.Keywords[j]) {
 			t.Errorf("Command at index %d has incorrect KeywordsLower[%d] field", index, j)
@@ -259,7 +259,7 @@ func (dv *DatabaseValidator) ValidateCommand(t *testing.T, cmd *database.Command
 // ValidateSearchResults validates search results
 func (dv *DatabaseValidator) ValidateSearchResults(t *testing.T, results []database.SearchResult, query string) {
 	t.Helper()
-	
+
 	// Check that results are sorted by score (descending)
 	for i := 1; i < len(results); i++ {
 		if results[i-1].Score < results[i].Score {
@@ -267,13 +267,13 @@ func (dv *DatabaseValidator) ValidateSearchResults(t *testing.T, results []datab
 				i-1, results[i-1].Score, i, results[i].Score)
 		}
 	}
-	
+
 	// Check that all results have positive scores
 	for i, result := range results {
 		if result.Score <= 0 {
 			t.Errorf("Result[%d] has non-positive score: %f", i, result.Score)
 		}
-		
+
 		if result.Command == nil {
 			t.Errorf("Result[%d] has nil command", i)
 		}
@@ -312,7 +312,7 @@ func (md *MockDatabase) Search(query string, limit int) []database.SearchResult 
 	md.searchCalled = true
 	md.lastQuery = query
 	md.lastLimit = limit
-	
+
 	if len(md.searchResults) > limit {
 		return md.searchResults[:limit]
 	}

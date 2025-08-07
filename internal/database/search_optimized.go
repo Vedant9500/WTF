@@ -69,7 +69,7 @@ func (db *Database) OptimizedSearchWithOptions(query string, options SearchOptio
 	queryLower := strings.ToLower(query)
 	queryWords := make([]string, 0, 8) // Most queries have < 8 words
 	queryWords = parseQueryWords(queryLower, queryWords)
-	
+
 	if len(queryWords) == 0 {
 		return nil
 	}
@@ -83,12 +83,12 @@ func (db *Database) OptimizedSearchWithOptions(query string, options SearchOptio
 	// Optimized search loop with early termination for performance
 	for i := range db.Commands {
 		cmd := &db.Commands[i]
-		
+
 		// Quick platform filter first (cheapest check)
 		if !db.isPlatformMatch(cmd, currentPlatform) {
 			continue
 		}
-		
+
 		// Calculate score using optimized algorithm
 		if score := db.calculateOptimizedScore(cmd, queryWords, options.ContextBoosts); score > 0 {
 			results = append(results, SearchResult{
@@ -107,11 +107,11 @@ func parseQueryWords(queryLower string, words []string) []string {
 	if len(queryLower) == 0 {
 		return words[:0]
 	}
-	
+
 	// Manual parsing to avoid strings.Fields allocation
 	start := 0
 	inWord := false
-	
+
 	for i, r := range queryLower {
 		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
 			if inWord {
@@ -128,7 +128,7 @@ func parseQueryWords(queryLower string, words []string) []string {
 			}
 		}
 	}
-	
+
 	// Handle last word
 	if inWord {
 		word := queryLower[start:]
@@ -136,7 +136,7 @@ func parseQueryWords(queryLower string, words []string) []string {
 			words = append(words, word)
 		}
 	}
-	
+
 	return words
 }
 
@@ -145,25 +145,25 @@ func (db *Database) isPlatformMatch(cmd *Command, currentPlatform string) bool {
 	if len(cmd.Platform) == 0 {
 		return true // No platform restriction
 	}
-	
+
 	// Check for cross-platform or current platform match
 	for _, p := range cmd.Platform {
 		if len(p) == 0 {
 			continue
 		}
-		
+
 		// Fast case-insensitive comparison using first character
 		firstChar := p[0] | 0x20 // Convert to lowercase
 		if firstChar == 'c' && strings.EqualFold(p, "cross-platform") {
 			return true
 		}
-		
+
 		// Check current platform match
 		if strings.EqualFold(p, currentPlatform) {
 			return true
 		}
 	}
-	
+
 	// Check legacy cross-platform tools
 	return isCrossPlatformTool(cmd.Command)
 }
@@ -182,12 +182,12 @@ func (db *Database) calculateOptimizedScore(cmd *Command, queryWords []string, c
 
 	for _, word := range queryWords {
 		wordScore := db.calculateOptimizedWordScore(word, cmdLower, descLower, keywordsLower, tagsLower, cmd)
-		
+
 		// Track the highest scoring word
 		if wordScore > maxWordScore {
 			maxWordScore = wordScore
 		}
-		
+
 		// Count words that have some match
 		if wordScore > 0 {
 			matchedWords++
@@ -253,7 +253,7 @@ func (db *Database) calculateOptimizedWordScore(word, cmdLower, descLower string
 				// Check word boundaries
 				prevOK := idx == 0 || cmdLower[idx-1] == ' '
 				nextOK := idx+wordLen >= len(cmdLower) || cmdLower[idx+wordLen] == ' '
-				
+
 				if prevOK && nextOK {
 					wordScore += constants.CommandMatchScore
 				} else if strings.Contains(cmdLower, word) {
@@ -277,7 +277,7 @@ func (db *Database) calculateOptimizedWordScore(word, cmdLower, descLower string
 			break
 		}
 	}
-	
+
 	// Partial keyword match only if no exact match
 	if !exactKeywordMatch {
 		for _, keyword := range keywordsLower {
@@ -293,7 +293,7 @@ func (db *Database) calculateOptimizedWordScore(word, cmdLower, descLower string
 		// Check word boundaries
 		prevOK := idx == 0 || descLower[idx-1] == ' '
 		nextOK := idx+wordLen >= len(descLower) || descLower[idx+wordLen] == ' '
-		
+
 		if prevOK && nextOK {
 			wordScore += constants.DescriptionMatchScore
 		} else {
@@ -308,7 +308,7 @@ func (db *Database) calculateOptimizedWordScore(word, cmdLower, descLower string
 			return wordScore // Early return for exact tag match
 		}
 	}
-	
+
 	// Partial tag matching
 	for _, tag := range tagsLower {
 		if strings.Contains(tag, word) {
@@ -316,7 +316,7 @@ func (db *Database) calculateOptimizedWordScore(word, cmdLower, descLower string
 			break
 		}
 	}
-	
+
 	return wordScore
 }
 
@@ -324,11 +324,11 @@ func (db *Database) calculateOptimizedWordScore(word, cmdLower, descLower string
 func (db *Database) containsWord(text, word string) bool {
 	wordLen := len(word)
 	textLen := len(text)
-	
+
 	if wordLen > textLen {
 		return false
 	}
-	
+
 	// Look for word boundaries
 	for i := 0; i <= textLen-wordLen; i++ {
 		// Check if we found the word
@@ -336,13 +336,13 @@ func (db *Database) containsWord(text, word string) bool {
 			// Check word boundaries
 			prevOK := i == 0 || text[i-1] == ' '
 			nextOK := i+wordLen == textLen || text[i+wordLen] == ' '
-			
+
 			if prevOK && nextOK {
 				return true
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -351,7 +351,7 @@ func (db *Database) sortAndLimitResultsOptimized(results []SearchResult, limit i
 	if len(results) == 0 {
 		return nil
 	}
-	
+
 	// Use partial sort if we have many more results than needed
 	if len(results) > limit*3 {
 		// Use partial sort for better performance with large result sets
@@ -364,16 +364,16 @@ func (db *Database) sortAndLimitResultsOptimized(results []SearchResult, limit i
 		sort.Slice(results, func(i, j int) bool {
 			return results[i].Score > results[j].Score
 		})
-		
+
 		if len(results) > limit {
 			results = results[:limit]
 		}
 	}
-	
+
 	// Create a new slice to return (not from pool) since caller will keep it
 	finalResults := make([]SearchResult, len(results))
 	copy(finalResults, results)
-	
+
 	return finalResults
 }
 
@@ -385,7 +385,7 @@ func (db *Database) partialSort(results []SearchResult, n int) {
 		})
 		return
 	}
-	
+
 	// Use selection sort for small n, quickselect for larger n
 	if n <= 10 {
 		// Selection sort for top n elements
@@ -413,41 +413,41 @@ func (db *Database) BatchOptimizedSearch(queries []string, limit int) [][]Search
 	if len(queries) == 0 {
 		return nil
 	}
-	
+
 	results := make([][]SearchResult, len(queries))
-	
+
 	// Reuse query words slice across all searches
 	queryWords := getStringSlice()
 	defer putStringSlice(queryWords)
-	
+
 	// Reuse search results slice across all searches
 	searchResults := getSearchResults()
 	defer putSearchResults(searchResults)
-	
+
 	currentPlatform := getCurrentPlatform()
-	
+
 	for i, query := range queries {
 		// Reset slices for reuse
 		queryWords = queryWords[:0]
 		searchResults = searchResults[:0]
-		
+
 		// Parse query
 		queryLower := strings.ToLower(query)
 		queryWords = parseQueryWords(queryLower, queryWords)
-		
+
 		if len(queryWords) == 0 {
 			results[i] = nil
 			continue
 		}
-		
+
 		// Perform search
 		for j := range db.Commands {
 			cmd := &db.Commands[j]
-			
+
 			if !db.isPlatformMatch(cmd, currentPlatform) {
 				continue
 			}
-			
+
 			if score := db.calculateOptimizedScore(cmd, queryWords, nil); score > 0 {
 				searchResults = append(searchResults, SearchResult{
 					Command: cmd,
@@ -455,10 +455,10 @@ func (db *Database) BatchOptimizedSearch(queries []string, limit int) [][]Search
 				})
 			}
 		}
-		
+
 		// Sort and limit
 		results[i] = db.sortAndLimitResultsOptimized(searchResults, limit)
 	}
-	
+
 	return results
 }

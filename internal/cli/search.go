@@ -57,12 +57,12 @@ Examples:
 
 		// Get flags once at the beginning
 		flags := struct {
-			limit            int
-			verbose          bool
-			dbPath           string
-			platforms        []string
-			allPlatforms     bool
-			noCrossPlatform  bool
+			limit           int
+			verbose         bool
+			dbPath          string
+			platforms       []string
+			allPlatforms    bool
+			noCrossPlatform bool
 		}{}
 		flags.limit, _ = cmd.Flags().GetInt("limit")
 		flags.verbose, _ = cmd.Flags().GetBool("verbose")
@@ -104,14 +104,14 @@ Examples:
 		// Load database (main + personal) with recovery mechanisms
 		dbFilePath := cfg.GetDatabasePath()
 		personalDBPath := cfg.GetPersonalDatabasePath()
-		
+
 		// Use database recovery for robust loading
 		dbRecovery := recovery.NewDatabaseRecovery(recovery.DefaultRetryConfig())
 		db, err := dbRecovery.LoadDatabaseWithFallback(dbFilePath, personalDBPath)
 		if err != nil {
 			// Use user-friendly error messages
 			fmt.Printf("%s\n", errors.GetUserFriendlyMessage(err))
-			
+
 			// Show suggestions if available
 			if suggestions := errors.GetErrorSuggestions(err); len(suggestions) > 0 {
 				fmt.Printf("\nSuggestions:\n")
@@ -127,7 +127,7 @@ Examples:
 			if projectContext != nil {
 				fmt.Printf("Context detected: %s\n", projectContext.GetContextDescription())
 			}
-			
+
 			// Show platform filtering info
 			if flags.allPlatforms {
 				fmt.Printf("Platform filter: All platforms (no filtering)\n")
@@ -143,7 +143,7 @@ Examples:
 		}
 		fmt.Printf("Searching for: %s\n\n", query)
 
-		// Use the original database search which was working well
+		// Use the original database search with improved NLP
 		searchOptions := database.SearchOptions{
 			Limit:          cfg.MaxResults,
 			UseFuzzy:       true,
@@ -153,12 +153,12 @@ Examples:
 		if projectContext != nil {
 			searchOptions.ContextBoosts = projectContext.GetContextBoosts()
 		}
-		
-		// Use the robust database search instead of the over-engineered enhanced search
+
+		// Use the robust database search with improved NLP
 		results := db.SearchWithNLP(query, searchOptions)
-		
+
 		searchDuration := time.Since(startTime)
-		
+
 		// If search failed, try recovery mechanisms
 		if len(results) == 0 {
 			searchRecovery := recovery.NewSearchRecovery()
@@ -184,9 +184,9 @@ Examples:
 		if len(results) == 0 {
 			// Use database suggestions
 			suggestions := db.GetSuggestions(query, 5)
-			
+
 			fmt.Printf("No commands found matching '%s'.\n\n", query)
-			
+
 			if len(suggestions) > 0 {
 				fmt.Printf("Did you mean:\n")
 				for _, suggestion := range suggestions {

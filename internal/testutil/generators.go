@@ -31,34 +31,34 @@ func NewTestDataGeneratorWithSeed(seed int64) *TestDataGenerator {
 // GenerateRandomCommands generates random commands for stress testing
 func (tdg *TestDataGenerator) GenerateRandomCommands(count int) []database.Command {
 	commands := make([]database.Command, count)
-	
+
 	commandPrefixes := []string{
 		"git", "find", "grep", "tar", "zip", "curl", "wget", "ssh", "scp", "rsync",
 		"ls", "cp", "mv", "rm", "mkdir", "rmdir", "cat", "less", "more", "head",
 		"tail", "sort", "uniq", "awk", "sed", "ps", "top", "htop", "kill", "chmod",
 		"chown", "sudo", "ping", "nc", "nmap", "docker", "kubectl", "helm",
 	}
-	
+
 	commandSuffixes := []string{
 		"-l", "-a", "-r", "-f", "-v", "-h", "--help", "--version", "-i", "-o",
 		"file.txt", "directory/", "*.log", "pattern", "user@host", "localhost",
 		"--recursive", "--force", "--verbose", "--quiet", "--dry-run",
 	}
-	
+
 	descriptions := []string{
 		"manage files and directories", "search and filter content", "network operations",
 		"version control operations", "system monitoring", "process management",
 		"archive and compression", "text processing", "remote access", "configuration",
 		"development tools", "container management", "security operations",
 	}
-	
+
 	keywords := []string{
 		"file", "directory", "search", "network", "git", "process", "system",
 		"archive", "text", "remote", "config", "development", "container",
 		"security", "monitor", "manage", "create", "delete", "copy", "move",
 		"list", "show", "edit", "compress", "extract", "download", "upload",
 	}
-	
+
 	platforms := [][]string{
 		{"linux", "macos"},
 		{"linux", "macos", "windows"},
@@ -66,30 +66,30 @@ func (tdg *TestDataGenerator) GenerateRandomCommands(count int) []database.Comma
 		{"linux"},
 		{"macos"},
 	}
-	
+
 	niches := []string{
 		"development", "system", "network", "security", "devops", "database",
 		"web", "mobile", "desktop", "server", "cloud", "monitoring",
 	}
-	
+
 	for i := 0; i < count; i++ {
 		prefix := commandPrefixes[tdg.rand.Intn(len(commandPrefixes))]
 		suffix := commandSuffixes[tdg.rand.Intn(len(commandSuffixes))]
 		command := fmt.Sprintf("%s %s", prefix, suffix)
-		
+
 		description := descriptions[tdg.rand.Intn(len(descriptions))]
-		
+
 		// Generate 2-5 keywords
 		numKeywords := 2 + tdg.rand.Intn(4)
 		cmdKeywords := make([]string, numKeywords)
 		for j := 0; j < numKeywords; j++ {
 			cmdKeywords[j] = keywords[tdg.rand.Intn(len(keywords))]
 		}
-		
+
 		platform := platforms[tdg.rand.Intn(len(platforms))]
 		niche := niches[tdg.rand.Intn(len(niches))]
 		pipeline := tdg.rand.Float32() < 0.2 // 20% chance of being a pipeline command
-		
+
 		commands[i] = database.Command{
 			Command:     command,
 			Description: description,
@@ -99,7 +99,7 @@ func (tdg *TestDataGenerator) GenerateRandomCommands(count int) []database.Comma
 			Niche:       niche,
 		}
 	}
-	
+
 	return commands
 }
 
@@ -202,7 +202,7 @@ func (tdg *TestDataGenerator) GenerateEdgeCaseCommands() []database.Command {
 // GeneratePerformanceTestCommands generates commands for performance testing
 func (tdg *TestDataGenerator) GeneratePerformanceTestCommands(count int) []database.Command {
 	commands := make([]database.Command, count)
-	
+
 	// Base patterns for realistic commands
 	patterns := []struct {
 		command     string
@@ -247,17 +247,17 @@ func (tdg *TestDataGenerator) GeneratePerformanceTestCommands(count int) []datab
 			niche:       "development",
 		},
 	}
-	
+
 	operations := []string{
 		"init", "clone", "add", "commit", "push", "pull", "status", "log",
 		"branch", "checkout", "merge", "rebase", "reset", "stash", "tag",
 		"remote", "fetch", "diff", "show", "config", "help", "version",
 	}
-	
+
 	for i := 0; i < count; i++ {
 		pattern := patterns[i%len(patterns)]
 		operation := operations[i%len(operations)]
-		
+
 		commands[i] = database.Command{
 			Command:     fmt.Sprintf(pattern.command, operation),
 			Description: fmt.Sprintf(pattern.description, operation),
@@ -267,14 +267,14 @@ func (tdg *TestDataGenerator) GeneratePerformanceTestCommands(count int) []datab
 			Niche:       pattern.niche,
 		}
 	}
-	
+
 	return commands
 }
 
 // GenerateTestQueries generates test queries for various scenarios
 func (tdg *TestDataGenerator) GenerateTestQueries(count int) []TestQuery {
 	queries := make([]TestQuery, count)
-	
+
 	queryPatterns := []string{
 		"git commit", "find files", "docker run", "kubectl get", "npm install",
 		"search text", "compress archive", "download file", "upload data",
@@ -282,20 +282,20 @@ func (tdg *TestDataGenerator) GenerateTestQueries(count int) []TestQuery {
 		"list items", "show status", "edit config", "run command",
 		"start service", "stop process", "restart application",
 	}
-	
+
 	for i := 0; i < count; i++ {
 		pattern := queryPatterns[i%len(queryPatterns)]
-		
+
 		queries[i] = TestQuery{
-			Query:           pattern,
-			ExpectedResults: 1 + tdg.rand.Intn(3), // 1-3 results
-			MinScore:        float64(tdg.rand.Intn(10) + 5),  // 5-14
-			MaxScore:        float64(tdg.rand.Intn(20) + 30), // 30-49
-			ShouldContain:   strings.Fields(pattern)[:1],     // First word
+			Query:            pattern,
+			ExpectedResults:  1 + tdg.rand.Intn(3),            // 1-3 results
+			MinScore:         float64(tdg.rand.Intn(10) + 5),  // 5-14
+			MaxScore:         float64(tdg.rand.Intn(20) + 30), // 30-49
+			ShouldContain:    strings.Fields(pattern)[:1],     // First word
 			ShouldNotContain: []string{},
 		}
 	}
-	
+
 	return queries
 }
 
@@ -303,7 +303,7 @@ func (tdg *TestDataGenerator) GenerateTestQueries(count int) []TestQuery {
 func (tdg *TestDataGenerator) GenerateStressTestData(commandCount, queryCount int) ([]database.Command, []TestQuery) {
 	commands := tdg.GeneratePerformanceTestCommands(commandCount)
 	queries := tdg.GenerateTestQueries(queryCount)
-	
+
 	return commands, queries
 }
 
@@ -311,10 +311,10 @@ func (tdg *TestDataGenerator) GenerateStressTestData(commandCount, queryCount in
 func (tdg *TestDataGenerator) GenerateBenchmarkData() ([]database.Command, []TestQuery) {
 	// Generate a realistic dataset size
 	commands := tdg.GeneratePerformanceTestCommands(1000)
-	
+
 	// Add some edge cases
 	commands = append(commands, tdg.GenerateEdgeCaseCommands()...)
-	
+
 	// Generate queries that should find results
 	queries := []TestQuery{
 		{Query: "git", ExpectedResults: 20, MinScore: 4.0, MaxScore: 50.0},
@@ -328,7 +328,7 @@ func (tdg *TestDataGenerator) GenerateBenchmarkData() ([]database.Command, []Tes
 		{Query: "get", ExpectedResults: 5, MinScore: 4.0, MaxScore: 30.0},
 		{Query: "files", ExpectedResults: 5, MinScore: 4.0, MaxScore: 30.0},
 	}
-	
+
 	return commands, queries
 }
 
@@ -347,14 +347,14 @@ func (tdg *TestDataGenerator) GenerateMemoryTestData(size string) []database.Com
 	default:
 		count = 1000
 	}
-	
+
 	return tdg.GeneratePerformanceTestCommands(count)
 }
 
 // GenerateRealisticCommands generates realistic commands based on common CLI tools
 func (tdg *TestDataGenerator) GenerateRealisticCommands() []database.Command {
 	var commands []database.Command
-	
+
 	// Git commands
 	gitOps := []string{"init", "clone", "add", "commit", "push", "pull", "status", "log", "branch", "checkout", "merge"}
 	for _, op := range gitOps {
@@ -367,7 +367,7 @@ func (tdg *TestDataGenerator) GenerateRealisticCommands() []database.Command {
 			Niche:       "development",
 		})
 	}
-	
+
 	// Docker commands
 	dockerOps := []string{"run", "build", "pull", "push", "ps", "images", "exec", "logs", "stop", "rm"}
 	for _, op := range dockerOps {
@@ -380,7 +380,7 @@ func (tdg *TestDataGenerator) GenerateRealisticCommands() []database.Command {
 			Niche:       "devops",
 		})
 	}
-	
+
 	// File operations
 	fileOps := []struct {
 		cmd, desc string
@@ -393,7 +393,7 @@ func (tdg *TestDataGenerator) GenerateRealisticCommands() []database.Command {
 		{"mv", "move or rename files", []string{"mv", "move", "rename"}},
 		{"rm -rf", "remove files and directories", []string{"rm", "remove", "delete"}},
 	}
-	
+
 	for _, op := range fileOps {
 		commands = append(commands, database.Command{
 			Command:     op.cmd,
@@ -404,6 +404,6 @@ func (tdg *TestDataGenerator) GenerateRealisticCommands() []database.Command {
 			Niche:       "system",
 		})
 	}
-	
+
 	return commands
 }

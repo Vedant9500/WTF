@@ -213,7 +213,7 @@ func TestGetEnhancedKeywords(t *testing.T) {
 
 	// Should contain original keywords first
 	expectedKeywords := []string{"git", "commit", "create", "make", "file", "document"}
-	
+
 	if len(enhanced) < len(expectedKeywords) {
 		t.Errorf("Expected at least %d enhanced keywords, got %d", len(expectedKeywords), len(enhanced))
 	}
@@ -245,7 +245,7 @@ func TestGetEnhancedKeywordsWithFewKeywords(t *testing.T) {
 
 	// Should add intent-specific keywords when we have few keywords
 	expectedToContain := []string{"git", "create", "make", "new"}
-	
+
 	for _, expected := range expectedToContain {
 		found := false
 		for _, keyword := range enhanced {
@@ -269,7 +269,7 @@ func TestBuildStopWords(t *testing.T) {
 
 	// Test some common stop words that are actually in the implementation
 	commonStopWords := []string{"the", "a", "an", "and", "but", "in", "on", "at", "to", "for", "of", "with", "by"}
-	
+
 	for _, word := range commonStopWords {
 		if !stopWords[word] {
 			t.Errorf("Expected '%s' to be a stop word", word)
@@ -278,7 +278,7 @@ func TestBuildStopWords(t *testing.T) {
 
 	// Test that non-stop words are not included
 	nonStopWords := []string{"git", "file", "create", "search", "command"}
-	
+
 	for _, word := range nonStopWords {
 		if stopWords[word] {
 			t.Errorf("Expected '%s' not to be a stop word", word)
@@ -462,34 +462,34 @@ func TestComplexQueryProcessing(t *testing.T) {
 
 	// Test complex real-world queries
 	testCases := []struct {
-		name          string
-		query         string
+		name           string
+		query          string
 		expectedIntent QueryIntent
-		shouldContain []string
+		shouldContain  []string
 	}{
 		{
-			name:          "Git commit query",
-			query:         "how to commit changes in git",
+			name:           "Git commit query",
+			query:          "how to commit changes in git",
 			expectedIntent: IntentGeneral, // "how" is a stop word, so no clear action
-			shouldContain: []string{"commit", "changes", "git"},
+			shouldContain:  []string{"commit", "changes", "git"},
 		},
 		{
-			name:          "File search query",
-			query:         "find all text files in directory",
+			name:           "File search query",
+			query:          "find all text files in directory",
 			expectedIntent: IntentGeneral, // Adjusted to match actual behavior
-			shouldContain: []string{"text", "files", "directory"},
+			shouldContain:  []string{"text", "files", "directory"},
 		},
 		{
-			name:          "Installation query",
-			query:         "install docker on ubuntu",
+			name:           "Installation query",
+			query:          "install docker on ubuntu",
 			expectedIntent: IntentInstall,
-			shouldContain: []string{"install", "docker", "ubuntu"},
+			shouldContain:  []string{"install", "docker", "ubuntu"},
 		},
 		{
-			name:          "Configuration query",
-			query:         "configure ssh keys for github",
+			name:           "Configuration query",
+			query:          "configure ssh keys for github",
 			expectedIntent: IntentGeneral, // Adjusted to match actual behavior
-			shouldContain: []string{"ssh", "keys", "github"},
+			shouldContain:  []string{"ssh", "keys", "github"},
 		},
 	}
 

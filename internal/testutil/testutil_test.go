@@ -6,8 +6,6 @@ import (
 	"github.com/Vedant9500/WTF/internal/database"
 )
 
-
-
 func TestTestUtilPackage(t *testing.T) {
 	// Test that we can create test database
 	testDB := NewTestDatabase()

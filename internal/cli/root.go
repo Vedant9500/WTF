@@ -1,3 +1,15 @@
+// Package cli provides the command-line interface for the WTF application.
+//
+// This package implements all CLI commands and their associated functionality using
+// the Cobra CLI framework. It includes:
+//   - Root command with global flags and configuration
+//   - Search command for finding commands by natural language queries
+//   - History management for tracking search queries
+//   - Setup and configuration commands
+//   - Pipeline-specific search functionality
+//   - Command aliasing and saving capabilities
+//
+// The Execute function is the main entry point for the CLI application.
 package cli
 
 import (
@@ -22,7 +34,12 @@ When you can't remember a command, you think "What's The Function I need?" - tha
 	},
 }
 
-// Execute runs the root command
+// Execute runs the root command and handles all CLI interactions.
+//
+// This is the main entry point for the WTF CLI application. It initializes
+// the Cobra command tree and processes command-line arguments and flags.
+//
+// Returns an error if command execution fails, nil on successful completion.
 func Execute() error {
 	return rootCmd.Execute()
 }

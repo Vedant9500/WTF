@@ -76,6 +76,13 @@ func (qp *QueryProcessor) ProcessQuery(query string) *ProcessedQuery {
 	// Extract words
 	words := strings.Fields(strings.ToLower(cleaned))
 
+	// Detect context clues for better intent detection
+	queryLower := strings.ToLower(query)
+	hasViewContext := strings.Contains(queryLower, "see") || strings.Contains(queryLower, "view") ||
+		strings.Contains(queryLower, "show") || strings.Contains(queryLower, "display") ||
+		strings.Contains(queryLower, "read") || strings.Contains(queryLower, "look")
+	hasWithoutOpening := strings.Contains(queryLower, "without opening") || strings.Contains(queryLower, "without editing")
+
 	// Remove stop words and categorize remaining words
 	for _, word := range words {
 		if qp.stopWords[word] {
@@ -104,6 +111,12 @@ func (qp *QueryProcessor) ProcessQuery(query string) *ProcessedQuery {
 				pq.Keywords = append(pq.Keywords, synonyms[0]) // Just the first/best synonym
 			}
 		}
+	}
+
+	// Apply context-based action enhancement
+	if hasViewContext && hasWithoutOpening {
+		// This is clearly about viewing file contents
+		pq.Actions = append(pq.Actions, "view", "show", "display")
 	}
 
 	// Detect intent
@@ -135,8 +148,10 @@ func (qp *QueryProcessor) detectIntent(actions []string, keywords []string) Quer
 	// Check actions for clear intent
 	for _, action := range actions {
 		switch action {
-		case "find", "search", "locate", "show", "list", "display":
+		case "find", "search", "locate", "list":
 			return IntentFind
+		case "show", "display", "view", "see", "read", "cat":
+			return IntentView
 		case "create", "make", "build", "generate", "new":
 			return IntentCreate
 		case "delete", "remove", "destroy", "clean", "clear":
@@ -152,15 +167,32 @@ func (qp *QueryProcessor) detectIntent(actions []string, keywords []string) Quer
 		}
 	}
 
-	// Check keywords for intent hints
+	// Check keywords for intent hints with context
 	for _, keyword := range keywords {
 		switch keyword {
+		case "contents", "content", "inside", "text":
+			// Check if this is about viewing (see, show, read) or clearing (clear, empty)
+			hasViewAction := false
+			hasClearAction := false
+			for _, action := range actions {
+				if action == "view" || action == "show" || action == "see" || action == "read" || action == "display" {
+					hasViewAction = true
+				}
+				if action == "clear" || action == "empty" || action == "delete" || action == "remove" {
+					hasClearAction = true
+				}
+			}
+			if hasViewAction || (!hasClearAction && len(actions) == 0) {
+				return IntentView // Default to view if no clear action detected
+			}
 		case "install", "installation":
 			return IntentInstall
 		case "config", "configuration", "setup":
 			return IntentConfigure
-		case "running", "execution":
-			return IntentRun
+		case "running", "execution", "processes":
+			return IntentFind // Finding/listing processes
+		case "permissions", "permission", "chmod":
+			return IntentModify
 		}
 	}
 
@@ -185,12 +217,16 @@ func (pq *ProcessedQuery) GetEnhancedKeywords() []string {
 		switch pq.Intent {
 		case IntentFind:
 			enhanced = append(enhanced, "search", "find", "list")
+		case IntentView:
+			enhanced = append(enhanced, "cat", "view", "show", "display")
 		case IntentCreate:
 			enhanced = append(enhanced, "create", "make", "new")
 		case IntentDelete:
 			enhanced = append(enhanced, "delete", "remove")
 		case IntentInstall:
 			enhanced = append(enhanced, "install", "setup")
+		case IntentModify:
+			enhanced = append(enhanced, "chmod", "change", "modify")
 		}
 	}
 
@@ -200,12 +236,12 @@ func buildStopWords() map[string]bool {
 	words := []string{
 		"a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
 		"has", "he", "in", "is", "it", "its", "of", "on", "that", "the",
-		"to", "was", "will", "with", "the", "this", "but", "they", "have",
-		"had", "what", "said", "each", "which", "she", "do", "how", "their",
+		"to", "was", "will", "with", "this", "but", "they", "have",
+		"had", "what", "said", "each", "which", "she", "how", "their",
 		"if", "up", "out", "many", "then", "them", "these", "so", "some", "her",
-		"would", "make", "like", "into", "him", "time", "two", "more", "go", "no",
+		"would", "like", "into", "him", "time", "two", "go", "no",
 		"way", "could", "my", "than", "first", "been", "call", "who", "oil", "sit",
-		"now", "find", "down", "day", "did", "get", "come", "made", "may", "part",
+		"now", "down", "day", "did", "get", "come", "made", "may", "part",
 	}
 
 	stopWords := make(map[string]bool)
@@ -219,10 +255,22 @@ func buildStopWords() map[string]bool {
 func buildSynonyms() map[string][]string {
 	return map[string][]string{
 		// File operations
-		"file":    {"document", "data", "content"},
-		"files":   {"documents", "data", "content"},
-		"folder":  {"directory", "dir", "path"},
-		"folders": {"directories", "dirs", "paths"},
+		"file":     {"document", "data", "content"},
+		"files":    {"documents", "data", "content"},
+		"folder":   {"directory", "dir", "path"},
+		"folders":  {"directories", "dirs", "paths"},
+		"contents": {"content", "data", "text", "inside"},
+		"content":  {"contents", "data", "text", "inside"},
+
+		// Viewing/Reading actions - more comprehensive
+		"see":     {"view", "show", "display", "read", "cat", "less", "more"},
+		"view":    {"see", "show", "display", "read", "cat", "less", "more"},
+		"show":    {"view", "see", "display", "read", "cat", "less"},
+		"display": {"view", "see", "show", "read", "cat", "less"},
+		"read":    {"view", "see", "show", "display", "cat", "less"},
+		"look":    {"view", "see", "show", "display", "cat"},
+		"check":   {"view", "see", "show", "display", "cat"},
+		"print":   {"cat", "echo", "printf", "show"},
 
 		// Actions
 		"find":   {"search", "locate", "discover", "lookup"},
@@ -232,7 +280,7 @@ func buildSynonyms() map[string][]string {
 		"move":   {"relocate", "transfer", "shift"},
 
 		// Compression
-		"compress": {"zip", "archive", "pack", "bundle"},
+		"compress": {"zip", "archive", "pack", "bundle", "tar"},
 		"extract":  {"unzip", "unpack", "decompress", "expand"},
 
 		// Network
@@ -240,9 +288,16 @@ func buildSynonyms() map[string][]string {
 		"upload":   {"push", "send", "transfer", "post"},
 
 		// System
-		"process": {"task", "job", "service", "daemon"},
-		"kill":    {"stop", "terminate", "end"},
-		"start":   {"run", "launch", "execute", "begin"},
+		"process":   {"task", "job", "service", "daemon"},
+		"processes": {"tasks", "jobs", "services"},
+		"running":   {"active", "executing", "live"},
+		"kill":      {"stop", "terminate", "end"},
+		"start":     {"run", "launch", "execute", "begin"},
+
+		// Permissions
+		"permission":  {"permissions", "access", "rights", "chmod"},
+		"permissions": {"permission", "access", "rights", "chmod"},
+		"change":      {"modify", "alter", "update", "edit"},
 
 		// Development
 		"compile": {"build", "make", "assemble"},
@@ -255,12 +310,19 @@ func buildSynonyms() map[string][]string {
 func buildActionWords() map[string][]string {
 	return map[string][]string{
 		// Finding/Searching
-		"find":    {"find", "search", "locate"},
-		"search":  {"find", "search", "locate"},
-		"locate":  {"find", "search", "locate"},
-		"show":    {"show", "display", "list"},
-		"list":    {"list", "show", "display"},
-		"display": {"show", "display", "list"},
+		"find":   {"find", "search", "locate"},
+		"search": {"find", "search", "locate"},
+		"locate": {"find", "search", "locate"},
+		"list":   {"list", "show", "display"},
+
+		// Viewing/Reading
+		"show":    {"show", "display", "view"},
+		"display": {"show", "display", "view"},
+		"view":    {"view", "show", "display"},
+		"see":     {"view", "show", "display"},
+		"read":    {"view", "show", "display"},
+		"look":    {"view", "show", "display"},
+		"check":   {"view", "show", "display"},
 
 		// Creating
 		"create":   {"create", "make", "build"},
@@ -291,6 +353,23 @@ func buildActionWords() map[string][]string {
 		"install": {"install", "setup", "add"},
 		"setup":   {"setup", "install", "configure"},
 		"add":     {"add", "install", "setup"},
+
+		// Compression
+		"compress": {"compress", "archive", "zip", "tar"},
+		"extract":  {"extract", "unzip", "unpack", "tar"},
+		"archive":  {"archive", "compress", "zip", "tar"},
+		"pack":     {"compress", "archive", "zip", "tar"},
+		"unpack":   {"extract", "unzip", "unpack", "tar"},
+
+		// File operations
+		"copy":   {"copy", "cp", "duplicate"},
+		"move":   {"move", "mv", "relocate"},
+		"rename": {"rename", "mv", "move"},
+
+		// Process operations
+		"kill":      {"kill", "stop", "terminate"},
+		"stop":      {"stop", "kill", "terminate"},
+		"terminate": {"terminate", "kill", "stop"},
 	}
 }
 
@@ -298,32 +377,50 @@ func buildActionWords() map[string][]string {
 func buildTargetWords() map[string][]string {
 	return map[string][]string{
 		// File system
-		"file":      {"file", "document"},
-		"files":     {"files", "documents"},
-		"folder":    {"directory", "folder"},
-		"directory": {"directory", "folder"},
-		"path":      {"path", "location"},
+		"file":        {"file", "document"},
+		"files":       {"files", "documents"},
+		"folder":      {"directory", "folder"},
+		"directory":   {"directory", "folder"},
+		"directories": {"directories", "folders"},
+		"path":        {"path", "location"},
+		"contents":    {"contents", "content", "data"},
+		"content":     {"content", "contents", "data"},
 
 		// Archives
-		"archive": {"archive", "zip", "tar"},
-		"zip":     {"zip", "archive"},
-		"tar":     {"tar", "archive"},
+		"archive":  {"archive", "zip", "tar"},
+		"archives": {"archives", "zip", "tar"},
+		"zip":      {"zip", "archive"},
+		"tar":      {"tar", "archive"},
 
 		// Processes
-		"process": {"process", "task"},
-		"service": {"service", "daemon"},
-		"daemon":  {"daemon", "service"},
+		"process":   {"process", "task"},
+		"processes": {"processes", "tasks"},
+		"service":   {"service", "daemon"},
+		"services":  {"services", "daemons"},
+		"daemon":    {"daemon", "service"},
+		"task":      {"task", "process"},
+		"tasks":     {"tasks", "processes"},
 
 		// Network
 		"server":     {"server", "host"},
 		"port":       {"port", "socket"},
 		"connection": {"connection", "link"},
+		"url":        {"url", "link", "address"},
+		"website":    {"website", "url", "site"},
 
 		// Development
 		"project":    {"project", "repo", "repository"},
 		"repository": {"repository", "repo"},
+		"repo":       {"repo", "repository"},
 		"branch":     {"branch", "ref"},
 		"commit":     {"commit", "revision"},
+		"code":       {"code", "source", "program"},
+
+		// System
+		"permission":  {"permission", "permissions", "access"},
+		"permissions": {"permissions", "permission", "access"},
+		"user":        {"user", "account"},
+		"group":       {"group", "users"},
 	}
 }
 

@@ -22,12 +22,12 @@ func NewTestHelper(t *testing.T) *TestHelper {
 // WithTimeout runs a test function with a timeout
 func (th *TestHelper) WithTimeout(timeout time.Duration, testFunc func()) {
 	done := make(chan bool, 1)
-	
+
 	go func() {
 		testFunc()
 		done <- true
 	}()
-	
+
 	select {
 	case <-done:
 		// Test completed successfully
@@ -135,24 +135,24 @@ func (dth *DatabaseTestHelper) CreateEmptyDatabase() *database.Database {
 // ValidateSearchResults validates search results against expected criteria
 func (dth *DatabaseTestHelper) ValidateSearchResults(t *testing.T, results []database.SearchResult, query TestQuery) {
 	t.Helper()
-	
+
 	// Check result count
 	AssertResultCount(t, results, query.ExpectedResults)
-	
+
 	if len(results) == 0 && query.ExpectedResults == 0 {
 		return // No results expected and none found - test passes
 	}
-	
+
 	// Check each result
 	for _, result := range results {
 		// Check score range
 		AssertScoreRange(t, result.Score, query.MinScore, query.MaxScore)
-		
+
 		// Check that result contains expected keywords
 		if len(query.ShouldContain) > 0 {
 			AssertContainsKeywords(t, result.Command, query.ShouldContain)
 		}
-		
+
 		// Check that result doesn't contain unwanted keywords
 		if len(query.ShouldNotContain) > 0 {
 			AssertDoesNotContainKeywords(t, result.Command, query.ShouldNotContain)
@@ -213,28 +213,28 @@ func NewSimpleTestDataGenerator() *SimpleTestDataGenerator {
 // GenerateCommands generates a specified number of test commands
 func (tdg *SimpleTestDataGenerator) GenerateCommands(count int) []database.Command {
 	commands := make([]database.Command, count)
-	
+
 	baseCommands := []string{
 		"git", "find", "grep", "tar", "zip", "curl", "wget", "ssh", "scp", "rsync",
 		"ls", "cp", "mv", "rm", "mkdir", "rmdir", "cat", "less", "more", "head", "tail",
 		"ps", "top", "htop", "kill", "killall", "jobs", "bg", "fg", "nohup",
 		"chmod", "chown", "chgrp", "sudo", "su", "whoami", "id", "groups",
 	}
-	
+
 	baseDescriptions := []string{
 		"version control", "file operations", "text processing", "archive management",
 		"network operations", "system monitoring", "process management", "permissions",
 	}
-	
+
 	baseKeywords := []string{
 		"file", "directory", "search", "process", "network", "system", "text", "archive",
 		"permission", "user", "group", "monitor", "manage", "create", "delete", "copy",
 	}
-	
+
 	for i := 0; i < count; i++ {
 		cmdIndex := i % len(baseCommands)
 		descIndex := i % len(baseDescriptions)
-		
+
 		commands[i] = database.Command{
 			Command:     baseCommands[cmdIndex] + " test" + string(rune('A'+i%26)),
 			Description: baseDescriptions[descIndex] + " for testing",
@@ -243,33 +243,33 @@ func (tdg *SimpleTestDataGenerator) GenerateCommands(count int) []database.Comma
 			Pipeline:    i%5 == 0, // Every 5th command is a pipeline command
 		}
 	}
-	
+
 	return commands
 }
 
 // GenerateQueries generates test queries for various scenarios
 func (tdg *SimpleTestDataGenerator) GenerateQueries(count int) []TestQuery {
 	queries := make([]TestQuery, count)
-	
+
 	baseQueries := []string{
 		"git commit", "find files", "search text", "compress archive", "download file",
 		"list directory", "copy file", "move file", "delete file", "create directory",
 		"process list", "system monitor", "change permission", "network connection",
 	}
-	
+
 	for i := 0; i < count; i++ {
 		queryIndex := i % len(baseQueries)
-		
+
 		queries[i] = TestQuery{
-			Query:           baseQueries[queryIndex],
-			ExpectedResults: 1 + i%3, // 1-3 expected results
-			MinScore:        float64(i%10 + 1),
-			MaxScore:        float64(i%10 + 20),
-			ShouldContain:   []string{baseQueries[queryIndex][:3]}, // First 3 chars as keyword
+			Query:            baseQueries[queryIndex],
+			ExpectedResults:  1 + i%3, // 1-3 expected results
+			MinScore:         float64(i%10 + 1),
+			MaxScore:         float64(i%10 + 20),
+			ShouldContain:    []string{baseQueries[queryIndex][:3]}, // First 3 chars as keyword
 			ShouldNotContain: []string{},
 		}
 	}
-	
+
 	return queries
 }
 
@@ -298,14 +298,14 @@ func (ph *PathHelper) CreateTestDataFile(filename, content string) (string, erro
 	if err := ph.EnsureTestDataDir(); err != nil {
 		return "", err
 	}
-	
+
 	filePath := filepath.Join(testDataDir, filename)
 	file, err := os.Create(filePath)
 	if err != nil {
 		return "", err
 	}
 	defer file.Close()
-	
+
 	_, err = file.WriteString(content)
 	return filePath, err
 }

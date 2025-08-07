@@ -1,11 +1,31 @@
-// Package testutil provides utilities for testing.
+// Package testutil provides comprehensive testing utilities and fixtures.
+//
+// This package contains shared testing infrastructure including:
+//   - Pre-configured test databases with realistic command data
+//   - Test data generators for various scenarios
+//   - Helper functions for common test operations
+//   - Fixtures for consistent test data across packages
+//
+// The test databases provided include commands from various categories
+// (git, filesystem, compression) to enable comprehensive search testing.
 package testutil
 
 import (
 	"github.com/Vedant9500/WTF/internal/database"
 )
 
-// CreateTestDatabase creates a test database with sample commands
+// CreateTestDatabase creates a comprehensive test database with realistic sample commands.
+//
+// This function returns a database populated with commands from various categories
+// including git, filesystem operations, compression, and pipeline commands.
+// The commands are designed to test different aspects of the search functionality:
+//   - Different command structures and complexity
+//   - Various keyword combinations
+//   - Platform-specific and cross-platform commands
+//   - Pipeline and non-pipeline commands
+//   - Different niche categories
+//
+// This is the primary test database used for most search functionality tests.
 func CreateTestDatabase() *database.Database {
 	return &database.Database{
 		Commands: []database.Command{
@@ -53,7 +73,11 @@ func CreateTestDatabase() *database.Database {
 	}
 }
 
-// CreateMinimalTestDatabase creates a minimal test database
+// CreateMinimalTestDatabase creates a minimal test database with a single command.
+//
+// This function is useful for tests that need a simple database without the
+// complexity of multiple commands. It contains only one basic command for
+// testing core functionality without interference from other commands.
 func CreateMinimalTestDatabase() *database.Database {
 	return &database.Database{
 		Commands: []database.Command{
@@ -67,7 +91,11 @@ func CreateMinimalTestDatabase() *database.Database {
 	}
 }
 
-// CreateEmptyTestDatabase creates an empty test database
+// CreateEmptyTestDatabase creates an empty test database with no commands.
+//
+// This function is useful for testing edge cases, error conditions, and
+// scenarios where no search results should be found. It helps verify that
+// the search functionality handles empty databases gracefully.
 func CreateEmptyTestDatabase() *database.Database {
 	return &database.Database{
 		Commands: []database.Command{},

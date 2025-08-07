@@ -29,9 +29,9 @@ func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options Searc
 		// Cache disabled, use regular search
 		return cdb.OptimizedSearchWithOptions(query, options)
 	}
-	
+
 	searchCache := cdb.cacheManager.GetSearchCache()
-	
+
 	// Convert SearchOptions to cache.SearchOptions
 	cacheOptions := cache.SearchOptions{
 		Limit:          options.Limit,
@@ -42,7 +42,7 @@ func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options Searc
 		FuzzyThreshold: options.FuzzyThreshold,
 		UseNLP:         options.UseNLP,
 	}
-	
+
 	// Try to get from cache first
 	if cachedResults, found := searchCache.Get(query, cacheOptions); found {
 		// Convert cache.SearchResult back to database.SearchResult
@@ -57,10 +57,10 @@ func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options Searc
 		}
 		return results
 	}
-	
+
 	// Cache miss - perform actual search
 	results := cdb.OptimizedSearchWithOptions(query, options)
-	
+
 	// Store in cache
 	if len(results) > 0 {
 		// Convert database.SearchResult to cache.SearchResult
@@ -73,7 +73,7 @@ func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options Searc
 		}
 		searchCache.Put(query, cacheOptions, cacheResults)
 	}
-	
+
 	return results
 }
 
@@ -113,9 +113,9 @@ func (cdb *CachedDatabase) SearchWithPipelineOptionsAndCache(query string, optio
 	if !cdb.cacheManager.IsEnabled() {
 		return cdb.SearchWithPipelineOptions(query, options)
 	}
-	
+
 	searchCache := cdb.cacheManager.GetSearchCache()
-	
+
 	// Convert SearchOptions to cache.SearchOptions
 	cacheOptions := cache.SearchOptions{
 		Limit:          options.Limit,
@@ -126,7 +126,7 @@ func (cdb *CachedDatabase) SearchWithPipelineOptionsAndCache(query string, optio
 		FuzzyThreshold: options.FuzzyThreshold,
 		UseNLP:         options.UseNLP,
 	}
-	
+
 	// Try cache first
 	if cachedResults, found := searchCache.Get(query, cacheOptions); found {
 		results := make([]SearchResult, len(cachedResults))
@@ -140,10 +140,10 @@ func (cdb *CachedDatabase) SearchWithPipelineOptionsAndCache(query string, optio
 		}
 		return results
 	}
-	
+
 	// Cache miss - perform search
 	results := cdb.SearchWithPipelineOptions(query, options)
-	
+
 	// Store in cache
 	if len(results) > 0 {
 		cacheResults := make([]cache.SearchResult, len(results))
@@ -155,7 +155,7 @@ func (cdb *CachedDatabase) SearchWithPipelineOptionsAndCache(query string, optio
 		}
 		searchCache.Put(query, cacheOptions, cacheResults)
 	}
-	
+
 	return results
 }
 
@@ -164,9 +164,9 @@ func (cdb *CachedDatabase) SearchWithFuzzyAndCache(query string, options SearchO
 	if !cdb.cacheManager.IsEnabled() {
 		return cdb.SearchWithFuzzy(query, options)
 	}
-	
+
 	searchCache := cdb.cacheManager.GetSearchCache()
-	
+
 	cacheOptions := cache.SearchOptions{
 		Limit:          options.Limit,
 		ContextBoosts:  options.ContextBoosts,
@@ -176,7 +176,7 @@ func (cdb *CachedDatabase) SearchWithFuzzyAndCache(query string, options SearchO
 		FuzzyThreshold: options.FuzzyThreshold,
 		UseNLP:         options.UseNLP,
 	}
-	
+
 	if cachedResults, found := searchCache.Get(query, cacheOptions); found {
 		results := make([]SearchResult, len(cachedResults))
 		for i, cached := range cachedResults {
@@ -189,9 +189,9 @@ func (cdb *CachedDatabase) SearchWithFuzzyAndCache(query string, options SearchO
 		}
 		return results
 	}
-	
+
 	results := cdb.SearchWithFuzzy(query, options)
-	
+
 	if len(results) > 0 {
 		cacheResults := make([]cache.SearchResult, len(results))
 		for i, result := range results {
@@ -202,6 +202,6 @@ func (cdb *CachedDatabase) SearchWithFuzzyAndCache(query string, options SearchO
 		}
 		searchCache.Put(query, cacheOptions, cacheResults)
 	}
-	
+
 	return results
 }

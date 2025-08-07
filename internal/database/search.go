@@ -1,9 +1,9 @@
 package database
 
 import (
+	"runtime"
 	"sort"
 	"strings"
-	"runtime"
 
 	"github.com/Vedant9500/WTF/internal/constants"
 	"github.com/Vedant9500/WTF/internal/nlp"
@@ -55,7 +55,7 @@ func (db *Database) SearchWithOptions(query string, options SearchOptions) []Sea
 
 	for i := range db.Commands {
 		cmd := &db.Commands[i]
-		
+
 		// Apply platform filtering and calculate score
 		if result := db.calculateCommandScore(cmd, queryWords, options.ContextBoosts, currentPlatform); result != nil {
 			results = append(results, *result)
@@ -118,7 +118,7 @@ func isPipelineCommand(cmd *Command) bool {
 	if cmd.Pipeline {
 		return true
 	}
-	
+
 	command := cmd.Command
 	return strings.Contains(command, "|") ||
 		strings.Contains(strings.ToLower(command), "pipe") ||
@@ -132,7 +132,7 @@ func (db *Database) calculateCommandScore(cmd *Command, queryWords []string, con
 	if len(cmd.Platform) > 0 {
 		isCrossPlatform := false
 		platformMatch := false
-		
+
 		for _, p := range cmd.Platform {
 			if strings.EqualFold(p, "cross-platform") {
 				isCrossPlatform = true
@@ -143,7 +143,7 @@ func (db *Database) calculateCommandScore(cmd *Command, queryWords []string, con
 				break
 			}
 		}
-		
+
 		// Skip if platform-specific and doesn't match current platform
 		if !isCrossPlatform && !platformMatch {
 			// Check if this is a legacy cross-platform tool (for backward compatibility)
@@ -158,7 +158,7 @@ func (db *Database) calculateCommandScore(cmd *Command, queryWords []string, con
 			return nil
 		}
 	}
-	
+
 	score := calculateScore(cmd, queryWords, contextBoosts)
 	if score > 0 {
 		return &SearchResult{Command: cmd, Score: score}
@@ -168,85 +168,102 @@ func (db *Database) calculateCommandScore(cmd *Command, queryWords []string, con
 
 // calculateWordScore computes the relevance score for a single word against a command
 func calculateWordScore(word string, cmd *Command) float64 {
-	cmdLower := cmd.CommandLower
-	descLower := cmd.DescriptionLower
-	keywordsLower := cmd.KeywordsLower
-	tagsLower := cmd.TagsLower
-	
 	var wordScore float64
 
-	// HIGHEST PRIORITY: Exact command match (entire command equals the word)
-	if cmdLower == word {
-		wordScore += constants.DirectCommandMatchScore * 2.0 // Double score for exact command match
-	} else if strings.HasPrefix(cmdLower, word+" ") || strings.HasPrefix(cmdLower, word) {
-		// Command starts with the word (like "mkdir" matching "mkdir -p")
-		wordScore += constants.DirectCommandMatchScore * 1.5
-	} else if strings.Contains(cmdLower, " "+word+" ") || strings.Contains(cmdLower, " "+word) {
-		// Word appears as a separate word in command
-		wordScore += constants.CommandMatchScore
-	} else if strings.Contains(cmdLower, word) {
-		// Word appears anywhere in command (partial match)
-		wordScore += constants.CommandMatchScore * 0.7
-	}
-
-	// HIGH PRIORITY: Domain-specific command matching
-	if isDomainSpecificMatch(word, cmd) {
-		wordScore += constants.DomainSpecificScore
-	}
-
-	// MEDIUM-HIGH PRIORITY: Exact match in keywords (very important for intent matching)
-	for _, keyword := range keywordsLower {
-		if keyword == word {
-			wordScore += constants.KeywordExactScore * 1.5 // Boost keyword exact matches
-			break
-		}
-	}
-
-	// MEDIUM-HIGH PRIORITY: Exact match in description
-	if strings.Contains(descLower, " "+word+" ") || strings.HasPrefix(descLower, word+" ") || strings.HasSuffix(descLower, " "+word) {
-		// Word appears as complete word in description
-		wordScore += constants.DescriptionMatchScore
-	} else if strings.Contains(descLower, word) {
-		// Partial match in description
-		wordScore += constants.DescriptionMatchScore * 0.6
-	}
-
-	// MEDIUM-HIGH PRIORITY: Exact match in tags
-	for _, tag := range tagsLower {
-		if tag == word {
-			wordScore += constants.TagExactScore
-			break
-		}
-	}
-
-	// LOW-MEDIUM PRIORITY: Partial match in tags (if no exact tag match)
-	if wordScore < constants.TagExactScore {
-		for _, tag := range tagsLower {
-			if strings.Contains(tag, word) {
-				wordScore += constants.TagPartialScore
-				break
-			}
-		}
-	}
-
-	// LOW PRIORITY: Partial match in keywords (only if no exact match)
-	hasExactKeywordMatch := false
-	for _, keyword := range keywordsLower {
-		if keyword == word {
-			hasExactKeywordMatch = true
-			break
-		}
-	}
-	if !hasExactKeywordMatch {
-		for _, keyword := range keywordsLower {
-			if strings.Contains(keyword, word) {
-				wordScore += constants.KeywordPartialScore
-				break
-			}
-		}
-	}
+	// Calculate scores from different sources
+	wordScore += calculateCommandScore(word, cmd.CommandLower)
+	wordScore += calculateDomainScore(word, cmd)
+	wordScore += calculateKeywordScore(word, cmd.KeywordsLower)
+	wordScore += calculateDescriptionScore(word, cmd.DescriptionLower)
+	wordScore += calculateTagScore(word, cmd.TagsLower)
 
 	return wordScore
+}
+
+// calculateCommandScore computes score based on command name matching
+func calculateCommandScore(word, cmdLower string) float64 {
+	// HIGHEST PRIORITY: Exact command match (entire command equals the word)
+	if cmdLower == word {
+		return constants.DirectCommandMatchScore * 2.0 // Double score for exact command match
+	}
+	
+	// Command starts with the word (like "mkdir" matching "mkdir -p")
+	if strings.HasPrefix(cmdLower, word+" ") || strings.HasPrefix(cmdLower, word) {
+		return constants.DirectCommandMatchScore * 1.5
+	}
+	
+	// Word appears as a separate word in command
+	if strings.Contains(cmdLower, " "+word+" ") || strings.Contains(cmdLower, " "+word) {
+		return constants.CommandMatchScore
+	}
+	
+	// Word appears anywhere in command (partial match)
+	if strings.Contains(cmdLower, word) {
+		return constants.CommandMatchScore * 0.7
+	}
+
+	return 0
+}
+
+// calculateDomainScore computes score for domain-specific matching
+func calculateDomainScore(word string, cmd *Command) float64 {
+	if isDomainSpecificMatch(word, cmd) {
+		return constants.DomainSpecificScore
+	}
+	return 0
+}
+
+// calculateKeywordScore computes score based on keyword matching
+func calculateKeywordScore(word string, keywordsLower []string) float64 {
+	// Check for exact match first (higher priority)
+	for _, keyword := range keywordsLower {
+		if keyword == word {
+			return constants.KeywordExactScore * 1.5 // Boost keyword exact matches
+		}
+	}
+
+	// Check for partial match if no exact match
+	for _, keyword := range keywordsLower {
+		if strings.Contains(keyword, word) {
+			return constants.KeywordPartialScore
+		}
+	}
+
+	return 0
+}
+
+// calculateDescriptionScore computes score based on description matching
+func calculateDescriptionScore(word, descLower string) float64 {
+	// Word appears as complete word in description
+	if strings.Contains(descLower, " "+word+" ") || strings.HasPrefix(descLower, word+" ") || strings.HasSuffix(descLower, " "+word) {
+		return constants.DescriptionMatchScore
+	}
+	
+	// Partial match in description
+	if strings.Contains(descLower, word) {
+		return constants.DescriptionMatchScore * 0.6
+	}
+
+	return 0
+}
+
+// calculateTagScore computes score based on tag matching
+func calculateTagScore(word string, tagsLower []string) float64 {
+	// Check for exact match first (higher priority)
+	for _, tag := range tagsLower {
+		if tag == word {
+			return constants.TagExactScore
+		}
+	}
+
+	// Check for partial match if no exact match
+	for _, tag := range tagsLower {
+		if strings.Contains(tag, word) {
+			return constants.TagPartialScore
+		}
+	}
+
+	return 0
 }
 
 // calculateScore computes relevance score for a command based on query words and context
@@ -262,12 +279,12 @@ func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]
 		}
 
 		wordScore := calculateWordScore(word, cmd)
-		
+
 		// Track the highest scoring word (indicates best match quality)
 		if wordScore > maxWordScore {
 			maxWordScore = wordScore
 		}
-		
+
 		// Count words that have some match
 		if wordScore > 0 {
 			matchedWords++
@@ -355,64 +372,142 @@ func getCategoryRelevanceBoost(cmd *Command, queryWords []string) float64 {
 
 	// Check if query suggests specific command categories
 	for _, word := range queryWords {
-		switch word {
-		case "compress", "archive":
-			// Boost compression tools
-			if strings.HasPrefix(cmdLower, "tar ") || cmdLower == "tar" ||
-				strings.HasPrefix(cmdLower, "zip ") || cmdLower == "zip" ||
-				strings.HasPrefix(cmdLower, "gzip ") || cmdLower == "gzip" {
-				boost *= constants.CategoryBoostSpecialCompression
-			}
-			// Penalize tools that are not primarily for compression
-			if strings.Contains(cmdLower, "find") || strings.Contains(cmdLower, "locate") {
-				boost *= constants.CategoryBoostSearchPenalty
-			}
-		case "zip":
-			// Exact match for zip command should get highest boost
-			if cmdLower == "zip" || strings.HasPrefix(cmdLower, "zip ") {
-				boost *= 3.0
-			}
-			// Penalize non-zip compression tools when specifically searching for zip
-			if strings.Contains(cmdLower, "bzip") || strings.Contains(cmdLower, "gzip") {
-				boost *= 0.3
-			}
-		case "tar":
-			// Exact match for tar command should get highest boost
-			if cmdLower == "tar" || strings.HasPrefix(cmdLower, "tar ") {
-				boost *= 3.0
-			}
-		case "directory", "folder":
-			if strings.HasPrefix(cmdLower, "mkdir") || cmdLower == "mkdir" {
-				boost *= constants.CategoryBoostDirectory * 2.0 // Extra boost for mkdir
-			}
-			// Penalize package creation tools for directory queries
-			if strings.Contains(cmdLower, "cargo") || strings.Contains(cmdLower, "conda") {
-				boost *= 0.2
-			}
-		case "create":
-			if strings.HasPrefix(cmdLower, "mkdir") || cmdLower == "mkdir" {
-				boost *= constants.CategoryBoostDirectory * 1.8
-			}
-		case "new":
-			if strings.HasPrefix(cmdLower, "mkdir") || cmdLower == "mkdir" {
-				boost *= constants.CategoryBoostDirectory * 1.5
-			}
-			// Penalize package creation tools for simple "new" queries
-			if strings.Contains(cmdLower, "cargo") || strings.Contains(cmdLower, "conda") {
-				boost *= 0.3
-			}
-		case "search", "find":
-			if strings.Contains(cmdLower, "grep") || strings.Contains(cmdLower, "find") {
-				boost *= constants.CategoryBoostSearch
-			}
-		case "download", "get":
-			if strings.Contains(cmdLower, "wget") || strings.Contains(cmdLower, "curl") {
-				boost *= constants.CategoryBoostDownload
-			}
-		}
+		categoryBoost := getCategoryBoostForWord(word, cmdLower)
+		boost *= categoryBoost
 	}
 
 	return boost
+}
+
+// getCategoryBoostForWord returns the boost factor for a specific word and command
+func getCategoryBoostForWord(word, cmdLower string) float64 {
+	switch word {
+	case "compress", "archive":
+		return getCompressionBoost(cmdLower)
+	case "zip":
+		return getZipBoost(cmdLower)
+	case "tar":
+		return getTarBoost(cmdLower)
+	case "directory", "folder":
+		return getDirectoryBoost(cmdLower)
+	case "create":
+		return getCreateBoost(cmdLower)
+	case "new":
+		return getNewBoost(cmdLower)
+	case "search", "find":
+		return getSearchBoost(cmdLower)
+	case "download", "get":
+		return getDownloadBoost(cmdLower)
+	default:
+		return 1.0
+	}
+}
+
+// getCompressionBoost returns boost for compression-related queries
+func getCompressionBoost(cmdLower string) float64 {
+	// Boost compression tools
+	if isCompressionTool(cmdLower) {
+		return constants.CategoryBoostSpecialCompression
+	}
+	// Penalize tools that are not primarily for compression
+	if isSearchTool(cmdLower) {
+		return constants.CategoryBoostSearchPenalty
+	}
+	return 1.0
+}
+
+// getZipBoost returns boost for zip-specific queries
+func getZipBoost(cmdLower string) float64 {
+	// Exact match for zip command should get highest boost
+	if cmdLower == "zip" || strings.HasPrefix(cmdLower, "zip ") {
+		return 3.0
+	}
+	// Penalize non-zip compression tools when specifically searching for zip
+	if strings.Contains(cmdLower, "bzip") || strings.Contains(cmdLower, "gzip") {
+		return 0.3
+	}
+	return 1.0
+}
+
+// getTarBoost returns boost for tar-specific queries
+func getTarBoost(cmdLower string) float64 {
+	// Exact match for tar command should get highest boost
+	if cmdLower == "tar" || strings.HasPrefix(cmdLower, "tar ") {
+		return 3.0
+	}
+	return 1.0
+}
+
+// getDirectoryBoost returns boost for directory-related queries
+func getDirectoryBoost(cmdLower string) float64 {
+	if isMkdirCommand(cmdLower) {
+		return constants.CategoryBoostDirectory * 2.0 // Extra boost for mkdir
+	}
+	// Penalize package creation tools for directory queries
+	if isPackageCreationTool(cmdLower) {
+		return 0.2
+	}
+	return 1.0
+}
+
+// getCreateBoost returns boost for create-related queries
+func getCreateBoost(cmdLower string) float64 {
+	if isMkdirCommand(cmdLower) {
+		return constants.CategoryBoostDirectory * 1.8
+	}
+	return 1.0
+}
+
+// getNewBoost returns boost for new-related queries
+func getNewBoost(cmdLower string) float64 {
+	if isMkdirCommand(cmdLower) {
+		return constants.CategoryBoostDirectory * 1.5
+	}
+	// Penalize package creation tools for simple "new" queries
+	if isPackageCreationTool(cmdLower) {
+		return 0.3
+	}
+	return 1.0
+}
+
+// getSearchBoost returns boost for search-related queries
+func getSearchBoost(cmdLower string) float64 {
+	if isSearchTool(cmdLower) {
+		return constants.CategoryBoostSearch
+	}
+	return 1.0
+}
+
+// getDownloadBoost returns boost for download-related queries
+func getDownloadBoost(cmdLower string) float64 {
+	if isDownloadTool(cmdLower) {
+		return constants.CategoryBoostDownload
+	}
+	return 1.0
+}
+
+// Helper functions for command classification
+func isCompressionTool(cmdLower string) bool {
+	return strings.HasPrefix(cmdLower, "tar ") || cmdLower == "tar" ||
+		strings.HasPrefix(cmdLower, "zip ") || cmdLower == "zip" ||
+		strings.HasPrefix(cmdLower, "gzip ") || cmdLower == "gzip"
+}
+
+func isSearchTool(cmdLower string) bool {
+	return strings.Contains(cmdLower, "find") || strings.Contains(cmdLower, "locate") ||
+		strings.Contains(cmdLower, "grep")
+}
+
+func isMkdirCommand(cmdLower string) bool {
+	return strings.HasPrefix(cmdLower, "mkdir") || cmdLower == "mkdir"
+}
+
+func isPackageCreationTool(cmdLower string) bool {
+	return strings.Contains(cmdLower, "cargo") || strings.Contains(cmdLower, "conda")
+}
+
+func isDownloadTool(cmdLower string) bool {
+	return strings.Contains(cmdLower, "wget") || strings.Contains(cmdLower, "curl")
 }
 
 // SearchWithFuzzy performs hybrid search combining exact matching and fuzzy search
@@ -611,30 +706,65 @@ func (db *Database) SearchWithNLP(query string, options SearchOptions) []SearchR
 		return db.SearchWithFuzzy(query, options)
 	}
 
-	// Process query with NLP
-	processor := nlp.NewQueryProcessor()
-	processedQuery := processor.ProcessQuery(query)
+	// Convert database commands to NLP format
+	nlpCommands := make([]nlp.Command, len(db.Commands))
+	for i, cmd := range db.Commands {
+		nlpCommands[i] = nlp.Command{
+			Command:     cmd.Command,
+			Description: cmd.Description,
+			Keywords:    cmd.Keywords,
+		}
+	}
 
-	// Use enhanced keywords for search
-	enhancedKeywords := processedQuery.GetEnhancedKeywords()
-	enhancedQuery := strings.Join(enhancedKeywords, " ")
+	// Use TF-IDF based search for better natural language understanding
+	tfidfSearcher := nlp.NewTFIDFSearcher(nlpCommands)
+	tfidfResults := tfidfSearcher.Search(query, options.Limit*2) // Get more results for better selection
 
-	// Perform search with enhanced query
-	searchOptions := options
-	searchOptions.UseNLP = false // Prevent infinite recursion
+	// Convert TF-IDF results to database SearchResult format
+	var results []SearchResult
+	for _, tfidfResult := range tfidfResults {
+		results = append(results, SearchResult{
+			Command: &db.Commands[tfidfResult.CommandIndex],
+			Score:   tfidfResult.Score,
+		})
+	}
 
-	results := db.SearchWithFuzzy(enhancedQuery, searchOptions)
+	// If TF-IDF doesn't find enough results, fall back to traditional search
+	if len(results) < options.Limit {
+		// Process query with traditional NLP
+		processor := nlp.NewQueryProcessor()
+		processedQuery := processor.ProcessQuery(query)
 
-	// Apply intent-based scoring boost
-	for i := range results {
-		intentBoost := calculateIntentBoost(results[i].Command, processedQuery)
-		results[i].Score *= intentBoost
+		// Use enhanced keywords for search
+		enhancedKeywords := processedQuery.GetEnhancedKeywords()
+		enhancedQuery := strings.Join(enhancedKeywords, " ")
+
+		// Perform search with enhanced query
+		searchOptions := options
+		searchOptions.UseNLP = false                       // Prevent infinite recursion
+		searchOptions.Limit = options.Limit - len(results) // Only get remaining needed results
+
+		fallbackResults := db.SearchWithFuzzy(enhancedQuery, searchOptions)
+
+		// Apply intent-based scoring boost to fallback results
+		for i := range fallbackResults {
+			intentBoost := calculateIntentBoost(fallbackResults[i].Command, processedQuery)
+			fallbackResults[i].Score *= intentBoost * 0.8 // Slightly lower priority than TF-IDF
+		}
+
+		// Combine results
+		results = append(results, fallbackResults...)
 	}
 
 	// Re-sort by updated scores
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Score > results[j].Score
 	})
+
+	// Apply final limit
+	if len(results) > options.Limit {
+		results = results[:options.Limit]
+	}
 
 	return results
 }
@@ -647,7 +777,7 @@ func calculateIntentBoost(cmd *Command, pq *nlp.ProcessedQuery) float64 {
 
 	// Apply intent-specific boosts
 	boost *= applyIntentBoost(cmdLower, descLower, pq.Intent)
-	
+
 	// Apply action and target boosts
 	boost *= applyActionBoosts(cmdLower, descLower, pq.Actions)
 	boost *= applyTargetBoosts(cmdLower, descLower, pq.Targets)
@@ -662,6 +792,14 @@ func applyIntentBoost(cmdLower, descLower string, intent nlp.QueryIntent) float6
 		if containsAny(cmdLower, []string{"find", "search", "ls", "grep"}) {
 			return 2.0
 		}
+	case nlp.IntentView:
+		if containsAny(cmdLower, []string{"cat", "less", "more", "head", "tail", "view"}) {
+			return 2.5 // Higher boost for view commands
+		}
+		if strings.Contains(descLower, "display") || strings.Contains(descLower, "show") ||
+			strings.Contains(descLower, "view") || strings.Contains(descLower, "print") {
+			return 2.0
+		}
 	case nlp.IntentCreate:
 		if containsAny(cmdLower, []string{"mkdir", "touch", "create", "make"}) {
 			boost := 2.0
@@ -674,6 +812,13 @@ func applyIntentBoost(cmdLower, descLower string, intent nlp.QueryIntent) float6
 	case nlp.IntentDelete:
 		if containsAny(cmdLower, []string{"rm", "del", "delete", "remove"}) {
 			return 2.0
+		}
+	case nlp.IntentModify:
+		if containsAny(cmdLower, []string{"chmod", "chown", "edit", "modify", "change"}) {
+			return 2.0
+		}
+		if strings.Contains(descLower, "permission") || strings.Contains(descLower, "modify") {
+			return 1.8
 		}
 	case nlp.IntentInstall:
 		if containsAny(cmdLower, []string{"install", "add", "setup"}) || strings.Contains(descLower, "install") {
@@ -757,30 +902,30 @@ var crossPlatformTools = map[string]bool{
 	"git": true, "docker": true, "node": true, "npm": true, "yarn": true,
 	"python": true, "pip": true, "go": true, "cargo": true, "rustc": true,
 	"java": true, "javac": true, "mvn": true, "gradle": true,
-	
+
 	// Network and file tools (available via Git Bash, WSL, MSYS2 on Windows)
 	"curl": true, "wget": true, "ssh": true, "scp": true, "rsync": true,
 	"mv": true, "cp": true, "rm": true, "ls": true, "cat": true,
 	"grep": true, "find": true, "sed": true, "awk": true,
-	
+
 	// Editors and utilities
 	"code": true, "vim": true, "nano": true, "tar": true, "gzip": true,
 	"unzip": true, "zip": true, "7z": true, "ffmpeg": true, "imagemagick": true,
 	"convert": true,
-	
+
 	// Cloud and DevOps tools
 	"heroku": true, "aws": true, "gcloud": true, "az": true, "kubectl": true,
 	"helm": true, "terraform": true, "ansible": true, "vagrant": true,
-	
+
 	// Language-specific tools
 	"composer": true, "php": true, "ruby": true, "gem": true, "bundle": true,
 	"rails": true, "dotnet": true, "nuget": true, "flutter": true, "dart": true,
-	
+
 	// Frontend tools
 	"ionic": true, "cordova": true, "electron": true, "ng": true, "vue": true,
 	"react": true, "create-react-app": true, "webpack": true, "babel": true,
 	"eslint": true, "prettier": true,
-	
+
 	// Testing tools
 	"jest": true, "mocha": true, "cypress": true, "playwright": true, "selenium": true,
 }
@@ -788,13 +933,13 @@ var crossPlatformTools = map[string]bool{
 // isCrossPlatformTool checks if a command is from a cross-platform tool
 func isCrossPlatformTool(command string) bool {
 	cmdLower := strings.ToLower(command)
-	
+
 	// Check if the command starts with any of the cross-platform tools
 	for tool := range crossPlatformTools {
 		if strings.HasPrefix(cmdLower, tool+" ") || cmdLower == tool {
 			return true
 		}
 	}
-	
+
 	return false
 }
