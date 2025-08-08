@@ -14,7 +14,7 @@ linters-settings:
     threshold: 100
   goconst:
     min-len: 2
-    min-occurrences: 3  # Increased to reduce noise
+    min-occurrences: 3
   depguard:
     rules:
       main:
@@ -35,24 +35,22 @@ linters-settings:
       - performance
       - style
     disabled-checks:
-      - dupImport # https://github.com/go-critic/go-critic/issues/845
+      - dupImport
       - ifElseChain
       - octalLiteral
       - whyNoLint
       - wrapperFunc
-      - hugeParam  # Disable for now as it's too noisy
-      - rangeValCopy  # Disable for now as it's too noisy
+      - hugeParam
+      - rangeValCopy
   funlen:
     lines: 100
     statements: 50
   gosec:
     excludes:
-      - G404  # Use of weak random number generator is OK for test data
-      - G306  # File permissions are intentionally 0644 for config files
+      - G404
+      - G306
 
 linters:
-  # please, do not use `enable-all`: it's deprecated and will be removed soon.
-  # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
   disable-all: true
   enable:
     - bodyclose
@@ -83,23 +81,9 @@ linters:
     - unparam
     - unused
     - whitespace
-    - revive  # Replacement for golint
-
-  # don't enable:
-  # - asciicheck
-  # - gochecknoglobals
-  # - gocognit
-  # - godot
-  # - godox
-  # - goerr113
-  # - maligned
-  # - nestif
-  # - prealloc
-  # - testpackage
-  # - wsl
+    - revive
 
 issues:
-  # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
     - path: _test\.go
       linters:

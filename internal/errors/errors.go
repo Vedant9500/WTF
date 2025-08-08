@@ -21,7 +21,7 @@ func (e *DatabaseError) Unwrap() error {
 	return e.Cause
 }
 
-// NewDatabaseError creates a new database error (legacy function, use NewDatabaseXXXError functions for better UX)
+// NewDatabaseError creates a new database error
 func NewDatabaseError(op, path string, cause error) *DatabaseError {
 	return &DatabaseError{
 		Op:    op,

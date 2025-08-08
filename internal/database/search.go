@@ -182,12 +182,12 @@ func calculateWordScore(word string, cmd *Command) float64 {
 
 // calculateCommandScore computes score based on command name matching
 func calculateCommandScore(word, cmdLower string) float64 {
-	// HIGHEST PRIORITY: Exact command match (entire command equals the word)
+	// Exact command match
 	if cmdLower == word {
-		return constants.DirectCommandMatchScore * 2.0 // Double score for exact command match
+		return constants.DirectCommandMatchScore * 2.0
 	}
 	
-	// Command starts with the word (like "mkdir" matching "mkdir -p")
+	// Command starts with the word
 	if strings.HasPrefix(cmdLower, word+" ") || strings.HasPrefix(cmdLower, word) {
 		return constants.DirectCommandMatchScore * 1.5
 	}
@@ -197,7 +197,7 @@ func calculateCommandScore(word, cmdLower string) float64 {
 		return constants.CommandMatchScore
 	}
 	
-	// Word appears anywhere in command (partial match)
+	// Word appears anywhere in command
 	if strings.Contains(cmdLower, word) {
 		return constants.CommandMatchScore * 0.7
 	}
@@ -215,10 +215,10 @@ func calculateDomainScore(word string, cmd *Command) float64 {
 
 // calculateKeywordScore computes score based on keyword matching
 func calculateKeywordScore(word string, keywordsLower []string) float64 {
-	// Check for exact match first (higher priority)
+	// Check for exact match first
 	for _, keyword := range keywordsLower {
 		if keyword == word {
-			return constants.KeywordExactScore * 1.5 // Boost keyword exact matches
+			return constants.KeywordExactScore * 1.5
 		}
 	}
 
@@ -234,7 +234,7 @@ func calculateKeywordScore(word string, keywordsLower []string) float64 {
 
 // calculateDescriptionScore computes score based on description matching
 func calculateDescriptionScore(word, descLower string) float64 {
-	// Word appears as complete word in description
+	// Complete word match in description
 	if strings.Contains(descLower, " "+word+" ") || strings.HasPrefix(descLower, word+" ") || strings.HasSuffix(descLower, " "+word) {
 		return constants.DescriptionMatchScore
 	}
@@ -249,7 +249,7 @@ func calculateDescriptionScore(word, descLower string) float64 {
 
 // calculateTagScore computes score based on tag matching
 func calculateTagScore(word string, tagsLower []string) float64 {
-	// Check for exact match first (higher priority)
+	// Check for exact match first
 	for _, tag := range tagsLower {
 		if tag == word {
 			return constants.TagExactScore
