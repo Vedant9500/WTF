@@ -92,18 +92,15 @@ issues:
         - gocyclo
         - gosec
 
-    # https://github.com/go-critic/go-critic/issues/926
     - linters:
         - gocritic
       text: "unnecessaryDefer:"
     
-    # Allow depguard violations in internal packages importing other internal packages
     - path: internal/
       linters:
         - depguard
       text: "is not allowed from list 'Main'"
     
-    # Allow init functions in CLI package for command registration
     - path: internal/cli/
       linters:
         - gochecknoinits

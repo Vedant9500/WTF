@@ -273,24 +273,20 @@ func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]
 	matchedWords := 0
 
 	for _, word := range queryWords {
-		// Skip very short words
 		if len(word) < constants.MinWordLength {
 			continue
 		}
 
 		wordScore := calculateWordScore(word, cmd)
 
-		// Track the highest scoring word (indicates best match quality)
 		if wordScore > maxWordScore {
 			maxWordScore = wordScore
 		}
 
-		// Count words that have some match
 		if wordScore > 0 {
 			matchedWords++
 		}
 
-		// Apply context boost if available
 		if contextBoosts != nil {
 			if boost, exists := contextBoosts[word]; exists {
 				wordScore *= boost
@@ -300,24 +296,19 @@ func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]
 		score += wordScore
 	}
 
-	// Boost commands that match more query words (completeness bonus)
 	if len(queryWords) > 1 && matchedWords > 1 {
 		completenessBonus := float64(matchedWords) / float64(len(queryWords))
-		score *= (1.0 + completenessBonus*0.5) // Up to 50% bonus for matching all words
+		score *= (1.0 + completenessBonus*0.5)
 	}
 
-	// Apply significant boost for very high-scoring individual word matches
-	// This helps exact command matches rise to the top
 	if maxWordScore >= constants.DirectCommandMatchScore {
-		score *= 1.8 // Boost exact command matches
+		score *= 1.8
 	} else if maxWordScore >= constants.CommandMatchScore {
-		score *= 1.4 // Boost strong command matches
+		score *= 1.4
 	}
 
-	// Apply category-based relevance boost
 	score *= getCategoryRelevanceBoost(cmd, queryWords)
 
-	// Apply niche-based context boost
 	if contextBoosts != nil && cmd.Niche != "" {
 		nicheLower := strings.ToLower(cmd.Niche)
 		if boost, exists := contextBoosts[nicheLower]; exists {
@@ -332,7 +323,6 @@ func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]
 func isDomainSpecificMatch(word string, cmd *Command) bool {
 	cmdLower := strings.ToLower(cmd.Command)
 
-	// Define domain-specific mappings for better relevance
 	domainMappings := map[string][]string{
 		"compress":   {"tar", "gzip", "zip", "bzip", "7z", "compress", "archive"},
 		"archive":    {"tar", "gzip", "zip", "bzip", "7z", "compress", "archive", "unzip"},
