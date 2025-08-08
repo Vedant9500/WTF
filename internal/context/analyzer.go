@@ -386,13 +386,12 @@ func (ctx *Context) GetContextBoosts() map[string]float64 {
 		}
 	}
 
-	// Add boosts for detected scripts and targets
 	for script := range ctx.PackageScripts {
-		boosts[script] = 1.3 // Boost npm script names
+		boosts[script] = 1.3
 	}
 
 	for _, target := range ctx.MakeTargets {
-		boosts[target] = 1.3 // Boost make target names
+		boosts[target] = 1.3
 	}
 
 	return boosts
@@ -450,7 +449,6 @@ func (ctx *Context) GetContextDescription() string {
 
 	result := strings.Join(descriptions, ", ")
 
-	// Add build system info if available
 	if ctx.BuildSystem != "" {
 		result += " (" + ctx.BuildSystem + ")"
 	}
@@ -486,12 +484,10 @@ func (a *Analyzer) extractMakeTargets(makefilePath string, ctx *Context) {
 	lines := strings.Split(string(content), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		// Look for targets (lines ending with :)
 		if strings.Contains(line, ":") && !strings.HasPrefix(line, "#") && !strings.HasPrefix(line, "\t") {
 			parts := strings.Split(line, ":")
 			if len(parts) > 0 {
 				target := strings.TrimSpace(parts[0])
-				// Skip variables and special targets
 				if !strings.Contains(target, "=") && !strings.HasPrefix(target, ".") && target != "" {
 					ctx.MakeTargets = append(ctx.MakeTargets, target)
 				}

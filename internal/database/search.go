@@ -128,7 +128,6 @@ func isPipelineCommand(cmd *Command) bool {
 
 // calculateCommandScore handles platform filtering and score calculation for a single command
 func (db *Database) calculateCommandScore(cmd *Command, queryWords []string, contextBoosts map[string]float64, currentPlatform string) *SearchResult {
-	// Platform filtering: handle new cross-platform designation
 	if len(cmd.Platform) > 0 {
 		isCrossPlatform := false
 		platformMatch := false
@@ -144,17 +143,13 @@ func (db *Database) calculateCommandScore(cmd *Command, queryWords []string, con
 			}
 		}
 
-		// Skip if platform-specific and doesn't match current platform
 		if !isCrossPlatform && !platformMatch {
-			// Check if this is a legacy cross-platform tool (for backward compatibility)
 			if isCrossPlatformTool(cmd.Command) {
-				// Apply small penalty for legacy cross-platform tools
 				score := calculateScore(cmd, queryWords, contextBoosts) * constants.CrossPlatformPenalty
 				if score > 0 {
 					return &SearchResult{Command: cmd, Score: score}
 				}
 			}
-			// Skip platform-specific tools that don't match
 			return nil
 		}
 	}
@@ -186,17 +181,17 @@ func calculateCommandScore(word, cmdLower string) float64 {
 	if cmdLower == word {
 		return constants.DirectCommandMatchScore * 2.0
 	}
-	
+
 	// Command starts with the word
 	if strings.HasPrefix(cmdLower, word+" ") || strings.HasPrefix(cmdLower, word) {
 		return constants.DirectCommandMatchScore * 1.5
 	}
-	
+
 	// Word appears as a separate word in command
 	if strings.Contains(cmdLower, " "+word+" ") || strings.Contains(cmdLower, " "+word) {
 		return constants.CommandMatchScore
 	}
-	
+
 	// Word appears anywhere in command
 	if strings.Contains(cmdLower, word) {
 		return constants.CommandMatchScore * 0.7
@@ -238,7 +233,7 @@ func calculateDescriptionScore(word, descLower string) float64 {
 	if strings.Contains(descLower, " "+word+" ") || strings.HasPrefix(descLower, word+" ") || strings.HasSuffix(descLower, " "+word) {
 		return constants.DescriptionMatchScore
 	}
-	
+
 	// Partial match in description
 	if strings.Contains(descLower, word) {
 		return constants.DescriptionMatchScore * 0.6
@@ -360,7 +355,6 @@ func getCategoryRelevanceBoost(cmd *Command, queryWords []string) float64 {
 	boost := 1.0
 	cmdLower := strings.ToLower(cmd.Command)
 
-	// Check if query suggests specific command categories
 	for _, word := range queryWords {
 		categoryBoost := getCategoryBoostForWord(word, cmdLower)
 		boost *= categoryBoost
@@ -395,11 +389,9 @@ func getCategoryBoostForWord(word, cmdLower string) float64 {
 
 // getCompressionBoost returns boost for compression-related queries
 func getCompressionBoost(cmdLower string) float64 {
-	// Boost compression tools
 	if isCompressionTool(cmdLower) {
 		return constants.CategoryBoostSpecialCompression
 	}
-	// Penalize tools that are not primarily for compression
 	if isSearchTool(cmdLower) {
 		return constants.CategoryBoostSearchPenalty
 	}
@@ -408,11 +400,9 @@ func getCompressionBoost(cmdLower string) float64 {
 
 // getZipBoost returns boost for zip-specific queries
 func getZipBoost(cmdLower string) float64 {
-	// Exact match for zip command should get highest boost
 	if cmdLower == "zip" || strings.HasPrefix(cmdLower, "zip ") {
 		return 3.0
 	}
-	// Penalize non-zip compression tools when specifically searching for zip
 	if strings.Contains(cmdLower, "bzip") || strings.Contains(cmdLower, "gzip") {
 		return 0.3
 	}
@@ -421,7 +411,6 @@ func getZipBoost(cmdLower string) float64 {
 
 // getTarBoost returns boost for tar-specific queries
 func getTarBoost(cmdLower string) float64 {
-	// Exact match for tar command should get highest boost
 	if cmdLower == "tar" || strings.HasPrefix(cmdLower, "tar ") {
 		return 3.0
 	}
@@ -431,9 +420,8 @@ func getTarBoost(cmdLower string) float64 {
 // getDirectoryBoost returns boost for directory-related queries
 func getDirectoryBoost(cmdLower string) float64 {
 	if isMkdirCommand(cmdLower) {
-		return constants.CategoryBoostDirectory * 2.0 // Extra boost for mkdir
+		return constants.CategoryBoostDirectory * 2.0
 	}
-	// Penalize package creation tools for directory queries
 	if isPackageCreationTool(cmdLower) {
 		return 0.2
 	}
@@ -453,7 +441,6 @@ func getNewBoost(cmdLower string) float64 {
 	if isMkdirCommand(cmdLower) {
 		return constants.CategoryBoostDirectory * 1.5
 	}
-	// Penalize package creation tools for simple "new" queries
 	if isPackageCreationTool(cmdLower) {
 		return 0.3
 	}
