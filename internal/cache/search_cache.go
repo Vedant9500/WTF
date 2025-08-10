@@ -1,7 +1,7 @@
 package cache
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -141,8 +141,8 @@ func (sc *SearchCache) generateCacheKey(query string, options SearchOptions) str
 		return fmt.Sprintf("%s%s:%d", sc.keyPrefix, normalizedQuery, options.Limit)
 	}
 
-	// Generate MD5 hash for compact key
-	hash := md5.Sum(jsonData)
+	// Generate SHA256 hash for compact key (more secure than MD5)
+	hash := sha256.Sum256(jsonData)
 	return fmt.Sprintf("%s%x", sc.keyPrefix, hash)
 }
 

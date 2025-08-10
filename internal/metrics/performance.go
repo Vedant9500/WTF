@@ -267,14 +267,35 @@ func (b *Benchmarker) BenchmarkFunction(name string, fn func(), iterations int) 
 	// Record final memory stats
 	runtime.ReadMemStats(&m2)
 
+	// Safe integer conversions to prevent overflow
+	var bytesPerOp, allocsPerOp, memoryUsed int64
+	
+	if iterations > 0 {
+		// Check for potential overflow before conversion
+		totalAllocDiff := m2.TotalAlloc - m1.TotalAlloc
+		mallocsDiff := m2.Mallocs - m1.Mallocs
+		allocDiff := m2.Alloc - m1.Alloc
+		
+		// Safe conversion with overflow check
+		if totalAllocDiff <= uint64(^uint64(0)>>1) { // Check if fits in int64
+			bytesPerOp = int64(totalAllocDiff) / int64(iterations)
+		}
+		if mallocsDiff <= uint64(^uint64(0)>>1) {
+			allocsPerOp = int64(mallocsDiff) / int64(iterations)
+		}
+		if allocDiff <= uint64(^uint64(0)>>1) {
+			memoryUsed = int64(allocDiff)
+		}
+	}
+
 	return BenchmarkResult{
 		Name:        name,
 		Iterations:  iterations,
 		Duration:    duration,
 		NsPerOp:     duration.Nanoseconds() / int64(iterations),
-		BytesPerOp:  int64(m2.TotalAlloc-m1.TotalAlloc) / int64(iterations),
-		AllocsPerOp: int64(m2.Mallocs-m1.Mallocs) / int64(iterations),
-		MemoryUsed:  int64(m2.Alloc - m1.Alloc),
+		BytesPerOp:  bytesPerOp,
+		AllocsPerOp: allocsPerOp,
+		MemoryUsed:  memoryUsed,
 		Timestamp:   time.Now(),
 	}
 }

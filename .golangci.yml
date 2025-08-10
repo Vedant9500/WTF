@@ -46,9 +46,23 @@ linters-settings:
     lines: 100
     statements: 50
   gosec:
+    # Security-focused configuration
+    severity: medium
+    confidence: medium
     excludes:
-      - G404
-      - G306
+      - G404  # Use of weak random number generator (math/rand instead of crypto/rand)
+      - G306  # Poor file permissions used when writing to a file
+    config:
+      G101: # Look for hardcoded credentials
+        pattern: "(?i)passwd|pass|password|pwd|secret|token|key"
+        ignore_entropy: false
+        entropy_threshold: "80.0"
+        per_char_threshold: "3.0"
+        truncate: "32"
+      G102: # Bind to all interfaces
+        bind_to_all_interfaces: true
+      G103: # Audit the use of unsafe block
+        audit_unsafe: true
 
 linters:
   disable-all: true
@@ -66,7 +80,7 @@ linters:
     - gofmt
     - goimports
     - goprintffuncname
-    - gosec
+    - gosec          # Security-focused linter
     - gosimple
     - govet
     - ineffassign
@@ -82,6 +96,9 @@ linters:
     - unused
     - whitespace
     - revive
+    - exportloopref  # Detects pointers to enclosing loop variables
+    - noctx          # Finds sending http request without context.Context
+    - sqlclosecheck  # Checks that sql.Rows and sql.Stmt are closed
 
 issues:
   exclude-rules:

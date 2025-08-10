@@ -30,6 +30,26 @@ jobs:
     - name: Run tests
       run: go test ./...
 
+    - name: Run security scan on updated dependencies
+      run: |
+        # Install govulncheck
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+        
+        # Check for vulnerabilities in updated dependencies
+        echo "🔍 Scanning updated dependencies for vulnerabilities..."
+        if ! govulncheck ./...; then
+          echo "⚠️ Vulnerabilities found in updated dependencies"
+          echo "This PR includes dependency updates that introduce vulnerabilities."
+          echo "Please review the vulnerability report above."
+          # Don't fail the workflow, but add a warning
+        fi
+        
+        # Run security linting
+        if command -v golangci-lint >/dev/null 2>&1; then
+          echo "🔒 Running security linting..."
+          golangci-lint run --enable=gosec --timeout=5m || echo "Security linting issues found"
+        fi
+
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v5
       with:

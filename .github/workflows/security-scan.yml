@@ -1,0 +1,285 @@
+name: Security Scan
+
+on:
+  schedule:
+    # Run security scan daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual triggering
+  push:
+    branches: [ main ]
+    paths:
+      - 'go.mod'
+      - 'go.sum'
+      - '**/*.go'
+
+jobs:
+  vulnerability-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.22'
+        check-latest: true
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install security tools
+      run: |
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+        go install github.com/securecodewarrior/github-action-add-sarif@latest || true
+
+    - name: Run vulnerability scan
+      run: |
+        echo "🔍 Running vulnerability scan..."
+        govulncheck -json ./... > vuln-report.json || true
+        
+        # Check if vulnerabilities were found
+        if [ -s vuln-report.json ]; then
+          echo "⚠️ Vulnerabilities found:"
+          cat vuln-report.json
+          
+          # Create human-readable report
+          echo "# Vulnerability Report" > vuln-summary.md
+          echo "Generated: $(date)" >> vuln-summary.md
+          echo "" >> vuln-summary.md
+          
+          if command -v jq >/dev/null 2>&1; then
+            echo "## Vulnerabilities Found" >> vuln-summary.md
+            jq -r '.finding[] | "- **\(.osv)**: \(.message)"' vuln-report.json >> vuln-summary.md || true
+          fi
+        else
+          echo "✅ No vulnerabilities found"
+          echo "# Vulnerability Report" > vuln-summary.md
+          echo "Generated: $(date)" >> vuln-summary.md
+          echo "" >> vuln-summary.md
+          echo "✅ No vulnerabilities found in dependencies" >> vuln-summary.md
+        fi
+
+    - name: Run comprehensive security linting
+      run: |
+        echo "🔒 Running security-focused linting..."
+        
+        # Install golangci-lint if not available
+        if ! command -v golangci-lint &> /dev/null; then
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+        fi
+        
+        # Run security-focused linters
+        golangci-lint run \
+          --enable=gosec,gocritic,staticcheck,exportloopref,noctx,sqlclosecheck \
+          --out-format=sarif \
+          --output-file=security-lint.sarif \
+          --timeout=10m || true
+        
+        # Also generate human-readable output
+        golangci-lint run \
+          --enable=gosec,gocritic,staticcheck,exportloopref,noctx,sqlclosecheck \
+          --out-format=tab \
+          --timeout=10m > security-lint.txt || true
+
+    - name: Check for secrets and sensitive data
+      run: |
+        echo "🔍 Scanning for potential secrets..."
+        
+        # Create secrets report
+        echo "# Secrets Scan Report" > secrets-report.md
+        echo "Generated: $(date)" >> secrets-report.md
+        echo "" >> secrets-report.md
+        
+        # Define patterns to search for
+        declare -a patterns=(
+          "password\s*[:=]\s*['\"][^'\"]{8,}['\"]"
+          "api[_-]?key\s*[:=]\s*['\"][^'\"]{16,}['\"]"
+          "secret\s*[:=]\s*['\"][^'\"]{16,}['\"]"
+          "token\s*[:=]\s*['\"][^'\"]{16,}['\"]"
+          "-----BEGIN.*PRIVATE KEY-----"
+          "-----BEGIN.*CERTIFICATE-----"
+          "sk_live_[0-9a-zA-Z]{24,}"
+          "pk_live_[0-9a-zA-Z]{24,}"
+          "AIza[0-9A-Za-z\\-_]{35}"
+          "AKIA[0-9A-Z]{16}"
+        )
+        
+        secrets_found=false
+        
+        for pattern in "${patterns[@]}"; do
+          echo "Checking pattern: $pattern"
+          if grep -r -i -E "$pattern" \
+            --include="*.go" \
+            --include="*.yml" \
+            --include="*.yaml" \
+            --include="*.json" \
+            --include="*.env" \
+            --exclude-dir=".git" \
+            --exclude-dir="vendor" \
+            . 2>/dev/null; then
+            echo "⚠️ Potential secret found matching pattern: $pattern" >> secrets-report.md
+            secrets_found=true
+          fi
+        done
+        
+        if [ "$secrets_found" = false ]; then
+          echo "✅ No potential secrets detected" >> secrets-report.md
+        fi
+
+    - name: Analyze dependencies for known issues
+      run: |
+        echo "📦 Analyzing dependencies..."
+        
+        # Create dependency report
+        echo "# Dependency Analysis Report" > deps-report.md
+        echo "Generated: $(date)" >> deps-report.md
+        echo "" >> deps-report.md
+        
+        echo "## Direct Dependencies" >> deps-report.md
+        go list -m -u all | grep -v "^github.com/Vedant9500/WTF" >> deps-report.md
+        echo "" >> deps-report.md
+        
+        echo "## Module Verification" >> deps-report.md
+        if go mod verify; then
+          echo "✅ All modules verified successfully" >> deps-report.md
+        else
+          echo "❌ Module verification failed" >> deps-report.md
+        fi
+        
+        echo "" >> deps-report.md
+        echo "## Outdated Dependencies" >> deps-report.md
+        go list -u -m all | grep -E "\[.*\]" >> deps-report.md || echo "✅ All dependencies are up to date" >> deps-report.md
+
+    - name: Generate comprehensive security report
+      if: always()
+      run: |
+        echo "📋 Generating comprehensive security report..."
+        
+        cat > security-report.md << 'EOF'
+        # WTF Security Scan Report
+        
+        **Generated:** $(date)
+        **Go Version:** $(go version)
+        **Scan Type:** Automated Security Scan
+        
+        ## Summary
+        
+        This report contains the results of automated security scanning including:
+        - Vulnerability scanning with govulncheck
+        - Security-focused static analysis
+        - Secrets detection
+        - Dependency analysis
+        
+        ---
+        
+        EOF
+        
+        # Append individual reports
+        if [ -f vuln-summary.md ]; then
+          echo "" >> security-report.md
+          cat vuln-summary.md >> security-report.md
+        fi
+        
+        if [ -f secrets-report.md ]; then
+          echo "" >> security-report.md
+          cat secrets-report.md >> security-report.md
+        fi
+        
+        if [ -f deps-report.md ]; then
+          echo "" >> security-report.md
+          cat deps-report.md >> security-report.md
+        fi
+        
+        if [ -f security-lint.txt ]; then
+          echo "" >> security-report.md
+          echo "## Security Linting Results" >> security-report.md
+          echo '```' >> security-report.md
+          cat security-lint.txt >> security-report.md
+          echo '```' >> security-report.md
+        fi
+
+    - name: Upload SARIF results to GitHub Security
+      if: always()
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: security-lint.sarif
+      continue-on-error: true
+
+    - name: Upload security artifacts
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-scan-results
+        path: |
+          security-report.md
+          vuln-report.json
+          security-lint.sarif
+          security-lint.txt
+        retention-days: 30
+
+    - name: Comment on PR with security results
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          let comment = '## 🔒 Security Scan Results\n\n';
+          
+          try {
+            const report = fs.readFileSync('security-report.md', 'utf8');
+            comment += report;
+          } catch (error) {
+            comment += '❌ Failed to generate security report\n';
+          }
+          
+          // Find existing comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          const existingComment = comments.find(comment => 
+            comment.body.includes('🔒 Security Scan Results')
+          );
+          
+          if (existingComment) {
+            // Update existing comment
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existingComment.id,
+              body: comment
+            });
+          } else {
+            // Create new comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+          }
+
+    - name: Fail on critical vulnerabilities
+      run: |
+        # Check if critical vulnerabilities were found
+        if [ -f vuln-report.json ] && [ -s vuln-report.json ]; then
+          if command -v jq >/dev/null 2>&1; then
+            critical_count=$(jq '[.finding[] | select(.severity == "HIGH" or .severity == "CRITICAL")] | length' vuln-report.json 2>/dev/null || echo "0")
+            if [ "$critical_count" -gt 0 ]; then
+              echo "❌ Found $critical_count critical/high severity vulnerabilities"
+              echo "Please review and address these vulnerabilities before proceeding"
+              exit 1
+            fi
+          fi
+        fi
+        
+        echo "✅ Security scan completed successfully"

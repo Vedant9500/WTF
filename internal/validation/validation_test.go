@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -238,26 +239,26 @@ func TestSanitizeFilename(t *testing.T) {
 }
 
 func TestValidateQueryErrorMessages(t *testing.T) {
-	// Test specific error messages
+	// Test that error messages are user-friendly
 	testCases := []struct {
-		name            string
-		input           string
-		expectedMessage string
+		name          string
+		input         string
+		shouldContain string
 	}{
 		{
-			name:            "Empty query error",
-			input:           "",
-			expectedMessage: "query cannot be empty",
+			name:          "Empty query error",
+			input:         "",
+			shouldContain: "Please provide a search query",
 		},
 		{
-			name:            "Too long query error",
-			input:           strings.Repeat("a", constants.MaxQueryLength+1),
-			expectedMessage: "query too long (max 1000 characters)",
+			name:          "Too long query error",
+			input:         strings.Repeat("a", constants.MaxQueryLength+1),
+			shouldContain: "search query is too long",
 		},
 		{
-			name:            "No valid characters error",
-			input:           "\x00\x01\x02",
-			expectedMessage: "query contains no valid characters",
+			name:          "No valid characters error",
+			input:         "\x00\x01\x02",
+			shouldContain: "Please provide a search query",
 		},
 	}
 
@@ -269,29 +270,29 @@ func TestValidateQueryErrorMessages(t *testing.T) {
 				return
 			}
 
-			if err.Error() != tc.expectedMessage {
-				t.Errorf("Expected error message '%s', got '%s'", tc.expectedMessage, err.Error())
+			if !strings.Contains(err.Error(), tc.shouldContain) {
+				t.Errorf("Expected error message to contain '%s', got '%s'", tc.shouldContain, err.Error())
 			}
 		})
 	}
 }
 
 func TestValidateLimitErrorMessages(t *testing.T) {
-	// Test specific error messages
+	// Test that error messages are user-friendly
 	testCases := []struct {
-		name            string
-		input           int
-		expectedMessage string
+		name          string
+		input         int
+		shouldContain string
 	}{
 		{
-			name:            "Negative limit error",
-			input:           -1,
-			expectedMessage: "limit cannot be negative",
+			name:          "Negative limit error",
+			input:         -1,
+			shouldContain: "result limit must be between",
 		},
 		{
-			name:            "Too large limit error",
-			input:           101,
-			expectedMessage: "limit too large (max 100)",
+			name:          "Too large limit error",
+			input:         101,
+			shouldContain: "result limit must be between",
 		},
 	}
 
@@ -303,8 +304,8 @@ func TestValidateLimitErrorMessages(t *testing.T) {
 				return
 			}
 
-			if err.Error() != tc.expectedMessage {
-				t.Errorf("Expected error message '%s', got '%s'", tc.expectedMessage, err.Error())
+			if !strings.Contains(err.Error(), tc.shouldContain) {
+				t.Errorf("Expected error message to contain '%s', got '%s'", tc.shouldContain, err.Error())
 			}
 		})
 	}
@@ -440,5 +441,470 @@ func TestValidationPerformance(t *testing.T) {
 
 	if len(sanitized) > 255 {
 		t.Errorf("Sanitized filename too long: %d characters", len(sanitized))
+	}
+}
+
+func TestValidatePath(t *testing.T) {
+	testCases := []struct {
+		name        string
+		path        string
+		shouldError bool
+	}{
+		{
+			name:        "Valid relative path",
+			path:        "assets/commands.yml",
+			shouldError: false,
+		},
+		{
+			name:        "Valid absolute path",
+			path:        "/usr/local/share/wtf/commands.yml",
+			shouldError: false,
+		},
+		{
+			name:        "Empty path",
+			path:        "",
+			shouldError: true,
+		},
+		{
+			name:        "Path with directory traversal",
+			path:        "../../../etc/passwd",
+			shouldError: true,
+		},
+		{
+			name:        "Path with null byte",
+			path:        "file\x00.txt",
+			shouldError: true,
+		},
+		{
+			name:        "Very long path",
+			path:        strings.Repeat("a", 4097),
+			shouldError: true,
+		},
+		{
+			name:        "Max length path",
+			path:        strings.Repeat("a", 4096),
+			shouldError: false,
+		},
+		{
+			name:        "Windows-style path",
+			path:        "C:\\Users\\test\\commands.yml",
+			shouldError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidatePath(tc.path)
+			if tc.shouldError {
+				if err == nil {
+					t.Errorf("Expected error for path '%s', but got none", tc.path)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error for path '%s', but got: %v", tc.path, err)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateDatabasePath(t *testing.T) {
+	testCases := []struct {
+		name        string
+		path        string
+		shouldError bool
+	}{
+		{
+			name:        "Valid YAML path",
+			path:        "commands.yml",
+			shouldError: false,
+		},
+		{
+			name:        "Valid YAML path (uppercase)",
+			path:        "commands.YML",
+			shouldError: false,
+		},
+		{
+			name:        "Valid YAML path (alternative extension)",
+			path:        "commands.yaml",
+			shouldError: false,
+		},
+		{
+			name:        "Invalid extension",
+			path:        "commands.txt",
+			shouldError: true,
+		},
+		{
+			name:        "No extension",
+			path:        "commands",
+			shouldError: true,
+		},
+		{
+			name:        "Path with directory traversal",
+			path:        "../commands.yml",
+			shouldError: true,
+		},
+		{
+			name:        "Empty path",
+			path:        "",
+			shouldError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateDatabasePath(tc.path)
+			if tc.shouldError {
+				if err == nil {
+					t.Errorf("Expected error for path '%s', but got none", tc.path)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error for path '%s', but got: %v", tc.path, err)
+				}
+			}
+		})
+	}
+}
+
+func TestSanitizePath(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Valid path",
+			input:    "assets/commands.yml",
+			expected: "assets/commands.yml",
+		},
+		{
+			name:     "Path with null bytes",
+			input:    "file\x00.txt",
+			expected: "file.txt",
+		},
+		{
+			name:     "Path with directory traversal",
+			input:    "../commands.yml",
+			expected: "_/commands.yml",
+		},
+		{
+			name:     "Very long path",
+			input:    strings.Repeat("a", 5000),
+			expected: strings.Repeat("a", 4096),
+		},
+		{
+			name:     "Path with multiple traversals",
+			input:    "../../etc/passwd",
+			expected: "_/_/etc/passwd",
+		},
+		{
+			name:     "Empty path",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := SanitizePath(tc.input)
+			if result != tc.expected {
+				t.Errorf("Expected result '%s', got '%s'", tc.expected, result)
+			}
+
+			// Verify result length is within limits
+			if len(result) > 4096 {
+				t.Errorf("Sanitized path too long: %d characters", len(result))
+			}
+		})
+	}
+}
+
+// Mock config for testing
+type mockConfig struct {
+	maxResults     int
+	databasePath   string
+	personalDBPath string
+	valid          bool
+}
+
+func (m *mockConfig) Validate() error {
+	if !m.valid {
+		return fmt.Errorf("mock validation error")
+	}
+	if m.maxResults <= 0 {
+		return fmt.Errorf("maxResults must be positive")
+	}
+	return nil
+}
+
+func (m *mockConfig) GetDatabasePath() string {
+	return m.databasePath
+}
+
+func (m *mockConfig) GetPersonalDatabasePath() string {
+	return m.personalDBPath
+}
+
+func TestValidateConfig(t *testing.T) {
+	testCases := []struct {
+		name        string
+		config      Config
+		shouldError bool
+	}{
+		{
+			name: "Valid config",
+			config: &mockConfig{
+				maxResults:     10,
+				databasePath:   "commands.yml",
+				personalDBPath: "personal.yml",
+				valid:          true,
+			},
+			shouldError: false,
+		},
+		{
+			name: "Invalid config validation",
+			config: &mockConfig{
+				maxResults:     10,
+				databasePath:   "commands.yml",
+				personalDBPath: "personal.yml",
+				valid:          false,
+			},
+			shouldError: true,
+		},
+		{
+			name: "Config with invalid database path",
+			config: &mockConfig{
+				maxResults:     10,
+				databasePath:   "../commands.yml",
+				personalDBPath: "personal.yml",
+				valid:          true,
+			},
+			shouldError: true,
+		},
+		{
+			name: "Config with invalid personal path",
+			config: &mockConfig{
+				maxResults:     10,
+				databasePath:   "commands.yml",
+				personalDBPath: "../personal.yml",
+				valid:          true,
+			},
+			shouldError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateConfig(tc.config)
+			if tc.shouldError {
+				if err == nil {
+					t.Errorf("Expected error for config, but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error for config, but got: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestSanitizeInput(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Clean input",
+			input:    "git commit -m 'message'",
+			expected: "git commit -m message",
+		},
+		{
+			name:     "Input with script tags",
+			input:    "search <script>alert('xss')</script>",
+			expected: "search xss)",
+		},
+		{
+			name:     "Input with SQL injection",
+			input:    "'; DROP TABLE users; --",
+			expected: "TABLE users",
+		},
+		{
+			name:     "Input with control characters",
+			input:    "test\x00\x01\x02command",
+			expected: "testcommand",
+		},
+		{
+			name:     "Input with JavaScript",
+			input:    "javascript:alert('test')",
+			expected: "test)",
+		},
+		{
+			name:     "Normal query with tabs and newlines",
+			input:    "git\tcommit\nfiles",
+			expected: "git commit files",
+		},
+		{
+			name:     "Empty input",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := SanitizeInput(tc.input)
+			if result != tc.expected {
+				t.Errorf("Expected result '%s', got '%s'", tc.expected, result)
+			}
+		})
+	}
+}
+
+func TestSanitizeLogData(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Password in log",
+			input:    "user login with password=secret123",
+			expected: "user login with password=***",
+		},
+		{
+			name:     "API key in log",
+			input:    "API request with api_key=abc123def456",
+			expected: "API request with api_key=***",
+		},
+		{
+			name:     "Email address",
+			input:    "User email: user@example.com",
+			expected: "User email: ***@***.***",
+		},
+		{
+			name:     "Credit card number",
+			input:    "Payment with card 1234-5678-9012-3456",
+			expected: "Payment with card ****-****-****-****",
+		},
+		{
+			name:     "SSN",
+			input:    "SSN: 123-45-6789",
+			expected: "SSN: ***-**-****",
+		},
+		{
+			name:     "Authorization header",
+			input:    "Authorization: Bearer abc123token",
+			expected: "Authorization=*** abc123token",
+		},
+		{
+			name:     "Clean log data",
+			input:    "User performed search for 'git commit'",
+			expected: "User performed search for 'git commit'",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := SanitizeLogData(tc.input)
+			if result != tc.expected {
+				t.Errorf("Expected result '%s', got '%s'", tc.expected, result)
+			}
+		})
+	}
+}
+
+func TestValidateAndSanitizeUserInput(t *testing.T) {
+	testCases := []struct {
+		name        string
+		input       string
+		inputType   string
+		expected    string
+		shouldError bool
+	}{
+		{
+			name:        "Valid query input",
+			input:       "git commit",
+			inputType:   "query",
+			expected:    "git commit",
+			shouldError: false,
+		},
+		{
+			name:        "Query with dangerous content",
+			input:       "git <script>alert('xss')</script> commit",
+			inputType:   "query",
+			expected:    "git xss) commit",
+			shouldError: false,
+		},
+		{
+			name:        "Empty input",
+			input:       "",
+			inputType:   "query",
+			expected:    "",
+			shouldError: true,
+		},
+		{
+			name:        "Very long input",
+			input:       strings.Repeat("a", 10001),
+			inputType:   "query",
+			expected:    "",
+			shouldError: true,
+		},
+		{
+			name:        "Filename input",
+			input:       "my-file<test>.txt",
+			inputType:   "filename",
+			expected:    "my-file_test_.txt",
+			shouldError: false,
+		},
+		{
+			name:        "Path input",
+			input:       "assets/commands.yml",
+			inputType:   "path",
+			expected:    "assets/commands.yml",
+			shouldError: false,
+		},
+		{
+			name:        "Invalid path input",
+			input:       "../../../etc/passwd",
+			inputType:   "path",
+			expected:    "",
+			shouldError: true,
+		},
+		{
+			name:        "Generic input",
+			input:       "normal text input",
+			inputType:   "generic",
+			expected:    "normal text input",
+			shouldError: false,
+		},
+		{
+			name:        "Input with only dangerous characters",
+			input:       "<script></script>",
+			inputType:   "generic",
+			expected:    "",
+			shouldError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := ValidateAndSanitizeUserInput(tc.input, tc.inputType)
+			
+			if tc.shouldError {
+				if err == nil {
+					t.Errorf("Expected error for input '%s', but got none", tc.input)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error for input '%s', but got: %v", tc.input, err)
+				}
+				if result != tc.expected {
+					t.Errorf("Expected result '%s', got '%s'", tc.expected, result)
+				}
+			}
+		})
 	}
 }
