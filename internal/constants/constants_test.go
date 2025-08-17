@@ -199,7 +199,7 @@ func TestConstantRelationships(t *testing.T) {
 	}
 }
 
-func TestConstantTypes(t *testing.T) {
+func TestConstantTypes(_ *testing.T) {
 	// Test that constants are of expected types
 	var f float64
 	var i int

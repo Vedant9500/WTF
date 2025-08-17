@@ -892,7 +892,7 @@ func TestValidateAndSanitizeUserInput(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := ValidateAndSanitizeUserInput(tc.input, tc.inputType)
-			
+
 			if tc.shouldError {
 				if err == nil {
 					t.Errorf("Expected error for input '%s', but got none", tc.input)

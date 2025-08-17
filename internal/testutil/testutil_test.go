@@ -187,6 +187,7 @@ func TestDatabaseTestHelper(t *testing.T) {
 	emptyDB := helper.CreateEmptyDatabase()
 	if emptyDB == nil {
 		t.Error("Expected empty database to be created")
+		return // Exit early to avoid nil pointer dereference
 	}
 	if len(emptyDB.Commands) != 0 {
 		t.Error("Expected empty database to have no commands")

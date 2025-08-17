@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const osWindows = "windows"
+
 var aliasCmd = &cobra.Command{
 	Use:   "alias",
 	Short: "Manage command aliases for WTF",
@@ -27,7 +29,7 @@ Examples:
   wtf alias add miko
   wtf alias add cmd-help`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		aliasName := args[0]
 		if err := addAlias(aliasName); err != nil {
 			fmt.Printf("❌ Error adding alias '%s': %v\n", aliasName, err)
@@ -42,7 +44,7 @@ var listAliasCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all configured aliases",
 	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		aliases := listAliases()
 		if len(aliases) == 0 {
 			fmt.Println("No aliases configured yet.")
@@ -61,7 +63,7 @@ var removeAliasCmd = &cobra.Command{
 	Use:   "remove [name]",
 	Short: "Remove an alias",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		aliasName := args[0]
 		if err := removeAlias(aliasName); err != nil {
 			fmt.Printf("❌ Error removing alias '%s': %v\n", aliasName, err)
@@ -84,7 +86,7 @@ func addAlias(name string) error {
 		return err
 	}
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		return addWindowsAlias(name, execPath, aliasDir)
 	}
 	return addUnixAlias(name, execPath, aliasDir)
@@ -93,7 +95,7 @@ func addAlias(name string) error {
 func addWindowsAlias(name, execPath, aliasDir string) error {
 	// Create a batch file
 	batchPath := filepath.Join(aliasDir, name+".bat")
-	content := fmt.Sprintf("@echo off\n\"%s\" %%*\n", execPath)
+	content := fmt.Sprintf("@echo off\n%q %%*\n", execPath)
 
 	if err := os.WriteFile(batchPath, []byte(content), 0755); err != nil {
 		return err
@@ -111,7 +113,7 @@ func addWindowsAlias(name, execPath, aliasDir string) error {
 func addUnixAlias(name, execPath, aliasDir string) error {
 	// Create a shell script
 	scriptPath := filepath.Join(aliasDir, name)
-	content := fmt.Sprintf("#!/bin/bash\n\"%s\" \"$@\"\n", execPath)
+	content := fmt.Sprintf("#!/bin/bash\n%q \"$@\"\n", execPath)
 
 	if err := os.WriteFile(scriptPath, []byte(content), 0755); err != nil {
 		return err
@@ -128,7 +130,7 @@ func addUnixAlias(name, execPath, aliasDir string) error {
 
 func getAliasDir() string {
 	homeDir, _ := os.UserHomeDir()
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		return filepath.Join(homeDir, ".wtf", "aliases")
 	}
 	return filepath.Join(homeDir, ".local", "bin", "wtf-aliases")
@@ -145,7 +147,7 @@ func listAliases() []string {
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			name := entry.Name()
-			if runtime.GOOS == "windows" {
+			if runtime.GOOS == osWindows {
 				name = strings.TrimSuffix(name, ".bat")
 			}
 			aliases = append(aliases, name)
@@ -158,7 +160,7 @@ func removeAlias(name string) error {
 	aliasDir := getAliasDir()
 
 	var filePath string
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		filePath = filepath.Join(aliasDir, name+".bat")
 	} else {
 		filePath = filepath.Join(aliasDir, name)

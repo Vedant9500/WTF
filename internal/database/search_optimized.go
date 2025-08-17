@@ -104,7 +104,7 @@ func (db *Database) OptimizedSearchWithOptions(query string, options SearchOptio
 
 // parseQueryWords optimally parses query into words, reusing provided slice
 func parseQueryWords(queryLower string, words []string) []string {
-	if len(queryLower) == 0 {
+	if queryLower == "" {
 		return words[:0]
 	}
 
@@ -148,7 +148,7 @@ func (db *Database) isPlatformMatch(cmd *Command, currentPlatform string) bool {
 
 	// Check for cross-platform or current platform match
 	for _, p := range cmd.Platform {
-		if len(p) == 0 {
+		if p == "" {
 			continue
 		}
 

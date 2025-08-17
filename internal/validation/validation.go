@@ -13,7 +13,7 @@ import (
 // ValidateQuery validates and sanitizes user input queries
 func ValidateQuery(query string) (string, error) {
 	// Check for empty query
-	if len(strings.TrimSpace(query)) == 0 {
+	if strings.TrimSpace(query) == "" {
 		return "", errors.NewQueryEmptyError()
 	}
 
@@ -50,7 +50,7 @@ func ValidateQuery(query string) (string, error) {
 	// Replace multiple spaces with single spaces
 	cleaned = strings.Join(strings.Fields(cleaned), " ")
 
-	if len(cleaned) == 0 {
+	if cleaned == "" {
 		return "", errors.NewQueryEmptyError()
 	}
 
@@ -178,15 +178,15 @@ func ValidateDatabasePath(path string) error {
 func SanitizePath(path string) string {
 	// Remove null bytes
 	cleaned := strings.ReplaceAll(path, "\x00", "")
-	
+
 	// Remove or replace dangerous sequences
 	cleaned = strings.ReplaceAll(cleaned, "..", "_")
-	
+
 	// Limit length
 	if len(cleaned) > 4096 {
 		cleaned = cleaned[:4096]
 	}
-	
+
 	return cleaned
 }
 
@@ -199,10 +199,10 @@ func SanitizeInput(input string) string {
 		}
 		return r
 	}, input)
-	
+
 	// Remove potential script injection patterns (case-insensitive)
 	scriptPatterns := []struct {
-		pattern *regexp.Regexp
+		pattern     *regexp.Regexp
 		replacement string
 	}{
 		{regexp.MustCompile(`(?i)<script[^>]*>`), ""},
@@ -214,14 +214,14 @@ func SanitizeInput(input string) string {
 		{regexp.MustCompile(`(?i)eval\s*\(`), ""},
 		{regexp.MustCompile(`(?i)alert\s*\(`), ""},
 	}
-	
+
 	for _, sp := range scriptPatterns {
 		cleaned = sp.pattern.ReplaceAllString(cleaned, sp.replacement)
 	}
-	
+
 	// Remove common SQL injection patterns
 	sqlPatterns := []struct {
-		pattern *regexp.Regexp
+		pattern     *regexp.Regexp
 		replacement string
 	}{
 		{regexp.MustCompile(`'`), ""},
@@ -237,15 +237,15 @@ func SanitizeInput(input string) string {
 		{regexp.MustCompile(`(?i)\bdelete\b`), ""},
 		{regexp.MustCompile(`(?i)\bdrop\b`), ""},
 	}
-	
+
 	for _, sp := range sqlPatterns {
 		cleaned = sp.pattern.ReplaceAllString(cleaned, sp.replacement)
 	}
-	
+
 	// Trim excessive whitespace and normalize spaces
 	cleaned = strings.TrimSpace(cleaned)
 	cleaned = regexp.MustCompile(`\s+`).ReplaceAllString(cleaned, " ")
-	
+
 	return cleaned
 }
 
@@ -263,23 +263,23 @@ func SanitizeLogData(data string) string {
 		{regexp.MustCompile(`\b(?:\d{4}[-\s]?){3}\d{4}\b`), "****-****-****-****"},
 		{regexp.MustCompile(`\b\d{3}-\d{2}-\d{4}\b`), "***-**-****"},
 	}
-	
+
 	sanitized := data
 	for _, sp := range sensitivePatterns {
 		sanitized = sp.pattern.ReplaceAllString(sanitized, sp.replacement)
 	}
-	
+
 	return sanitized
 }
 
 // ValidateAndSanitizeUserInput combines validation and sanitization for user input
-func ValidateAndSanitizeUserInput(input string, inputType string) (string, error) {
+func ValidateAndSanitizeUserInput(input, inputType string) (string, error) {
 	if input == "" {
 		return "", errors.NewAppError(errors.ErrorTypeValidation, "input cannot be empty", nil).
 			WithUserMessage("Please provide valid input").
 			WithContext("input_type", inputType)
 	}
-	
+
 	// Basic length check
 	if len(input) > 10000 {
 		return "", errors.NewAppError(errors.ErrorTypeValidation, "input too long", nil).
@@ -287,18 +287,18 @@ func ValidateAndSanitizeUserInput(input string, inputType string) (string, error
 			WithContext("input_length", len(input)).
 			WithContext("input_type", inputType)
 	}
-	
+
 	// Sanitize the input
 	sanitized := SanitizeInput(input)
-	
+
 	// Check if sanitization removed too much content
-	if len(sanitized) == 0 && len(input) > 0 {
+	if sanitized == "" && input != "" {
 		return "", errors.NewAppError(errors.ErrorTypeValidation, "input contains only invalid characters", nil).
 			WithUserMessage("Input contains invalid or potentially dangerous characters").
 			WithContext("input_type", inputType).
 			WithSuggestions("Use only alphanumeric characters and common punctuation")
 	}
-	
+
 	// Additional validation based on input type
 	switch inputType {
 	case "query":

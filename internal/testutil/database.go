@@ -176,7 +176,7 @@ func (dts *DatabaseTestSuite) RunPerformanceTests(t *testing.T) {
 		}
 	})
 
-	t.Run("MultipleSearches", func(t *testing.T) {
+	t.Run("MultipleSearches", func(_ *testing.T) {
 		queries := []string{"git", "find", "tar", "grep", "curl"}
 		for _, query := range queries {
 			results := largeSuite.db.Search(query, 5)
@@ -257,7 +257,7 @@ func (dv *DatabaseValidator) ValidateCommand(t *testing.T, cmd *database.Command
 }
 
 // ValidateSearchResults validates search results
-func (dv *DatabaseValidator) ValidateSearchResults(t *testing.T, results []database.SearchResult, query string) {
+func (dv *DatabaseValidator) ValidateSearchResults(t *testing.T, results []database.SearchResult, _ string) {
 	t.Helper()
 
 	// Check that results are sorted by score (descending)

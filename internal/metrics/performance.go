@@ -269,21 +269,22 @@ func (b *Benchmarker) BenchmarkFunction(name string, fn func(), iterations int) 
 
 	// Safe integer conversions to prevent overflow
 	var bytesPerOp, allocsPerOp, memoryUsed int64
-	
+
 	if iterations > 0 {
 		// Check for potential overflow before conversion
 		totalAllocDiff := m2.TotalAlloc - m1.TotalAlloc
 		mallocsDiff := m2.Mallocs - m1.Mallocs
 		allocDiff := m2.Alloc - m1.Alloc
-		
+
 		// Safe conversion with overflow check
-		if totalAllocDiff <= uint64(^uint64(0)>>1) { // Check if fits in int64
+		const maxInt64 = uint64(^uint64(0) >> 1) // Maximum value that fits in int64
+		if totalAllocDiff <= maxInt64 {
 			bytesPerOp = int64(totalAllocDiff) / int64(iterations)
 		}
-		if mallocsDiff <= uint64(^uint64(0)>>1) {
+		if mallocsDiff <= maxInt64 {
 			allocsPerOp = int64(mallocsDiff) / int64(iterations)
 		}
-		if allocDiff <= uint64(^uint64(0)>>1) {
+		if allocDiff <= maxInt64 {
 			memoryUsed = int64(allocDiff)
 		}
 	}

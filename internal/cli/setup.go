@@ -22,7 +22,7 @@ Examples:
   
 This automatically handles all the complexity of setting up aliases for your system.`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		aliasName := args[0]
 
 		fmt.Printf("🚀 Setting up '%s' as your WTF command...\n\n", aliasName)
@@ -58,7 +58,7 @@ func quickSetup(aliasName string) error {
 
 func setupWindows(aliasName, execPath string) error {
 	// Create batch file in current directory (simplest approach)
-	batchContent := fmt.Sprintf("@echo off\n\"%s\" %%*\n", execPath)
+	batchContent := fmt.Sprintf("@echo off\n%q %%*\n", execPath)
 	batchPath := aliasName + ".bat"
 
 	if err := os.WriteFile(batchPath, []byte(batchContent), 0755); err != nil {
@@ -116,7 +116,7 @@ func setupUnix(aliasName, execPath string) error {
 
 func containsAlias(content, aliasName string) bool {
 	aliasPattern := fmt.Sprintf("alias %s=", aliasName)
-	return len(content) > 0 &&
+	return content != "" &&
 		(strings.Contains(content, aliasPattern) ||
 			strings.Contains(content, fmt.Sprintf("alias %s ", aliasName)))
 }

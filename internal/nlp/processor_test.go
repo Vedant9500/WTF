@@ -46,7 +46,7 @@ func TestProcessQuery(t *testing.T) {
 				Actions:  []string{"find", "search", "locate"},
 				Targets:  []string{"files", "documents"},
 				Keywords: []string{"files", "documents"},
-				Intent:   IntentGeneral, // Adjusted to match actual behavior
+				Intent:   IntentFind, // Correctly detects find intent
 			},
 		},
 		{
@@ -476,7 +476,7 @@ func TestComplexQueryProcessing(t *testing.T) {
 		{
 			name:           "File search query",
 			query:          "find all text files in directory",
-			expectedIntent: IntentGeneral, // Adjusted to match actual behavior
+			expectedIntent: IntentFind, // Correctly detects find intent
 			shouldContain:  []string{"text", "files", "directory"},
 		},
 		{

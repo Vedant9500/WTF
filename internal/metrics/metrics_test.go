@@ -241,9 +241,10 @@ func TestBenchmarker(t *testing.T) {
 		t.Errorf("Expected name 'test_memory', got '%s'", profile.Name)
 	}
 
-	// Memory allocation might be 0 in some cases due to GC, so just check it's non-negative
-	if profile.TotalAllocDelta < 0 {
-		t.Errorf("Expected non-negative memory allocation, got %d", profile.TotalAllocDelta)
+	// Memory allocation is uint64, so it's always non-negative
+	// Just verify it's a reasonable value (not checking < 0 since uint64 can't be negative)
+	if profile.TotalAllocDelta > 1<<32 { // Sanity check for extremely large allocations
+		t.Logf("Large memory allocation detected: %d bytes", profile.TotalAllocDelta)
 	}
 }
 

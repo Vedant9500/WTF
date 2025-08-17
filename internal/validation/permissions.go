@@ -9,18 +9,28 @@ import (
 	"github.com/Vedant9500/WTF/internal/errors"
 )
 
+// File type constants
+const (
+	FileTypeConfig     = "config"
+	FileTypeData       = "data"
+	FileTypeExecutable = "executable"
+	FileTypeDirectory  = "directory"
+	FileTypeTemp       = "temp"
+	OSWindows          = "windows"
+)
+
 // FilePermissions defines secure file permissions for different file types
 type FilePermissions struct {
-	ConfigFile    os.FileMode // Configuration files (readable by owner only)
-	DataFile      os.FileMode // Data files (readable by owner and group)
+	ConfigFile     os.FileMode // Configuration files (readable by owner only)
+	DataFile       os.FileMode // Data files (readable by owner and group)
 	ExecutableFile os.FileMode // Executable files
-	Directory     os.FileMode // Directories
-	TempFile      os.FileMode // Temporary files
+	Directory      os.FileMode // Directories
+	TempFile       os.FileMode // Temporary files
 }
 
 // DefaultPermissions returns secure default file permissions
 func DefaultPermissions() FilePermissions {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == OSWindows {
 		// Windows doesn't use Unix-style permissions, but we set them anyway
 		return FilePermissions{
 			ConfigFile:     0600, // Owner read/write
@@ -30,7 +40,7 @@ func DefaultPermissions() FilePermissions {
 			TempFile:       0600, // Owner read/write
 		}
 	}
-	
+
 	return FilePermissions{
 		ConfigFile:     0600, // Owner read/write only
 		DataFile:       0644, // Owner read/write, group/others read only
@@ -52,27 +62,27 @@ func RestrictivePermissions() FilePermissions {
 }
 
 // SetSecureFilePermissions sets secure permissions on a file based on its type
-func SetSecureFilePermissions(filePath string, fileType string) error {
+func SetSecureFilePermissions(filePath, fileType string) error {
 	permissions := DefaultPermissions()
-	
+
 	var mode os.FileMode
 	switch fileType {
-	case "config":
+	case FileTypeConfig:
 		mode = permissions.ConfigFile
-	case "data":
+	case FileTypeData:
 		mode = permissions.DataFile
-	case "executable":
+	case FileTypeExecutable:
 		mode = permissions.ExecutableFile
-	case "directory":
+	case FileTypeDirectory:
 		mode = permissions.Directory
-	case "temp":
+	case FileTypeTemp:
 		mode = permissions.TempFile
 	default:
 		mode = permissions.DataFile // Default to data file permissions
 	}
-	
+
 	if err := os.Chmod(filePath, mode); err != nil {
-		return errors.NewAppError(errors.ErrorTypeFileSystem, 
+		return errors.NewAppError(errors.ErrorTypeFileSystem,
 			fmt.Sprintf("failed to set permissions on %s", filePath), err).
 			WithUserMessage(fmt.Sprintf("Could not set secure permissions on file: %s", filePath)).
 			WithContext("file_path", filePath).
@@ -84,12 +94,12 @@ func SetSecureFilePermissions(filePath string, fileType string) error {
 				"Try running with elevated privileges if necessary",
 			)
 	}
-	
+
 	return nil
 }
 
 // ValidateFilePermissions checks if a file has secure permissions
-func ValidateFilePermissions(filePath string, fileType string) error {
+func ValidateFilePermissions(filePath, fileType string) error {
 	info, err := os.Stat(filePath)
 	if err != nil {
 		return errors.NewAppError(errors.ErrorTypeFileSystem,
@@ -97,31 +107,31 @@ func ValidateFilePermissions(filePath string, fileType string) error {
 			WithUserMessage(fmt.Sprintf("Cannot access file: %s", filePath)).
 			WithContext("file_path", filePath)
 	}
-	
+
 	currentMode := info.Mode().Perm()
 	permissions := DefaultPermissions()
-	
+
 	var expectedMode os.FileMode
 	switch fileType {
-	case "config":
+	case FileTypeConfig:
 		expectedMode = permissions.ConfigFile
-	case "data":
+	case FileTypeData:
 		expectedMode = permissions.DataFile
-	case "executable":
+	case FileTypeExecutable:
 		expectedMode = permissions.ExecutableFile
-	case "directory":
+	case FileTypeDirectory:
 		expectedMode = permissions.Directory
-	case "temp":
+	case FileTypeTemp:
 		expectedMode = permissions.TempFile
 	default:
 		expectedMode = permissions.DataFile
 	}
-	
+
 	// On Windows, permission checking is less strict
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == OSWindows {
 		return nil
 	}
-	
+
 	// Check if file is world-writable (security risk)
 	if currentMode&0002 != 0 {
 		return errors.NewAppError(errors.ErrorTypePermission,
@@ -134,9 +144,9 @@ func ValidateFilePermissions(filePath string, fileType string) error {
 				"Remove world-write permissions for security",
 			)
 	}
-	
+
 	// Check if file is group-writable for sensitive files
-	if (fileType == "config" || fileType == "temp") && currentMode&0020 != 0 {
+	if (fileType == FileTypeConfig || fileType == FileTypeTemp) && currentMode&0020 != 0 {
 		return errors.NewAppError(errors.ErrorTypePermission,
 			fmt.Sprintf("sensitive file %s is group-writable", filePath), nil).
 			WithUserMessage(fmt.Sprintf("Security risk: sensitive file %s can be modified by group members", filePath)).
@@ -148,12 +158,12 @@ func ValidateFilePermissions(filePath string, fileType string) error {
 				"Remove group-write permissions for sensitive files",
 			)
 	}
-	
+
 	return nil
 }
 
 // CreateSecureFile creates a file with secure permissions
-func CreateSecureFile(filePath string, fileType string) (*os.File, error) {
+func CreateSecureFile(filePath, fileType string) (*os.File, error) {
 	// Ensure parent directory exists
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, DefaultPermissions().Directory); err != nil {
@@ -162,21 +172,21 @@ func CreateSecureFile(filePath string, fileType string) (*os.File, error) {
 			WithUserMessage(fmt.Sprintf("Could not create directory: %s", dir)).
 			WithContext("directory", dir)
 	}
-	
+
 	// Create file with secure permissions
 	permissions := DefaultPermissions()
 	var mode os.FileMode
 	switch fileType {
-	case "config":
+	case FileTypeConfig:
 		mode = permissions.ConfigFile
-	case "data":
+	case FileTypeData:
 		mode = permissions.DataFile
-	case "temp":
+	case FileTypeTemp:
 		mode = permissions.TempFile
 	default:
 		mode = permissions.DataFile
 	}
-	
+
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
 		return nil, errors.NewAppError(errors.ErrorTypeFileSystem,
@@ -185,14 +195,14 @@ func CreateSecureFile(filePath string, fileType string) (*os.File, error) {
 			WithContext("file_path", filePath).
 			WithContext("file_type", fileType)
 	}
-	
+
 	return file, nil
 }
 
 // CreateSecureDirectory creates a directory with secure permissions
 func CreateSecureDirectory(dirPath string) error {
 	permissions := DefaultPermissions()
-	
+
 	if err := os.MkdirAll(dirPath, permissions.Directory); err != nil {
 		return errors.NewAppError(errors.ErrorTypeFileSystem,
 			fmt.Sprintf("failed to create directory %s", dirPath), err).
@@ -204,7 +214,7 @@ func CreateSecureDirectory(dirPath string) error {
 				"Try running with elevated privileges if necessary",
 			)
 	}
-	
+
 	return nil
 }
 
@@ -217,21 +227,21 @@ func ValidateDirectoryPermissions(dirPath string) error {
 			WithUserMessage(fmt.Sprintf("Cannot access directory: %s", dirPath)).
 			WithContext("directory", dirPath)
 	}
-	
+
 	if !info.IsDir() {
 		return errors.NewAppError(errors.ErrorTypeValidation,
 			fmt.Sprintf("%s is not a directory", dirPath), nil).
 			WithUserMessage(fmt.Sprintf("Path is not a directory: %s", dirPath)).
 			WithContext("path", dirPath)
 	}
-	
+
 	currentMode := info.Mode().Perm()
-	
+
 	// On Windows, permission checking is less strict
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == OSWindows {
 		return nil
 	}
-	
+
 	// Check if directory is world-writable (security risk)
 	if currentMode&0002 != 0 {
 		return errors.NewAppError(errors.ErrorTypePermission,
@@ -244,7 +254,7 @@ func ValidateDirectoryPermissions(dirPath string) error {
 				"Remove world-write permissions for security",
 			)
 	}
-	
+
 	return nil
 }
 
@@ -267,24 +277,25 @@ func (sfo *SecureFileOperations) WriteSecureFile(filePath string, data []byte, f
 		return err
 	}
 	defer file.Close()
-	
+
 	if _, err := file.Write(data); err != nil {
 		return errors.NewAppError(errors.ErrorTypeFileSystem,
 			fmt.Sprintf("failed to write to file %s", filePath), err).
 			WithUserMessage(fmt.Sprintf("Could not write to file: %s", filePath)).
 			WithContext("file_path", filePath)
 	}
-	
+
 	return nil
 }
 
 // ReadSecureFile reads data from a file after validating permissions
-func (sfo *SecureFileOperations) ReadSecureFile(filePath string, fileType string) ([]byte, error) {
+func (sfo *SecureFileOperations) ReadSecureFile(filePath, fileType string) ([]byte, error) {
 	if err := ValidateFilePermissions(filePath, fileType); err != nil {
 		// Log warning but don't fail - file might still be readable
 		// In a real application, you might want to log this warning
+		_ = err // Explicitly ignore the error for now
 	}
-	
+
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, errors.NewAppError(errors.ErrorTypeFileSystem,
@@ -292,6 +303,6 @@ func (sfo *SecureFileOperations) ReadSecureFile(filePath string, fileType string
 			WithUserMessage(fmt.Sprintf("Could not read file: %s", filePath)).
 			WithContext("file_path", filePath)
 	}
-	
+
 	return data, nil
 }

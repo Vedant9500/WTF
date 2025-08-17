@@ -22,7 +22,7 @@ Examples:
   wtf wizard ffmpeg   # Interactive ffmpeg converter
   wtf wizard          # Show available wizards`,
 	Args: cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		if len(args) == 0 {
 			showAvailableWizards()
 			return
