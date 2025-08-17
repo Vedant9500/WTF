@@ -31,7 +31,6 @@ func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options Searc
 		return cdb.OptimizedSearchWithOptions(query, options)
 	}
 
-
 	// Convert SearchOptions to cache.SearchOptions
 	cacheOptions := cache.SearchOptions{
 		Limit:          options.Limit,
@@ -97,7 +96,6 @@ func (cdb *CachedDatabase) SearchWithPipelineOptionsAndCache(query string, optio
 		return cdb.SearchWithPipelineOptions(query, options)
 	}
 
-
 	// Convert SearchOptions to cache.SearchOptions
 	cacheOptions := cache.SearchOptions{
 		Limit:          options.Limit,
@@ -131,7 +129,6 @@ func (cdb *CachedDatabase) SearchWithFuzzyAndCache(query string, options SearchO
 	if !cdb.cacheManager.IsEnabled() {
 		return cdb.SearchWithFuzzy(query, options)
 	}
-
 
 	cacheOptions := cache.SearchOptions{
 		Limit:          options.Limit,
@@ -175,4 +172,3 @@ func convertDBResults(results []SearchResult) []cache.SearchResult {
 	}
 	return out
 }
-
