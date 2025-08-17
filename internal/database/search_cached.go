@@ -25,12 +25,12 @@ func (cdb *CachedDatabase) SearchWithCache(query string, limit int) []SearchResu
 
 // SearchWithOptionsAndCache performs search with options and caching
 func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options SearchOptions) []SearchResult {
+	searchCache := cdb.cacheManager.GetSearchCache()
 	if !cdb.cacheManager.IsEnabled() {
 		// Cache disabled, use regular search
 		return cdb.OptimizedSearchWithOptions(query, options)
 	}
 
-	searchCache := cdb.cacheManager.GetSearchCache()
 
 	// Convert SearchOptions to cache.SearchOptions
 	cacheOptions := cache.SearchOptions{
@@ -45,17 +45,7 @@ func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options Searc
 
 	// Try to get from cache first
 	if cachedResults, found := searchCache.Get(query, cacheOptions); found {
-		// Convert cache.SearchResult back to database.SearchResult
-		results := make([]SearchResult, len(cachedResults))
-		for i, cached := range cachedResults {
-			if cmd, ok := cached.Command.(*Command); ok {
-				results[i] = SearchResult{
-					Command: cmd,
-					Score:   cached.Score,
-				}
-			}
-		}
-		return results
+		return convertCacheResults(cachedResults)
 	}
 
 	// Cache miss - perform actual search
@@ -63,15 +53,7 @@ func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options Searc
 
 	// Store in cache
 	if len(results) > 0 {
-		// Convert database.SearchResult to cache.SearchResult
-		cacheResults := make([]cache.SearchResult, len(results))
-		for i, result := range results {
-			cacheResults[i] = cache.SearchResult{
-				Command: result.Command,
-				Score:   result.Score,
-			}
-		}
-		searchCache.Put(query, cacheOptions, cacheResults)
+		searchCache.Put(query, cacheOptions, convertDBResults(results))
 	}
 
 	return results
@@ -110,11 +92,11 @@ func (cdb *CachedDatabase) UpdateDatabase(commands []Command) {
 
 // SearchWithPipelineOptionsAndCache performs pipeline search with caching
 func (cdb *CachedDatabase) SearchWithPipelineOptionsAndCache(query string, options SearchOptions) []SearchResult {
+	searchCache := cdb.cacheManager.GetSearchCache()
 	if !cdb.cacheManager.IsEnabled() {
 		return cdb.SearchWithPipelineOptions(query, options)
 	}
 
-	searchCache := cdb.cacheManager.GetSearchCache()
 
 	// Convert SearchOptions to cache.SearchOptions
 	cacheOptions := cache.SearchOptions{
@@ -129,16 +111,7 @@ func (cdb *CachedDatabase) SearchWithPipelineOptionsAndCache(query string, optio
 
 	// Try cache first
 	if cachedResults, found := searchCache.Get(query, cacheOptions); found {
-		results := make([]SearchResult, len(cachedResults))
-		for i, cached := range cachedResults {
-			if cmd, ok := cached.Command.(*Command); ok {
-				results[i] = SearchResult{
-					Command: cmd,
-					Score:   cached.Score,
-				}
-			}
-		}
-		return results
+		return convertCacheResults(cachedResults)
 	}
 
 	// Cache miss - perform search
@@ -146,14 +119,7 @@ func (cdb *CachedDatabase) SearchWithPipelineOptionsAndCache(query string, optio
 
 	// Store in cache
 	if len(results) > 0 {
-		cacheResults := make([]cache.SearchResult, len(results))
-		for i, result := range results {
-			cacheResults[i] = cache.SearchResult{
-				Command: result.Command,
-				Score:   result.Score,
-			}
-		}
-		searchCache.Put(query, cacheOptions, cacheResults)
+		searchCache.Put(query, cacheOptions, convertDBResults(results))
 	}
 
 	return results
@@ -161,11 +127,11 @@ func (cdb *CachedDatabase) SearchWithPipelineOptionsAndCache(query string, optio
 
 // SearchWithFuzzyAndCache performs fuzzy search with caching
 func (cdb *CachedDatabase) SearchWithFuzzyAndCache(query string, options SearchOptions) []SearchResult {
+	searchCache := cdb.cacheManager.GetSearchCache()
 	if !cdb.cacheManager.IsEnabled() {
 		return cdb.SearchWithFuzzy(query, options)
 	}
 
-	searchCache := cdb.cacheManager.GetSearchCache()
 
 	cacheOptions := cache.SearchOptions{
 		Limit:          options.Limit,
@@ -178,30 +144,35 @@ func (cdb *CachedDatabase) SearchWithFuzzyAndCache(query string, options SearchO
 	}
 
 	if cachedResults, found := searchCache.Get(query, cacheOptions); found {
-		results := make([]SearchResult, len(cachedResults))
-		for i, cached := range cachedResults {
-			if cmd, ok := cached.Command.(*Command); ok {
-				results[i] = SearchResult{
-					Command: cmd,
-					Score:   cached.Score,
-				}
-			}
-		}
-		return results
+		return convertCacheResults(cachedResults)
 	}
 
 	results := cdb.SearchWithFuzzy(query, options)
 
 	if len(results) > 0 {
-		cacheResults := make([]cache.SearchResult, len(results))
-		for i, result := range results {
-			cacheResults[i] = cache.SearchResult{
-				Command: result.Command,
-				Score:   result.Score,
-			}
-		}
-		searchCache.Put(query, cacheOptions, cacheResults)
+		searchCache.Put(query, cacheOptions, convertDBResults(results))
 	}
 
 	return results
 }
+
+// convertCacheResults converts cached results to database results.
+func convertCacheResults(cached []cache.SearchResult) []SearchResult {
+	results := make([]SearchResult, 0, len(cached))
+	for _, c := range cached {
+		if cmd, ok := c.Command.(*Command); ok {
+			results = append(results, SearchResult{Command: cmd, Score: c.Score})
+		}
+	}
+	return results
+}
+
+// convertDBResults converts database results to cache-friendly results.
+func convertDBResults(results []SearchResult) []cache.SearchResult {
+	out := make([]cache.SearchResult, len(results))
+	for i, r := range results {
+		out[i] = cache.SearchResult{Command: r.Command, Score: r.Score}
+	}
+	return out
+}
+

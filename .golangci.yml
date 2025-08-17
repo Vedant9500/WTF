@@ -96,7 +96,7 @@ linters:
     - unused
     - whitespace
     - revive
-    - exportloopref  # Detects pointers to enclosing loop variables
+    - copyloopvar    # Detects copying loop variables (replaces deprecated exportloopref)
     - noctx          # Finds sending http request without context.Context
     - sqlclosecheck  # Checks that sql.Rows and sql.Stmt are closed
 
