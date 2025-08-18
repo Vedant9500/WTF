@@ -22,7 +22,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.22'
+        go-version: '1.24'
         check-latest: true
 
     - name: Cache Go modules
@@ -76,14 +76,14 @@ jobs:
         
         # Run security-focused linters
         golangci-lint run \
-          --enable=gosec,gocritic,staticcheck,exportloopref,noctx,sqlclosecheck \
+          --enable=gosec,gocritic,staticcheck,copyloopvar,noctx,sqlclosecheck \
           --out-format=sarif \
           --output-file=security-lint.sarif \
           --timeout=10m || true
         
         # Also generate human-readable output
         golangci-lint run \
-          --enable=gosec,gocritic,staticcheck,exportloopref,noctx,sqlclosecheck \
+          --enable=gosec,gocritic,staticcheck,copyloopvar,noctx,sqlclosecheck \
           --out-format=tab \
           --timeout=10m > security-lint.txt || true
 

@@ -20,8 +20,8 @@
 📚 **Massive Command Database** - 3,268+ commands sourced from TLDR pages and community contributions  
 🎯 **Context-Aware Suggestions** - Smart recommendations based on your current directory and project type  
 ⚡ **Fuzzy Search & Typo Tolerance** - Finds commands even with spelling mistakes  
-�️ ***Platform Filtering** - Filter commands by platform (Linux, macOS, Windows, cross-platform)  
-� **Searcha History & Analytics** - Tracks your searches to improve recommendations  
+🖥️ **Platform Filtering** - Filter commands by platform (Linux, macOS, Windows, cross-platform)  
+📈 **Search History & Analytics** - Tracks your searches to improve recommendations  
 📝 **Personal Command Notebook** - Save and organize your custom commands  
 🎯 **Interactive Command Builder** - Step-by-step wizards for complex commands  
 🔗 **Pipeline Search** - Specialized search for multi-command workflows  
@@ -421,7 +421,7 @@ wtf stats
 
 ```bash
 # Clone repository
-git clone https://github.com/your-username/WTF.git
+git clone https://github.com/Vedant9500/WTF.git
 cd WTF
 
 # Install dependencies

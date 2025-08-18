@@ -11,8 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: [1.21, 1.22]
-
+        go-version: ['1.24']
     steps:
     - uses: actions/checkout@v4
 
@@ -48,7 +47,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: 1.22
+        go-version: '1.24'
 
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v3
@@ -64,7 +63,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: 1.22
+        go-version: '1.24'
 
     - name: Run Go vulnerability check
       run: |
@@ -121,14 +120,13 @@ jobs:
         exclude:
           - goos: windows
             goarch: arm64
-
     steps:
     - uses: actions/checkout@v4
 
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: 1.22
+        go-version: '1.24'
 
     - name: Build
       env:
