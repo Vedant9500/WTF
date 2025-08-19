@@ -1,4 +1,3 @@
-PKGBUILD  
 # Build artifacts
 build/
 dist/
@@ -6,6 +5,13 @@ tmp/
 *.exe
 *.bin
 *.prof
+
+# Go specific
+*.out
+*.test
+coverage.txt
+coverage.html
+build-errors.log
 
 # OS generated files
 .DS_Store
@@ -29,13 +35,6 @@ hey
 miko
 find-cmd
 
-# Go specific
-*.out
-*.test
-coverage.txt
-coverage.html
-build-errors.log
-
 # Personal database files
 personal.yml
 custom.yml
@@ -47,7 +46,9 @@ custom.yml
 commands_fixed.yml
 .tmp/
 releases/
-ACTION_PLAN.md
+
+# Ignore PKGBUILD
+PKGBUILD
 
 # Air live reload  
 .air.toml.local
