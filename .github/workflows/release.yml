@@ -98,16 +98,16 @@ jobs:
         BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
         GIT_HASH=$(git rev-parse --short HEAD)
         VERSION="${{ steps.version.outputs.VERSION }}"
-        
+
         # Build flags
         LDFLAGS="-s -w -X ${PACKAGE}/internal/version.Version=${VERSION} -X ${PACKAGE}/internal/version.GitHash=${GIT_HASH} -X ${PACKAGE}/internal/version.Build=${BUILD_TIME}"
-        
+
         # Create build directory
         mkdir -p build
-        
+
         # Build the binary
-        go build -ldflags="$LDFLAGS" -o "build/${{ matrix.name }}${{ matrix.ext }}" ./cmd/wtf
-        
+        go build -trimpath -ldflags="$LDFLAGS" -o "build/${{ matrix.name }}${{ matrix.ext }}" ./cmd/wtf
+
         # Verify the build
         file "build/${{ matrix.name }}${{ matrix.ext }}"
         ls -la build/

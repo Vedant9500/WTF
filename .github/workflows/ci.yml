@@ -8,9 +8,10 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         go-version: ['1.24']
     steps:
     - uses: actions/checkout@v4
@@ -31,6 +32,32 @@ jobs:
     - name: Install dependencies
       run: go mod download
 
+    - name: Tidy (no changes)
+      run: |
+        go mod tidy
+        git update-index -q --refresh
+        if ! git diff --quiet -- go.mod go.sum; then
+          echo "go.mod or go.sum changed after tidy. Please run 'go mod tidy' locally.";
+          git --no-pager diff -- go.mod go.sum;
+          exit 1;
+        fi
+
+    - name: Verify module integrity
+      run: go mod verify
+
+    - name: Go vet
+      run: go vet ./...
+
+    - name: Check formatting (gofmt)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        fmt_out=$(gofmt -l .)
+        if [ -n "$fmt_out" ]; then
+          echo "The following files are not gofmt formatted:";
+          echo "$fmt_out";
+          exit 1;
+        fi
+
     - name: Run tests
       run: go test -v -race -coverprofile=coverage.out ./...
 
@@ -38,6 +65,17 @@ jobs:
       uses: codecov/codecov-action@v3
       with:
         file: ./coverage.out
+
+    - name: Check coverage threshold (soft)
+      if: matrix.os == 'ubuntu-latest'
+      env:
+        COVERAGE_MIN: "0"
+      shell: bash
+      run: |
+        total=$(go tool cover -func=coverage.out | awk '/total:/ {print $3}' | sed 's/%//')
+        echo "Total coverage: ${total}%"
+        min=${COVERAGE_MIN:-0}
+        awk -v t="$total" -v m="$min" 'BEGIN { if (t+0 < m+0) { printf("Coverage %.2f < min %.2f (soft check)\n", t, m); } else { printf("Coverage %.2f >= min %.2f\n", t, m); } }'
 
   lint:
     runs-on: ubuntu-latest
@@ -135,9 +173,9 @@ jobs:
       run: |
         mkdir -p dist
         if [ "$GOOS" = "windows" ]; then
-          go build -o dist/wtf-${{ matrix.goos }}-${{ matrix.goarch }}.exe ./cmd/wtf
+          go build -trimpath -o dist/wtf-${{ matrix.goos }}-${{ matrix.goarch }}.exe ./cmd/wtf
         else
-          go build -o dist/wtf-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/wtf
+          go build -trimpath -o dist/wtf-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/wtf
         fi
 
     - name: Upload artifacts
@@ -145,3 +183,23 @@ jobs:
       with:
         name: wtf-${{ matrix.goos }}-${{ matrix.goarch }}
         path: dist/
+
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.24'
+
+    - name: Run benchmarks
+      run: |
+        go test -run=^$ -bench=. -benchmem ./... | tee bench.txt
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results
+        path: bench.txt
