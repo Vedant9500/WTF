@@ -53,9 +53,10 @@ func LoadDatabase(filename string) (*Database, error) {
 		}
 	}
 
-	return &Database{
-		Commands: commands,
-	}, nil
+	db := &Database{Commands: commands}
+	// Build universal index for scalable search
+	db.BuildUniversalIndex()
+	return db, nil
 }
 
 // LoadDatabaseWithPersonal loads both main and personal database files and merges them.
@@ -112,9 +113,10 @@ func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, err
 	allCommands = append(allCommands, mainDB.Commands...)
 	allCommands = append(allCommands, personalDB.Commands...)
 
-	return &Database{
-		Commands: allCommands,
-	}, nil
+	db := &Database{Commands: allCommands}
+	// Build universal index for scalable search
+	db.BuildUniversalIndex()
+	return db, nil
 }
 
 // Size returns the total number of commands in the database.

@@ -73,4 +73,6 @@ type Command struct {
 type Database struct {
 	// Commands contains all loaded command entries
 	Commands []Command `yaml:"-"`
+	// uIndex is the optional universal inverted index for scalable search
+	uIndex   *universalIndex `yaml:"-"`
 }

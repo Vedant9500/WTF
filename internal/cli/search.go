@@ -154,8 +154,11 @@ Examples:
 			searchOptions.ContextBoosts = projectContext.GetContextBoosts()
 		}
 
-		// Use the robust database search with improved NLP
-		results := db.SearchWithNLP(query, searchOptions)
+		// Prefer universal BM25F search; fall back to NLP if needed
+		results := db.SearchUniversal(query, searchOptions)
+		if len(results) == 0 {
+			results = db.SearchWithNLP(query, searchOptions)
+		}
 
 		searchDuration := time.Since(startTime)
 
