@@ -1,6 +1,7 @@
 package database
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -108,6 +109,70 @@ func TestSearchNoResults(t *testing.T) {
 
 	if len(results) != 0 {
 		t.Errorf("Expected 0 results, got %d", len(results))
+	}
+}
+
+func TestSearchUniversalBasic(t *testing.T) {
+	db := &Database{
+		Commands: []Command{
+			{
+				Command:          "git commit -m 'msg'",
+				Description:      "commit changes",
+				Keywords:         []string{"git", "commit"},
+				CommandLower:     "git commit -m 'msg'",
+				DescriptionLower: "commit changes",
+				KeywordsLower:    []string{"git", "commit"},
+			},
+			{
+				Command:          "tar -czf a.tgz .",
+				Description:      "create archive",
+				Keywords:         []string{"tar", "archive", "compress"},
+				CommandLower:     "tar -czf a.tgz .",
+				DescriptionLower: "create archive",
+				KeywordsLower:    []string{"tar", "archive", "compress"},
+			},
+		},
+	}
+	db.BuildUniversalIndex()
+	res := db.SearchUniversal("git commit", SearchOptions{Limit: 5})
+	if len(res) == 0 {
+		t.Fatalf("expected results")
+	}
+	if res[0].Command == nil || !strings.Contains(res[0].Command.Command, "git commit") {
+		t.Fatalf("expected git commit first, got %v", res[0].Command.Command)
+	}
+}
+
+func TestSearchUniversalContextBoost(t *testing.T) {
+	db := &Database{
+		Commands: []Command{
+			{
+				Command:          "find . -name '*.txt'",
+				Description:      "find text files",
+				Keywords:         []string{"find", "files", "text"},
+				CommandLower:     "find . -name '*.txt'",
+				DescriptionLower: "find text files",
+				KeywordsLower:    []string{"find", "files", "text"},
+			},
+			{
+				Command:          "grep -R pattern .",
+				Description:      "search recursively",
+				Keywords:         []string{"grep", "search"},
+				CommandLower:     "grep -R pattern .",
+				DescriptionLower: "search recursively",
+				KeywordsLower:    []string{"grep", "search"},
+			},
+		},
+	}
+	db.BuildUniversalIndex()
+	opts := SearchOptions{Limit: 5, ContextBoosts: map[string]float64{"grep": 3}}
+	res := db.SearchUniversal("search files", opts)
+	if len(res) == 0 {
+		t.Fatalf("expected results")
+	}
+	// Grep should rank higher due to context boost on 'grep'
+	if res[0].Command == nil || !strings.Contains(res[0].Command.Command, "grep") {
+		t.Fatalf("expected grep first due to context boost, got %v", res[0].Command.Command)
 	}
 }
 

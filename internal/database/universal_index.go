@@ -5,6 +5,8 @@ import (
     "sort"
     "strings"
     "unicode"
+
+    "github.com/Vedant9500/WTF/internal/nlp"
 )
 
 // universalIndex implements a scalable, data-driven inverted index with BM25F scoring.
@@ -128,15 +130,25 @@ func (db *Database) BuildUniversalIndex() {
     for i := range db.Commands {
         cmd := &db.Commands[i]
 
+        // prefer cached lowercase fields if available
+        cmdText := cmd.Command
+        if cmd.CommandLower != "" { cmdText = cmd.CommandLower }
+        descText := cmd.Description
+        if cmd.DescriptionLower != "" { descText = cmd.DescriptionLower }
+
         // tokens per field
-        cmdTokens := normalizeAndTokenize(cmd.Command)
-        descTokens := normalizeAndTokenize(cmd.Description)
+        cmdTokens := normalizeAndTokenize(cmdText)
+        descTokens := normalizeAndTokenize(descText)
         keysTokens := make([]string, 0)
-        if len(cmd.Keywords) > 0 {
+        if len(cmd.KeywordsLower) > 0 {
+            keysTokens = normalizeAndTokenize(strings.Join(cmd.KeywordsLower, " "))
+        } else if len(cmd.Keywords) > 0 {
             keysTokens = normalizeAndTokenize(strings.Join(cmd.Keywords, " "))
         }
         tagsTokens := make([]string, 0)
-        if len(cmd.Tags) > 0 {
+        if len(cmd.TagsLower) > 0 {
+            tagsTokens = normalizeAndTokenize(strings.Join(cmd.TagsLower, " "))
+        } else if len(cmd.Tags) > 0 {
             tagsTokens = normalizeAndTokenize(strings.Join(cmd.Tags, " "))
         }
 
@@ -206,6 +218,16 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
     }
 
     terms := normalizeAndTokenize(query)
+    var pq *nlp.ProcessedQuery
+    // If NLP enabled, enhance the query terms with actions/targets/keywords
+    if options.UseNLP {
+        processor := nlp.NewQueryProcessor()
+        pq = processor.ProcessQuery(query)
+        enh := pq.GetEnhancedKeywords()
+        if len(enh) > 0 {
+            terms = enh
+        }
+    }
     if len(terms) == 0 {
         return nil
     }
@@ -213,6 +235,24 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
     idx := db.uIndex
     scores := make(map[int]float64, len(db.Commands)/4)
     currentPlatform := getCurrentPlatform()
+
+    // Prepare per-term boosts (context + NLP action/target emphasis)
+    termBoost := map[string]float64{}
+    for k, v := range options.ContextBoosts {
+        termBoost[k] = v
+    }
+    if pq != nil {
+        for _, a := range pq.Actions {
+            if termBoost[a] < 2.0 {
+                termBoost[a] = 2.0
+            }
+        }
+        for _, t := range pq.Targets {
+            if termBoost[t] < 1.6 {
+                termBoost[t] = 1.6
+            }
+        }
+    }
 
     // accumulate scores
     for _, term := range terms {
@@ -223,6 +263,10 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
         idf := bm25IDF(idx.N, idx.df[term])
         if idf < idx.params.minIDF {
             continue
+        }
+        boost := 1.0
+        if b, ok := termBoost[term]; ok && b > 0 {
+            boost = b
         }
         for _, p := range postings {
             doc := &db.Commands[p.docID]
@@ -240,7 +284,7 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
             }
 
             s := scores[p.docID]
-            s += idf * idx.termBM25F(p.docID, p.tf)
+            s += (idf * boost) * idx.termBM25F(p.docID, p.tf)
             scores[p.docID] = s
         }
     }
@@ -253,6 +297,10 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
     results := make([]SearchResult, 0, min(len(scores), options.Limit*3))
     for docID, score := range scores {
         cmd := &db.Commands[docID]
+        // Apply intent-based boost if NLP is active
+        if pq != nil {
+            score *= calculateIntentBoost(cmd, pq)
+        }
         if isPipelineCommand(cmd) && options.PipelineBoost > 0 {
             score *= options.PipelineBoost
         }
