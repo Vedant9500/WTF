@@ -114,6 +114,20 @@ wtf "mkdir direectory"               # Still finds directory commands
 wtf "gti comit changez"              # Finds git commit commands
 ```
 
+#### 🧩 How search works (BM25F + NLP + TF‑IDF)
+
+WTF uses a universal BM25F-based inverted index for fast, scalable search across:
+- Command text (highest weight)
+- Keywords and tags
+- Descriptions
+
+NLP enhances long or fuzzy queries:
+- Intent/actions/targets (e.g., create/delete/view + file/folder) boost relevant commands
+- Top‑IDF term selection trims long queries to the most informative words
+- Optional semantic reranking uses TF‑IDF cosine similarity to refine top results
+
+You can tune behavior via search options (limit, NLP on/off, top‑terms cap).
+
 ### 🧠 Advanced Natural Language Processing
 
 WTF now includes sophisticated NLP features for better command understanding:

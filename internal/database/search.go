@@ -33,6 +33,7 @@ type SearchOptions struct {
 	UseFuzzy       bool    // Enable fuzzy search for typos
 	FuzzyThreshold int     // Minimum fuzzy score threshold
 	UseNLP         bool    // Enable natural language processing
+	TopTermsCap    int     // Cap for top-IDF term selection in universal search (0 = default)
 }
 
 // Search performs a basic keyword-based search

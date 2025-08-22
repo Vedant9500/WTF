@@ -289,7 +289,9 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 	currentPlatform := getCurrentPlatform()
 
 	// Reduce noise for long queries by keeping top-IDF terms
-	terms = db.selectTopTerms(terms, 10)
+	cap := options.TopTermsCap
+	if cap <= 0 { cap = 10 }
+	terms = db.selectTopTerms(terms, cap)
 
 	// Prepare per-term boosts (context + NLP action/target emphasis)
 	termBoost := map[string]float64{}
