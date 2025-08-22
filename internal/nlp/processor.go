@@ -143,6 +143,25 @@ func (qp *QueryProcessor) cleanQuery(query string) string {
 	return strings.TrimSpace(cleaned)
 }
 
+// NormalizeText applies the same cleanup used in the NLP query processor.
+// It removes special characters (keeping spaces, hyphens, and dots) and collapses whitespace.
+func NormalizeText(s string) string {
+	re := regexp.MustCompile(`[^\w\s\-\.]`)
+	cleaned := re.ReplaceAllString(s, " ")
+	re = regexp.MustCompile(`\s+`)
+	cleaned = re.ReplaceAllString(cleaned, " ")
+	return strings.TrimSpace(cleaned)
+}
+
+// StopWords exposes the default stop words used by the NLP processor for consistency.
+func StopWords() map[string]bool {
+	// return a copy to avoid external mutation
+	src := buildStopWords()
+	out := make(map[string]bool, len(src))
+	for k, v := range src { out[k] = v }
+	return out
+}
+
 // detectIntent analyzes actions and keywords to determine user intent
 func (qp *QueryProcessor) detectIntent(actions []string, keywords []string) QueryIntent {
 	// Check actions for clear intent

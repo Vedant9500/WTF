@@ -70,16 +70,18 @@ func normalizeAndTokenize(s string) []string {
 	if s == "" {
 		return nil
 	}
-	// Lowercase and split on non letters/numbers
+	// Normalize similarly to NLP pipeline, then lowercase
+	s = nlp.NormalizeText(s)
 	lower := strings.ToLower(s)
 	words := strings.FieldsFunc(lower, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsNumber(r) })
 
 	out := make([]string, 0, len(words))
+	sw := stopWords
 	for _, w := range words {
 		if len(w) < 2 { // drop very short tokens
 			continue
 		}
-		if stopWords[w] {
+		if sw[w] {
 			continue
 		}
 		out = append(out, w)
@@ -87,18 +89,7 @@ func normalizeAndTokenize(s string) []string {
 	return out
 }
 
-var stopWords = map[string]bool{
-	"the": true, "a": true, "an": true, "and": true, "or": true, "but": true,
-	"in": true, "on": true, "at": true, "to": true, "for": true, "of": true,
-	"with": true, "by": true, "is": true, "are": true, "was": true, "were": true,
-	"be": true, "been": true, "have": true, "has": true, "had": true, "do": true,
-	"does": true, "did": true, "will": true, "would": true, "could": true, "should": true,
-	"this": true, "that": true, "these": true, "those": true, "it": true, "its": true,
-	"you": true, "your": true, "all": true, "any": true, "can": true, "from": true,
-	"not": true, "no": true, "if": true, "when": true, "where": true, "how": true,
-	"what": true, "which": true, "who": true, "why": true, "use": true, "used": true,
-	"using": true,
-}
+var stopWords = nlp.StopWords()
 
 func defaultParams() bm25fParams {
 	return bm25fParams{
@@ -107,6 +98,33 @@ func defaultParams() bm25fParams {
 		w:      docLensF{cmd: 2.5, desc: 1.0, keys: 1.8, tags: 1.2},
 		minIDF: 0.0,
 	}
+}
+
+// selectTopTerms keeps the most informative terms by IDF to avoid noise from long queries.
+func (db *Database) selectTopTerms(terms []string, max int) []string {
+	if max <= 0 || len(terms) <= max || db.uIndex == nil {
+		return terms
+	}
+	idx := db.uIndex
+	seen := map[string]bool{}
+	type tw struct{ term string; idf float64 }
+	list := make([]tw, 0, len(terms))
+	for _, t := range terms {
+		if seen[t] { continue }
+		seen[t] = true
+		df, ok := idx.df[t]
+		if !ok || df == 0 { continue }
+		list = append(list, tw{term: t, idf: bm25IDF(idx.N, df)})
+	}
+	if len(list) <= max { // nothing to trim
+		out := make([]string, 0, len(list))
+		for _, it := range list { out = append(out, it.term) }
+		return out
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].idf > list[j].idf })
+	out := make([]string, 0, max)
+	for i := 0; i < max; i++ { out = append(out, list[i].term) }
+	return out
 }
 
 // BuildUniversalIndex constructs the inverted index. Call after loading/merging commands.
@@ -248,6 +266,9 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 	scores := make(map[int]float64, len(db.Commands)/4)
 	currentPlatform := getCurrentPlatform()
 
+	// Reduce noise for long queries by keeping top-IDF terms
+	terms = db.selectTopTerms(terms, 10)
+
 	// Prepare per-term boosts (context + NLP action/target emphasis)
 	termBoost := map[string]float64{}
 	for k, v := range options.ContextBoosts {
@@ -312,6 +333,11 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 		// Apply intent-based boost if NLP is active
 		if pq != nil {
 			score *= calculateIntentBoost(cmd, pq)
+			// Co-occurrence boost: action + target hints present in text (order/adjacency not required)
+			docText := cmd.CommandLower + " " + cmd.DescriptionLower
+			if containsAnyLocal(docText, pq.Actions) && containsAnyLocal(docText, pq.Targets) {
+				score *= 1.2
+			}
 		}
 		if isPipelineCommand(cmd) && options.PipelineBoost > 0 {
 			score *= options.PipelineBoost
@@ -369,6 +395,15 @@ func isPlatformCompatible(platforms []string, current string) bool {
 		if strings.EqualFold(p, "cross-platform") || strings.EqualFold(p, current) {
 			return true
 		}
+	}
+	return false
+}
+
+func containsAnyLocal(s string, words []string) bool {
+	if len(words) == 0 || s == "" { return false }
+	for _, w := range words {
+		if w == "" { continue }
+		if strings.Contains(s, w) { return true }
 	}
 	return false
 }
