@@ -11,6 +11,10 @@
 // The Database type is the main entry point for all search operations.
 package database
 
+import (
+	"github.com/Vedant9500/WTF/internal/nlp"
+)
+
 // Command represents a single command entry in the database with metadata and
 // performance optimizations for search operations.
 //
@@ -75,4 +79,9 @@ type Database struct {
 	Commands []Command `yaml:"-"`
 	// uIndex is the optional universal inverted index for scalable search
 	uIndex *universalIndex `yaml:"-"`
+	// tfidf is a TF-IDF searcher for NLP-based reranking
+	tfidf    *nlp.TFIDFSearcher `yaml:"-"`
+	// cmdIndex maps command pointers to their indices for fast lookups
+	cmdIndex map[*Command]int `yaml:"-"`
 }
+// (imports are declared at the top)

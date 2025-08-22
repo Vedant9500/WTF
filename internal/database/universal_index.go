@@ -236,6 +236,28 @@ func (db *Database) BuildUniversalIndex() {
 	db.uIndex = idx
 }
 
+// buildTFIDFSearcher constructs a TF-IDF searcher and index map for reranking.
+func (db *Database) buildTFIDFSearcher() {
+	if len(db.Commands) == 0 {
+		db.tfidf = nil
+		db.cmdIndex = nil
+		return
+	}
+	cmds := make([]nlp.Command, len(db.Commands))
+	for i, c := range db.Commands {
+		cmds[i] = nlp.Command{
+			Command:     c.Command,
+			Description: c.Description,
+			Keywords:    c.Keywords,
+		}
+	}
+	db.tfidf = nlp.NewTFIDFSearcher(cmds)
+	db.cmdIndex = make(map[*Command]int, len(db.Commands))
+	for i := range db.Commands {
+		db.cmdIndex[&db.Commands[i]] = i
+	}
+}
+
 // SearchUniversal performs BM25F search over the index with optional platform/pipeline filters.
 func (db *Database) SearchUniversal(query string, options SearchOptions) []SearchResult {
 	if db.uIndex == nil || db.uIndex.N != len(db.Commands) {
@@ -345,8 +367,37 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 		results = append(results, SearchResult{Command: cmd, Score: score})
 	}
 
-	// Sort and limit
+	// Sort preliminarily
 	sort.Slice(results, func(i, j int) bool { return results[i].Score > results[j].Score })
+
+	// Optional NLP-based reranking using TF-IDF cosine similarity
+	if options.UseNLP && db.tfidf != nil {
+		// Take a top slice for reranking to keep it fast
+		topK := results
+		if len(topK) > options.Limit*2 {
+			topK = topK[:options.Limit*2]
+		}
+		// Run TF-IDF search to get semantic similarity
+		tfidfRes := db.tfidf.Search(query, len(topK))
+		simByIdx := make(map[int]float64, len(tfidfRes))
+		for _, r := range tfidfRes {
+			simByIdx[r.CommandIndex] = r.Similarity
+		}
+		// Blend similarity into scores (small weight to avoid overdominance)
+		for i := range topK {
+			idx := db.cmdIndex[topK[i].Command]
+			if sim, ok := simByIdx[idx]; ok {
+				// blend: new = bm25f*(1) + sim*(alpha)
+				alpha := 0.35
+				topK[i].Score = topK[i].Score + sim*alpha*100.0
+			}
+		}
+		// Resort after blending
+		sort.Slice(topK, func(i, j int) bool { return topK[i].Score > topK[j].Score })
+		results = topK
+	}
+
+	// Limit
 	if len(results) > options.Limit {
 		results = results[:options.Limit]
 	}

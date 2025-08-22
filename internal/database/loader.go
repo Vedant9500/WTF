@@ -56,6 +56,8 @@ func LoadDatabase(filename string) (*Database, error) {
 	db := &Database{Commands: commands}
 	// Build universal index for scalable search
 	db.BuildUniversalIndex()
+	// Build TF-IDF searcher and command index for hybrid NLP reranking
+	db.buildTFIDFSearcher()
 	return db, nil
 }
 
@@ -116,6 +118,8 @@ func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, err
 	db := &Database{Commands: allCommands}
 	// Build universal index for scalable search
 	db.BuildUniversalIndex()
+	// Build TF-IDF searcher and command index for hybrid NLP reranking
+	db.buildTFIDFSearcher()
 	return db, nil
 }
 
