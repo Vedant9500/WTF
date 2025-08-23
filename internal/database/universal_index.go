@@ -107,23 +107,34 @@ func (db *Database) selectTopTerms(terms []string, max int) []string {
 	}
 	idx := db.uIndex
 	seen := map[string]bool{}
-	type tw struct{ term string; idf float64 }
+	type tw struct {
+		term string
+		idf  float64
+	}
 	list := make([]tw, 0, len(terms))
 	for _, t := range terms {
-		if seen[t] { continue }
+		if seen[t] {
+			continue
+		}
 		seen[t] = true
 		df, ok := idx.df[t]
-		if !ok || df == 0 { continue }
+		if !ok || df == 0 {
+			continue
+		}
 		list = append(list, tw{term: t, idf: bm25IDF(idx.N, df)})
 	}
 	if len(list) <= max { // nothing to trim
 		out := make([]string, 0, len(list))
-		for _, it := range list { out = append(out, it.term) }
+		for _, it := range list {
+			out = append(out, it.term)
+		}
 		return out
 	}
 	sort.Slice(list, func(i, j int) bool { return list[i].idf > list[j].idf })
 	out := make([]string, 0, max)
-	for i := 0; i < max; i++ { out = append(out, list[i].term) }
+	for i := 0; i < max; i++ {
+		out = append(out, list[i].term)
+	}
 	return out
 }
 
@@ -290,7 +301,9 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 
 	// Reduce noise for long queries by keeping top-IDF terms
 	cap := options.TopTermsCap
-	if cap <= 0 { cap = 10 }
+	if cap <= 0 {
+		cap = 10
+	}
 	terms = db.selectTopTerms(terms, cap)
 
 	// Prepare per-term boosts (context + NLP action/target emphasis)
@@ -453,10 +466,16 @@ func isPlatformCompatible(platforms []string, current string) bool {
 }
 
 func containsAnyLocal(s string, words []string) bool {
-	if len(words) == 0 || s == "" { return false }
+	if len(words) == 0 || s == "" {
+		return false
+	}
 	for _, w := range words {
-		if w == "" { continue }
-		if strings.Contains(s, w) { return true }
+		if w == "" {
+			continue
+		}
+		if strings.Contains(s, w) {
+			return true
+		}
 	}
 	return false
 }

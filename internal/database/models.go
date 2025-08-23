@@ -80,8 +80,9 @@ type Database struct {
 	// uIndex is the optional universal inverted index for scalable search
 	uIndex *universalIndex `yaml:"-"`
 	// tfidf is a TF-IDF searcher for NLP-based reranking
-	tfidf    *nlp.TFIDFSearcher `yaml:"-"`
+	tfidf *nlp.TFIDFSearcher `yaml:"-"`
 	// cmdIndex maps command pointers to their indices for fast lookups
 	cmdIndex map[*Command]int `yaml:"-"`
 }
+
 // (imports are declared at the top)

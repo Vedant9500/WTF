@@ -158,7 +158,9 @@ func StopWords() map[string]bool {
 	// return a copy to avoid external mutation
 	src := buildStopWords()
 	out := make(map[string]bool, len(src))
-	for k, v := range src { out[k] = v }
+	for k, v := range src {
+		out[k] = v
+	}
 	return out
 }
 
