@@ -9,6 +9,23 @@ import (
 	"github.com/Vedant9500/WTF/internal/nlp"
 )
 
+// Universal Search Engine
+//
+// This file implements the primary search engine for the WTF command database.
+// It uses BM25F (Best Matching 25 with field weights) for robust ranking and
+// integrates with NLP processing for semantic understanding.
+//
+// Key features:
+// - BM25F inverted index with per-field term frequency tracking
+// - Platform-aware filtering without hardcoded rules
+// - NLP-enhanced query processing (intent/action/target detection)
+// - TF-IDF semantic reranking for top results
+// - Top-IDF term selection to handle long queries
+// - Co-occurrence boost for multi-term matches
+//
+// This replaces the legacy heuristic-based search methods and provides
+// scalable, data-driven ranking that improves with database size.
+
 // universalIndex implements a scalable, data-driven inverted index with BM25F scoring.
 // It avoids hardcoded domain rules and scales with database size.
 type universalIndex struct {

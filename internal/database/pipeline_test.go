@@ -47,13 +47,16 @@ func TestSearchWithPipelineOptions(t *testing.T) {
 		},
 	}
 
+	// Build the universal index
+	db.BuildUniversalIndex()
+
 	// Test pipeline-only search
 	options := SearchOptions{
 		Limit:        10,
 		PipelineOnly: true,
 	}
 
-	results := db.SearchWithPipelineOptions("grep", options)
+	results := db.SearchUniversal("grep", options)
 
 	// Should only return pipeline commands
 	expectedPipelineCommands := 2 // Commands with Pipeline=true or containing "|"
@@ -94,19 +97,22 @@ func TestSearchWithPipelineBoost(t *testing.T) {
 		},
 	}
 
+	// Build the universal index
+	db.BuildUniversalIndex()
+
 	// Test without pipeline boost
 	optionsNormal := SearchOptions{
 		Limit: 10,
 	}
 	// Get baseline scores
-	_ = db.SearchWithPipelineOptions("grep test", optionsNormal)
+	_ = db.SearchUniversal("grep test", optionsNormal)
 
 	// Test with pipeline boost
 	optionsBoost := SearchOptions{
 		Limit:         10,
 		PipelineBoost: 2.0,
 	}
-	resultsBoost := db.SearchWithPipelineOptions("grep test", optionsBoost)
+	resultsBoost := db.SearchUniversal("grep test", optionsBoost)
 
 	// Pipeline command should rank higher with boost
 	if len(resultsBoost) >= 2 {

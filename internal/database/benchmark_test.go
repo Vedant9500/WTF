@@ -34,6 +34,7 @@ func BenchmarkSearch(b *testing.B) {
 // BenchmarkSearchWithOptions benchmarks search with various options
 func BenchmarkSearchWithOptions(b *testing.B) {
 	db := createBenchmarkDatabase(1000)
+	db.BuildUniversalIndex() // Build universal index for benchmarking
 
 	options := SearchOptions{
 		Limit:         10,
@@ -47,7 +48,7 @@ func BenchmarkSearchWithOptions(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		results := db.SearchWithOptions("git commit", options)
+		results := db.SearchUniversal("git commit", options)
 		_ = results
 	}
 }
@@ -243,7 +244,9 @@ func createBenchmarkDatabase(size int) *Database {
 		commands[i] = cmd
 	}
 
-	return &Database{Commands: commands}
+	db := &Database{Commands: commands}
+	db.BuildUniversalIndex() // Build universal index for benchmarking
+	return db
 }
 
 // BenchmarkSearchResultsAllocation benchmarks different allocation strategies
@@ -296,7 +299,7 @@ func BenchmarkMemoryProfile(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, query := range queries {
-			results := db.SearchWithOptions(query, SearchOptions{
+			results := db.SearchUniversal(query, SearchOptions{
 				Limit:         20,
 				ContextBoosts: map[string]float64{"git": 2.0, "docker": 1.5},
 				UseFuzzy:      false,
@@ -327,7 +330,7 @@ func BenchmarkOptimizedSearch(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		query := queries[i%len(queries)]
-		results := db.OptimizedSearch(query, 10)
+		results := db.SearchUniversal(query, SearchOptions{Limit: 10})
 		_ = results
 	}
 }
@@ -345,10 +348,10 @@ func BenchmarkSearchComparison(b *testing.B) {
 		}
 	})
 
-	b.Run("Optimized", func(b *testing.B) {
+	b.Run("Universal", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			results := db.OptimizedSearch(query, 10)
+			results := db.SearchUniversal(query, SearchOptions{Limit: 10})
 			_ = results
 		}
 	})
@@ -366,14 +369,14 @@ func BenchmarkQueryParsing(b *testing.B) {
 		}
 	})
 
-	b.Run("OptimizedParsing", func(b *testing.B) {
+	b.Run("StringsFieldsFunc", func(b *testing.B) {
 		words := make([]string, 0, 10)
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			words = words[:0]
 			queryLower := strings.ToLower(query)
-			words = parseQueryWords(queryLower, words)
+			words = strings.Fields(queryLower)
 			_ = words
 		}
 	})
@@ -395,11 +398,11 @@ func BenchmarkObjectPools(b *testing.B) {
 	b.Run("WithPool", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			results := getSearchResults()
+			results := make([]SearchResult, 0, 50) // Simulate pool allocation
 			for j := 0; j < 10; j++ {
 				results = append(results, SearchResult{Score: float64(j)})
 			}
-			putSearchResults(results)
+			_ = results // Simulate pool return
 		}
 	})
 }
@@ -419,17 +422,22 @@ func BenchmarkBatchSearch(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			for _, query := range queries {
-				results := db.OptimizedSearch(query, 10)
+				results := db.SearchUniversal(query, SearchOptions{Limit: 10})
 				_ = results
 			}
 		}
 	})
 
-	b.Run("Batch", func(b *testing.B) {
+	b.Run("BatchSimulation", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			results := db.BatchOptimizedSearch(queries, 10)
-			_ = results
+			// Simulate batch processing with universal search
+			allResults := make([][]SearchResult, 0, len(queries))
+			for _, query := range queries {
+				results := db.SearchUniversal(query, SearchOptions{Limit: 10})
+				allResults = append(allResults, results)
+			}
+			_ = allResults
 		}
 	})
 }

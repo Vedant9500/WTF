@@ -27,8 +27,8 @@ func (cdb *CachedDatabase) SearchWithCache(query string, limit int) []SearchResu
 func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options SearchOptions) []SearchResult {
 	searchCache := cdb.cacheManager.GetSearchCache()
 	if !cdb.cacheManager.IsEnabled() {
-		// Cache disabled, use regular search
-		return cdb.OptimizedSearchWithOptions(query, options)
+		// Cache disabled, use universal search
+		return cdb.SearchUniversal(query, options)
 	}
 
 	// Convert SearchOptions to cache.SearchOptions
@@ -48,7 +48,7 @@ func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options Searc
 	}
 
 	// Cache miss - perform actual search
-	results := cdb.OptimizedSearchWithOptions(query, options)
+	results := cdb.SearchUniversal(query, options)
 
 	// Store in cache
 	if len(results) > 0 {
@@ -86,14 +86,15 @@ func (cdb *CachedDatabase) CleanupExpiredCache() map[string]int {
 // UpdateDatabase updates the underlying database and invalidates cache
 func (cdb *CachedDatabase) UpdateDatabase(commands []Command) {
 	cdb.Database.Commands = commands
-	cdb.InvalidateCache() // Invalidate cache when database is updated
+	cdb.Database.BuildUniversalIndex() // Rebuild universal index
+	cdb.InvalidateCache()              // Invalidate cache when database is updated
 }
 
 // SearchWithPipelineOptionsAndCache performs pipeline search with caching
 func (cdb *CachedDatabase) SearchWithPipelineOptionsAndCache(query string, options SearchOptions) []SearchResult {
 	searchCache := cdb.cacheManager.GetSearchCache()
 	if !cdb.cacheManager.IsEnabled() {
-		return cdb.SearchWithPipelineOptions(query, options)
+		return cdb.SearchUniversal(query, options)
 	}
 
 	// Convert SearchOptions to cache.SearchOptions
@@ -113,7 +114,7 @@ func (cdb *CachedDatabase) SearchWithPipelineOptionsAndCache(query string, optio
 	}
 
 	// Cache miss - perform search
-	results := cdb.SearchWithPipelineOptions(query, options)
+	results := cdb.SearchUniversal(query, options)
 
 	// Store in cache
 	if len(results) > 0 {
@@ -127,7 +128,7 @@ func (cdb *CachedDatabase) SearchWithPipelineOptionsAndCache(query string, optio
 func (cdb *CachedDatabase) SearchWithFuzzyAndCache(query string, options SearchOptions) []SearchResult {
 	searchCache := cdb.cacheManager.GetSearchCache()
 	if !cdb.cacheManager.IsEnabled() {
-		return cdb.SearchWithFuzzy(query, options)
+		return cdb.SearchUniversal(query, options)
 	}
 
 	cacheOptions := cache.SearchOptions{
@@ -144,7 +145,7 @@ func (cdb *CachedDatabase) SearchWithFuzzyAndCache(query string, options SearchO
 		return convertCacheResults(cachedResults)
 	}
 
-	results := cdb.SearchWithFuzzy(query, options)
+	results := cdb.SearchUniversal(query, options)
 
 	if len(results) > 0 {
 		searchCache.Put(query, cacheOptions, convertDBResults(results))

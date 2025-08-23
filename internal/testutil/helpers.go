@@ -182,7 +182,7 @@ func (bh *BenchmarkHelper) BenchmarkSearch(b *testing.B, query string, limit int
 func (bh *BenchmarkHelper) BenchmarkSearchWithOptions(b *testing.B, query string, options database.SearchOptions) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		bh.db.SearchWithOptions(query, options)
+		bh.db.SearchUniversal(query, options)
 	}
 }
 

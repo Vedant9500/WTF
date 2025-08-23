@@ -98,7 +98,7 @@ func (dts *DatabaseTestSuite) RunSearchOptionsTests(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			results := dts.db.SearchWithOptions(tc.query, tc.options)
+			results := dts.db.SearchUniversal(tc.query, tc.options)
 			tc.validate(t, results)
 		})
 	}

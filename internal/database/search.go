@@ -37,13 +37,15 @@ type SearchOptions struct {
 }
 
 // Search performs a basic keyword-based search
+// Deprecated: Use SearchUniversal for better performance and accuracy
 func (db *Database) Search(query string, limit int) []SearchResult {
-	return db.SearchWithOptions(query, SearchOptions{
+	return db.SearchUniversal(query, SearchOptions{
 		Limit: limit,
 	})
 }
 
 // SearchWithOptions performs search with advanced options including context awareness and platform filtering
+// Deprecated: Use SearchUniversal for better BM25F-based ranking and NLP integration
 func (db *Database) SearchWithOptions(query string, options SearchOptions) []SearchResult {
 	if options.Limit <= 0 {
 		options.Limit = constants.DefaultSearchLimit
@@ -67,6 +69,7 @@ func (db *Database) SearchWithOptions(query string, options SearchOptions) []Sea
 }
 
 // SearchWithPipelineOptions performs search with pipeline-specific enhancements
+// Deprecated: Use SearchUniversal with PipelineOnly=true and PipelineBoost options
 func (db *Database) SearchWithPipelineOptions(query string, options SearchOptions) []SearchResult {
 	if options.Limit <= 0 {
 		options.Limit = constants.DefaultSearchLimit
@@ -489,6 +492,7 @@ func isDownloadTool(cmdLower string) bool {
 }
 
 // SearchWithFuzzy performs hybrid search combining exact matching and fuzzy search
+// Deprecated: Use SearchUniversal with UseFuzzy=true option
 func (db *Database) SearchWithFuzzy(query string, options SearchOptions) []SearchResult {
 	if options.Limit <= 0 {
 		options.Limit = constants.DefaultSearchLimit
@@ -684,7 +688,30 @@ func (db *Database) SearchWithNLP(query string, options SearchOptions) []SearchR
 		return db.SearchWithFuzzy(query, options)
 	}
 
-	// Convert database commands to NLP format
+	// Use shared TF-IDF searcher if available
+	if db.tfidf != nil && db.cmdIndex != nil {
+		tfidfResults := db.tfidf.Search(query, options.Limit*2) // Get more results for better selection
+
+		// Convert TF-IDF results to database SearchResult format
+		var results []SearchResult
+		for _, tfidfResult := range tfidfResults {
+			if tfidfResult.CommandIndex < len(db.Commands) {
+				results = append(results, SearchResult{
+					Command: &db.Commands[tfidfResult.CommandIndex],
+					Score:   tfidfResult.Similarity * 100.0, // Scale similarity to match other scores
+				})
+			}
+		}
+
+		// Apply final limit
+		if len(results) > options.Limit {
+			results = results[:options.Limit]
+		}
+
+		return results
+	}
+
+	// Fallback: Create temporary TF-IDF searcher (for backward compatibility)
 	nlpCommands := make([]nlp.Command, len(db.Commands))
 	for i, cmd := range db.Commands {
 		nlpCommands[i] = nlp.Command{
@@ -694,9 +721,8 @@ func (db *Database) SearchWithNLP(query string, options SearchOptions) []SearchR
 		}
 	}
 
-	// Use TF-IDF based search for better natural language understanding
 	tfidfSearcher := nlp.NewTFIDFSearcher(nlpCommands)
-	tfidfResults := tfidfSearcher.Search(query, options.Limit*2) // Get more results for better selection
+	tfidfResults := tfidfSearcher.Search(query, options.Limit*2)
 
 	// Convert TF-IDF results to database SearchResult format
 	var results []SearchResult
