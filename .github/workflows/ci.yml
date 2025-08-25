@@ -14,139 +14,158 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         go-version: ['1.24']
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ matrix.go-version }}
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          check-latest: true
 
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
-    - name: Install dependencies
-      run: go mod download
+      - name: Install dependencies
+        run: go mod download
 
-    - name: Tidy (no changes)
-      run: |
-        go mod tidy
-        git update-index -q --refresh
-        if ! git diff --quiet -- go.mod go.sum; then
-          echo "go.mod or go.sum changed after tidy. Please run 'go mod tidy' locally.";
-          git --no-pager diff -- go.mod go.sum;
-          exit 1;
-        fi
+      - name: Tidy (no changes)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          go mod tidy
+          git update-index -q --refresh
+          if ! git diff --quiet -- go.mod go.sum; then
+            echo "go.mod or go.sum changed after tidy. Please run 'go mod tidy' locally.";
+            git --no-pager diff -- go.mod go.sum;
+            exit 1;
+          fi
 
-    - name: Verify module integrity
-      run: go mod verify
+      - name: Verify module integrity
+        run: go mod verify
 
-    - name: Go vet
-      run: go vet ./...
+      - name: Go vet
+        run: go vet ./...
 
-    - name: Check formatting (gofmt)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        fmt_out=$(gofmt -l .)
-        if [ -n "$fmt_out" ]; then
-          echo "The following files are not gofmt formatted:";
-          echo "$fmt_out";
-          exit 1;
-        fi
+      - name: Check formatting (gofmt)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          fmt_out=$(gofmt -l .)
+          if [ -n "$fmt_out" ]; then
+            echo "The following files are not gofmt formatted:";
+            echo "$fmt_out";
+            exit 1;
+          fi
 
-    - name: Run tests
-      run: go test -v -race -coverprofile=coverage.out ./...
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out ./...
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.out
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        continue-on-error: true
+        with:
+          files: ./coverage.out
+          use_oidc: true
+          fail_ci_if_error: false
 
-    - name: Check coverage threshold (soft)
-      if: matrix.os == 'ubuntu-latest'
-      env:
-        COVERAGE_MIN: "0"
-      shell: bash
-      run: |
-        total=$(go tool cover -func=coverage.out | awk '/total:/ {print $3}' | sed 's/%//')
-        echo "Total coverage: ${total}%"
-        min=${COVERAGE_MIN:-0}
-        awk -v t="$total" -v m="$min" 'BEGIN { if (t+0 < m+0) { printf("Coverage %.2f < min %.2f (soft check)\n", t, m); } else { printf("Coverage %.2f >= min %.2f\n", t, m); } }'
+      - name: Check coverage threshold (soft)
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          COVERAGE_MIN: "0"
+        shell: bash
+        run: |
+          total=$(go tool cover -func=coverage.out | awk '/total:/ {print $3}' | sed 's/%//')
+          echo "Total coverage: ${total}%"
+          min=${COVERAGE_MIN:-0}
+          awk -v t="$total" -v m="$min" 'BEGIN { if (t+0 < m+0) { printf("Coverage %.2f < min %.2f (soft check)\n", t, m); } else { printf("Coverage %.2f >= min %.2f\n", t, m); } }'
 
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.24'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          check-latest: true
 
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@v6
-      with:
-        version: latest
-        args: --timeout=5m
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.61.0
+          args: --timeout=5m --go=1.24
 
   security:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.24'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          check-latest: true
 
-    - name: Run Go vulnerability check
-      run: |
-        go install golang.org/x/vuln/cmd/govulncheck@latest
-        govulncheck ./...
+      - name: Ensure jq is available
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
 
-    - name: Run security linting
-      uses: golangci/golangci-lint-action@v6
-      with:
-        version: latest
-        args: --enable=gosec,gocritic --disable-all --timeout=5m
+      - name: Prepare Go tools path
+        shell: bash
+        run: |
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-    - name: Check for hardcoded secrets
-      run: |
-        # Check for common secret patterns
-        if grep -r -i -E "(password|api[_-]?key|secret|token)\s*=\s*['\"][^'\"]*['\"]" --include="*.go" --include="*.yml" --include="*.yaml" .; then
-          echo "⚠️ Potential hardcoded secrets found"
-          exit 1
-        fi
-        echo "✅ No hardcoded secrets detected"
+      - name: Run Go vulnerability check
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          "$(go env GOPATH)/bin/govulncheck" ./...
 
-    - name: Dependency vulnerability scan
-      run: |
-        # Check for known vulnerable dependencies
-        go list -json -deps ./... | jq -r '.Module | select(.Path != null) | .Path + "@" + .Version' | sort -u > deps.txt
-        echo "📦 Dependencies scanned for vulnerabilities"
+      - name: Run security linting (gosec, gocritic)
+        run: |
+          if ! command -v golangci-lint &> /dev/null; then
+            curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v1.61.0
+          fi
+          golangci-lint run --timeout=5m --disable-all --enable=gosec --enable=gocritic
+
+      - name: Check for hardcoded secrets
+        run: |
+          if grep -r -i -E "(password|api[_-]?key|secret|token)\s*=\s*['\"][^'\"]*['\"]" --include="*.go" --include="*.yml" --include="*.yaml" .; then
+            echo "⚠️ Potential hardcoded secrets found"
+            exit 1
+          fi
+          echo "✅ No hardcoded secrets detected"
+
+      - name: Dependency vulnerability scan
+        run: |
+          go list -json -deps ./... | jq -r '.Module | select(.Path != null) | .Path + "@" + .Version' | sort -u > deps.txt
+          echo "📦 Dependencies scanned for vulnerabilities"
         
-    - name: Generate security report
-      if: always()
-      run: |
-        echo "# Security Scan Report" > security-report.md
-        echo "Generated: $(date)" >> security-report.md
-        echo "" >> security-report.md
-        echo "## Go Version" >> security-report.md
-        go version >> security-report.md
-        echo "" >> security-report.md
-        echo "## Dependencies" >> security-report.md
-        go list -m all >> security-report.md
+      - name: Generate security report
+        if: always()
+        run: |
+          echo "# Security Scan Report" > security-report.md
+          echo "Generated: $(date)" >> security-report.md
+          echo "" >> security-report.md
+          echo "## Go Version" >> security-report.md
+          go version >> security-report.md
+          echo "" >> security-report.md
+          echo "## Dependencies" >> security-report.md
+          go list -m all >> security-report.md
         
-    - name: Upload security report
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: security-report
-        path: security-report.md
+      - name: Upload security report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: security-report.md
 
   build:
     runs-on: ubuntu-latest
@@ -159,47 +178,47 @@ jobs:
           - goos: windows
             goarch: arm64
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.24'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
 
-    - name: Build
-      env:
-        GOOS: ${{ matrix.goos }}
-        GOARCH: ${{ matrix.goarch }}
-      run: |
-        mkdir -p dist
-        if [ "$GOOS" = "windows" ]; then
-          go build -trimpath -o dist/wtf-${{ matrix.goos }}-${{ matrix.goarch }}.exe ./cmd/wtf
-        else
-          go build -trimpath -o dist/wtf-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/wtf
-        fi
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist
+          if [ "$GOOS" = "windows" ]; then
+            go build -trimpath -o dist/wtf-${{ matrix.goos }}-${{ matrix.goarch }}.exe ./cmd/wtf
+          else
+            go build -trimpath -o dist/wtf-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/wtf
+          fi
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: wtf-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: dist/
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wtf-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/
 
   bench:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.24'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
 
-    - name: Run benchmarks
-      run: |
-        go test -run=^$ -bench=. -benchmem ./... | tee bench.txt
+      - name: Run benchmarks
+        run: |
+          go test -run=^$ -bench=. -benchmem ./... | tee bench.txt
 
-    - name: Upload benchmark results
-      uses: actions/upload-artifact@v4
-      with:
-        name: benchmark-results
-        path: bench.txt
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: bench.txt
