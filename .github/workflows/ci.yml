@@ -99,8 +99,8 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.61.0
-          args: --timeout=5m --go=1.24
+          version: v1.63.4
+          args: --timeout=5m
 
   security:
     runs-on: ubuntu-latest
@@ -131,7 +131,7 @@ jobs:
       - name: Run security linting (gosec, gocritic)
         run: |
           if ! command -v golangci-lint &> /dev/null; then
-            curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v1.61.0
+            curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v1.63.4
           fi
           golangci-lint run --timeout=5m --disable-all --enable=gosec --enable=gocritic
 
