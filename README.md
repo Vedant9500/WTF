@@ -27,7 +27,8 @@
 🔗 **Pipeline Search** - Specialized search for multi-command workflows  
 ⚡ **Lightning Fast** - ~200ms search performance with advanced scoring and caching  
 �  **Cross-Platform** - Works on Windows, macOS, and Linux  
-🎨 **Beautiful Output** - Clean, formatted command suggestions with relevance scores
+🎨 **Beautiful Output** - Clean results with relevance scores; list/table/json formats; optional colors
+🧩 **Scriptable Output** - JSON output for easy integration with other tools
 
 ---
 
@@ -67,6 +68,14 @@ wtf "git commit changes"
 # Set up your preferred command name
 wtf setup hey
 hey "docker commands"
+
+# Alternate output formats
+wtf search --format table "docker build"
+wtf search --format json "git status"
+
+# Disable color (flag or env)
+wtf --no-color "compress files"
+# or set NO_COLOR=1
 ```
 
 ### 📚 Database Source
@@ -377,6 +386,34 @@ wtf "system tools" --platform linux --verbose
 📊 Results by Platform:
    Linux-specific: 3 commands
    Cross-platform: 2 commands
+```
+
+#### Output formats and color
+
+WTF supports multiple output formats and color controls to fit your workflow:
+
+- Formats:
+   - `list` (default): readable list with fields
+   - `table`: compact columns for quick scanning
+   - `json`: machine-readable for scripting and pipelines
+- Color:
+   - Enabled by default in list/table
+   - Disable with `--no-color` or by setting the `NO_COLOR` environment variable
+
+Examples:
+
+```bash
+# List (default)
+wtf "compress files"
+
+# Table
+wtf search --format table "git commit"
+
+# JSON (verbose adds keywords/platforms/score fields)
+wtf search --format json --verbose "docker build"
+
+# No color
+wtf --no-color "find files by name"
 ```
 
 ---
