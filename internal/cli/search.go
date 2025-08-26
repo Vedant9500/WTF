@@ -243,21 +243,21 @@ Examples:
 		case "json":
 			// Emit stable JSON structure
 			type outItem struct {
-				Command     string    `json:"command"`
-				Description string    `json:"description"`
-				Keywords    []string  `json:"keywords,omitempty"`
-				Category    string    `json:"category,omitempty"`
-				Platforms   []string  `json:"platforms,omitempty"`
-				Score       float64   `json:"score,omitempty"`
+				Command     string   `json:"command"`
+				Description string   `json:"description"`
+				Keywords    []string `json:"keywords,omitempty"`
+				Category    string   `json:"category,omitempty"`
+				Platforms   []string `json:"platforms,omitempty"`
+				Score       float64  `json:"score,omitempty"`
 			}
 			out := make([]outItem, 0, len(results))
 			for _, r := range results {
 				it := outItem{
 					Command:     r.Command.Command,
-					Description:  r.Command.Description,
-					Keywords:     nil,
-					Category:     r.Command.Niche,
-					Platforms:    nil,
+					Description: r.Command.Description,
+					Keywords:    nil,
+					Category:    r.Command.Niche,
+					Platforms:   nil,
 				}
 				if flags.verbose {
 					it.Keywords = append(it.Keywords, r.Command.Keywords...)
