@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -209,24 +212,104 @@ Examples:
 			return
 		}
 
-		// Display results
-		fmt.Printf("Found %d matching command(s):\n\n", len(results))
-		for i, result := range results {
-			fmt.Printf("%d. %s\n", i+1, result.Command.Command)
-			fmt.Printf("   Description: %s\n", result.Command.Description)
-			if len(result.Command.Keywords) > 0 && flags.verbose {
-				fmt.Printf("   Keywords: %s\n", strings.Join(result.Command.Keywords, ", "))
+		// Output formatting options
+		format, _ := cmd.Flags().GetString("format")
+		noColor, _ := cmd.Flags().GetBool("no-color")
+
+		// Detect NO_COLOR env if flag not set
+		if !noColor {
+			if _, ok := os.LookupEnv("NO_COLOR"); ok {
+				noColor = true
 			}
-			if result.Command.Niche != "" {
-				fmt.Printf("   Category: %s\n", result.Command.Niche)
+		}
+
+		// ANSI color helpers
+		color := func(code string) string {
+			if noColor {
+				return ""
 			}
-			if len(result.Command.Platform) > 0 && flags.verbose {
-				fmt.Printf("   Platforms: %s\n", strings.Join(result.Command.Platform, ", "))
+			return code
+		}
+		reset := color("\x1b[0m")
+		bold := color("\x1b[1m")
+		cyan := color("\x1b[36m")
+		yellow := color("\x1b[33m")
+		gray := color("\x1b[90m")
+
+		// Sort by score descending to present clearly (should already be, but ensure)
+		sort.SliceStable(results, func(i, j int) bool { return results[i].Score > results[j].Score })
+
+		switch strings.ToLower(format) {
+		case "json":
+			// Emit stable JSON structure
+			type outItem struct {
+				Command     string    `json:"command"`
+				Description string    `json:"description"`
+				Keywords    []string  `json:"keywords,omitempty"`
+				Category    string    `json:"category,omitempty"`
+				Platforms   []string  `json:"platforms,omitempty"`
+				Score       float64   `json:"score,omitempty"`
 			}
-			if flags.verbose {
-				fmt.Printf("   Relevance Score: %.1f\n", result.Score)
+			out := make([]outItem, 0, len(results))
+			for _, r := range results {
+				it := outItem{
+					Command:     r.Command.Command,
+					Description:  r.Command.Description,
+					Keywords:     nil,
+					Category:     r.Command.Niche,
+					Platforms:    nil,
+				}
+				if flags.verbose {
+					it.Keywords = append(it.Keywords, r.Command.Keywords...)
+					it.Platforms = append(it.Platforms, r.Command.Platform...)
+					it.Score = r.Score
+				}
+				out = append(out, it)
 			}
-			fmt.Println()
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			_ = enc.Encode(out)
+
+		case "table":
+			// Simple fixed-width table (no extra deps)
+			// Headers
+			fmt.Printf("%s%-3s %-48s %-24s %-10s%s\n", bold, "#", "Command", "Category", "Score", reset)
+			fmt.Printf("%s%s%s\n", gray, strings.Repeat("-", 90), reset)
+			for i, r := range results {
+				score := fmt.Sprintf("%.1f", r.Score)
+				if !flags.verbose {
+					score = ""
+				}
+				cmdStr := r.Command.Command
+				if len(cmdStr) > 48 {
+					cmdStr = cmdStr[:45] + "..."
+				}
+				cat := r.Command.Niche
+				if len(cat) > 24 {
+					cat = cat[:21] + "..."
+				}
+				fmt.Printf("%-3d %-48s %-24s %-10s\n", i+1, cmdStr, cat, score)
+			}
+
+		default: // list
+			fmt.Printf("Found %d matching command(s):\n\n", len(results))
+			for i, result := range results {
+				fmt.Printf("%s%d.%s %s%s%s\n", bold, i+1, reset, cyan, result.Command.Command, reset)
+				fmt.Printf("   %sDescription:%s %s\n", yellow, reset, result.Command.Description)
+				if len(result.Command.Keywords) > 0 && flags.verbose {
+					fmt.Printf("   %sKeywords:%s %s\n", yellow, reset, strings.Join(result.Command.Keywords, ", "))
+				}
+				if result.Command.Niche != "" {
+					fmt.Printf("   %sCategory:%s %s\n", yellow, reset, result.Command.Niche)
+				}
+				if len(result.Command.Platform) > 0 && flags.verbose {
+					fmt.Printf("   %sPlatforms:%s %s\n", yellow, reset, strings.Join(result.Command.Platform, ", "))
+				}
+				if flags.verbose {
+					fmt.Printf("   %sRelevance:%s %.1f\n", yellow, reset, result.Score)
+				}
+				fmt.Println()
+			}
 		}
 
 		if flags.verbose {

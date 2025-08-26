@@ -62,4 +62,8 @@ func init() {
 	rootCmd.PersistentFlags().StringSliceP("platform", "p", []string{}, "Filter by platform (linux, macos, windows, cross-platform)")
 	rootCmd.PersistentFlags().BoolP("all-platforms", "a", false, "Show commands from all platforms (ignore platform filtering)")
 	rootCmd.PersistentFlags().BoolP("no-cross-platform", "", false, "Exclude cross-platform commands when using platform filter")
+
+	// Output formatting flags
+	rootCmd.PersistentFlags().String("format", "list", "Output format: list|table|json")
+	rootCmd.PersistentFlags().Bool("no-color", false, "Disable color output (or set NO_COLOR env)")
 }
