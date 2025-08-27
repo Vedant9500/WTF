@@ -16,12 +16,25 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Vedant9500/WTF/internal/database"
 	"gopkg.in/yaml.v3"
 )
 
 // Command represents a database command for testing
-type Command = database.Command
+// This is a local copy to avoid import cycles with the database package
+type Command struct {
+	Command     string   `yaml:"command" json:"command"`
+	Description string   `yaml:"description" json:"description"`
+	Keywords    []string `yaml:"keywords" json:"keywords"`
+	Niche       string   `yaml:"niche,omitempty" json:"niche,omitempty"`
+	Platform    []string `yaml:"platform,omitempty" json:"platform,omitempty"`
+	Pipeline    bool     `yaml:"pipeline" json:"pipeline"`
+}
+
+// Database represents a test database structure
+// This is a local copy to avoid import cycles with the database package
+type Database struct {
+	Commands []Command `yaml:"commands" json:"commands"`
+}
 
 // GetSampleCommands returns a set of sample commands for testing
 func GetSampleCommands() []Command {
@@ -48,17 +61,17 @@ func GetSampleCommands() []Command {
 }
 
 // CreateTestDatabase creates a test database with the provided commands
-func CreateTestDatabase(commands []Command) *database.Database {
-	return &database.Database{
+func CreateTestDatabase(commands []Command) *Database {
+	return &Database{
 		Commands: commands,
 	}
 }
 
 // CreateLargeDatabase creates a test database with the specified number of commands
-func CreateLargeDatabase(count int) *database.Database {
+func CreateLargeDatabase(count int) *Database {
 	sampleCommands := GetSampleCommands()
 	commands := make([]Command, count)
-
+	
 	for i := 0; i < count; i++ {
 		// Cycle through sample commands and modify them slightly
 		base := sampleCommands[i%len(sampleCommands)]
@@ -69,14 +82,14 @@ func CreateLargeDatabase(count int) *database.Database {
 			Platform:    base.Platform,
 		}
 	}
-
-	return &database.Database{
+	
+	return &Database{
 		Commands: commands,
 	}
 }
 
 // SaveDatabase saves a database to a YAML file
-func SaveDatabase(db *database.Database, path string) error {
+func SaveDatabase(db *Database, path string) error {
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -119,9 +132,9 @@ func CreateTempDir() (string, func()) {
 //   - Different niche categories
 //
 // This is the primary test database used for most search functionality tests.
-func CreateDefaultTestDatabase() *database.Database {
-	return &database.Database{
-		Commands: []database.Command{
+func CreateDefaultTestDatabase() *Database {
+	return &Database{
+		Commands: []Command{
 			{
 				Command:     "git commit -m 'message'",
 				Description: "commit changes with message",
@@ -144,21 +157,21 @@ func CreateDefaultTestDatabase() *database.Database {
 				Keywords:    []string{"tar", "compress", "archive", "gzip"},
 				Niche:       "compression",
 				Platform:    []string{"linux", "macos"},
-				Pipeline:    false,
+				Pipeline:    true,
 			},
 			{
-				Command:     "ls -la | grep '.txt'",
-				Description: "list txt files with details",
-				Keywords:    []string{"ls", "grep", "files", "list"},
-				Niche:       "filesystem",
+				Command:     "grep -r 'pattern' .",
+				Description: "search for pattern in files recursively",
+				Keywords:    []string{"grep", "search", "pattern", "text"},
+				Niche:       "search",
 				Platform:    []string{"linux", "macos"},
 				Pipeline:    true,
 			},
 			{
-				Command:     "mkdir -p directory/path",
-				Description: "create directory with parent directories",
-				Keywords:    []string{"mkdir", "create", "directory", "folder"},
-				Niche:       "filesystem",
+				Command:     "docker run image",
+				Description: "run a docker container",
+				Keywords:    []string{"docker", "run", "container", "image"},
+				Niche:       "docker",
 				Platform:    []string{"linux", "macos", "windows"},
 				Pipeline:    false,
 			},
@@ -171,9 +184,9 @@ func CreateDefaultTestDatabase() *database.Database {
 // This function is useful for tests that need a simple database without the
 // complexity of multiple commands. It contains only one basic command for
 // testing core functionality without interference from other commands.
-func CreateMinimalTestDatabase() *database.Database {
-	return &database.Database{
-		Commands: []database.Command{
+func CreateMinimalTestDatabase() *Database {
+	return &Database{
+		Commands: []Command{
 			{
 				Command:     "test command",
 				Description: "test description",
@@ -189,8 +202,8 @@ func CreateMinimalTestDatabase() *database.Database {
 // This function is useful for testing edge cases, error conditions, and
 // scenarios where no search results should be found. It helps verify that
 // the search functionality handles empty databases gracefully.
-func CreateEmptyTestDatabase() *database.Database {
-	return &database.Database{
-		Commands: []database.Command{},
+func CreateEmptyTestDatabase() *Database {
+	return &Database{
+		Commands: []Command{},
 	}
 }
