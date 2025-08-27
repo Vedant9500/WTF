@@ -117,18 +117,27 @@ func defaultParams() bm25fParams {
 	}
 }
 
-// selectTopTerms keeps the most informative terms by IDF to avoid noise from long queries.
-func (db *Database) selectTopTerms(terms []string, max int) []string {
+// selectTopTermsWithOriginal keeps the most informative terms by IDF while preserving original query terms.
+func (db *Database) selectTopTermsWithOriginal(terms []string, originalTerms []string, max int) []string {
 	if max <= 0 || len(terms) <= max || db.uIndex == nil {
 		return terms
 	}
+
+	// Create set of original terms for fast lookup
+	originalSet := make(map[string]bool)
+	for _, term := range originalTerms {
+		originalSet[term] = true
+	}
+
 	idx := db.uIndex
 	seen := map[string]bool{}
 	type tw struct {
-		term string
-		idf  float64
+		term       string
+		idf        float64
+		isOriginal bool
 	}
 	list := make([]tw, 0, len(terms))
+
 	for _, t := range terms {
 		if seen[t] {
 			continue
@@ -136,22 +145,129 @@ func (db *Database) selectTopTerms(terms []string, max int) []string {
 		seen[t] = true
 		df, ok := idx.df[t]
 		if !ok || df == 0 {
+			// If term not in index, still preserve it if it's from original query
+			if originalSet[t] {
+				list = append(list, tw{term: t, idf: 1.0, isOriginal: true})
+			}
 			continue
 		}
-		list = append(list, tw{term: t, idf: bm25IDF(idx.N, df)})
+		isOriginal := originalSet[t]
+		list = append(list, tw{term: t, idf: bm25IDF(idx.N, df), isOriginal: isOriginal})
 	}
-	if len(list) <= max { // nothing to trim
+
+	if len(list) <= max {
 		out := make([]string, 0, len(list))
 		for _, it := range list {
 			out = append(out, it.term)
 		}
 		return out
 	}
-	sort.Slice(list, func(i, j int) bool { return list[i].idf > list[j].idf })
-	out := make([]string, 0, max)
-	for i := 0; i < max; i++ {
-		out = append(out, list[i].term)
+
+	// Separate original and enhanced terms
+	var originalList, enhancedList []tw
+	for _, item := range list {
+		if item.isOriginal {
+			originalList = append(originalList, item)
+		} else {
+			enhancedList = append(enhancedList, item)
+		}
 	}
+
+	// Always keep all original terms, then add best enhanced terms
+	out := make([]string, 0, max)
+
+	// Add all original terms first
+	for _, item := range originalList {
+		out = append(out, item.term)
+	}
+
+	// Add enhanced terms by IDF score to fill remaining slots
+	remaining := max - len(out)
+	if remaining > 0 && len(enhancedList) > 0 {
+		sort.Slice(enhancedList, func(i, j int) bool {
+			return enhancedList[i].idf > enhancedList[j].idf
+		})
+		for i := 0; i < min(remaining, len(enhancedList)); i++ {
+			out = append(out, enhancedList[i].term)
+		}
+	}
+
+	return out
+}
+
+// selectTopTerms keeps the most informative terms by IDF to avoid noise from long queries.
+// Preserves original query terms to ensure important specific terms aren't lost.
+func (db *Database) selectTopTerms(terms []string, max int) []string {
+	if max <= 0 || len(terms) <= max || db.uIndex == nil {
+		return terms
+	}
+
+	// Conservative approach: preserve the first few terms which are likely from the original query
+	preserveCount := min(4, len(terms)) // Preserve at least first 4 terms
+
+	idx := db.uIndex
+	seen := map[string]bool{}
+	type tw struct {
+		term       string
+		idf        float64
+		isOriginal bool
+	}
+	list := make([]tw, 0, len(terms))
+
+	for i, t := range terms {
+		if seen[t] {
+			continue
+		}
+		seen[t] = true
+		df, ok := idx.df[t]
+		if !ok || df == 0 {
+			// If term not in index, still preserve it if it's from original query
+			if i < preserveCount {
+				list = append(list, tw{term: t, idf: 1.0, isOriginal: true})
+			}
+			continue
+		}
+		isOriginal := i < preserveCount
+		list = append(list, tw{term: t, idf: bm25IDF(idx.N, df), isOriginal: isOriginal})
+	}
+
+	if len(list) <= max {
+		out := make([]string, 0, len(list))
+		for _, it := range list {
+			out = append(out, it.term)
+		}
+		return out
+	}
+
+	// Separate original and enhanced terms
+	var originalList, enhancedList []tw
+	for _, item := range list {
+		if item.isOriginal {
+			originalList = append(originalList, item)
+		} else {
+			enhancedList = append(enhancedList, item)
+		}
+	}
+
+	// Always keep all original terms, then add best enhanced terms
+	out := make([]string, 0, max)
+
+	// Add all original terms first
+	for _, item := range originalList {
+		out = append(out, item.term)
+	}
+
+	// Add enhanced terms by IDF score to fill remaining slots
+	remaining := max - len(out)
+	if remaining > 0 && len(enhancedList) > 0 {
+		sort.Slice(enhancedList, func(i, j int) bool {
+			return enhancedList[i].idf > enhancedList[j].idf
+		})
+		for i := 0; i < min(remaining, len(enhancedList)); i++ {
+			out = append(out, enhancedList[i].term)
+		}
+	}
+
 	return out
 }
 
@@ -299,13 +415,33 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 
 	terms := normalizeAndTokenize(query)
 	var pq *nlp.ProcessedQuery
-	// If NLP enabled, enhance the query terms with actions/targets/keywords
+
+	// Simple, conservative NLP enhancement that preserves original terms
 	if options.UseNLP {
 		processor := nlp.NewQueryProcessor()
 		pq = processor.ProcessQuery(query)
 		enh := pq.GetEnhancedKeywords()
+
+		// CONSERVATIVE approach: only ADD highly relevant enhanced terms
+		// Keep original terms untouched and add only the best 2-3 enhanced terms
 		if len(enh) > 0 {
-			terms = enh
+			// Find enhanced terms that aren't already in original terms
+			for _, enhTerm := range enh {
+				// Only add if it's not already present and it's a high-value term
+				found := false
+				for _, origTerm := range terms {
+					if origTerm == enhTerm {
+						found = true
+						break
+					}
+				}
+				if !found && len(terms) < 6 { // Limit total terms to avoid noise
+					// Only add terms that are likely to improve search
+					if enhTerm == "ipconfig" || enhTerm == "network" || enhTerm == "config" || enhTerm == "manage" {
+						terms = append(terms, enhTerm)
+					}
+				}
+			}
 		}
 	}
 	if len(terms) == 0 {
@@ -477,6 +613,29 @@ func isPlatformCompatible(platforms []string, current string) bool {
 	for _, p := range platforms {
 		if strings.EqualFold(p, "cross-platform") || strings.EqualFold(p, current) {
 			return true
+		}
+		// Handle Windows-specific platform variants
+		if current == "windows" {
+			pLower := strings.ToLower(p)
+			if pLower == "cmd" || pLower == "powershell" || pLower == "windows-cmd" ||
+				pLower == "windows-powershell" || strings.HasPrefix(pLower, "windows") {
+				return true
+			}
+		}
+		// Handle macOS variants
+		if current == "macos" {
+			pLower := strings.ToLower(p)
+			if pLower == "darwin" || strings.HasPrefix(pLower, "macos") {
+				return true
+			}
+		}
+		// Handle Linux variants
+		if current == "linux" {
+			pLower := strings.ToLower(p)
+			if pLower == "unix" || pLower == "bash" || pLower == "zsh" ||
+				strings.HasPrefix(pLower, "linux") {
+				return true
+			}
 		}
 	}
 	return false

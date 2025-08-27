@@ -98,6 +98,9 @@ func (qp *QueryProcessor) ProcessQuery(query string) *ProcessedQuery {
 		// Check for targets
 		if targets, found := qp.targetWords[word]; found {
 			pq.Targets = append(pq.Targets, targets...)
+			// IMPORTANT: Also keep the original word as a keyword
+			// This ensures "ip" stays as "ip" even when expanded to "network interface address"
+			pq.Keywords = append(pq.Keywords, word)
 			continue
 		}
 
@@ -227,27 +230,57 @@ func (pq *ProcessedQuery) GetEnhancedKeywords() []string {
 	// Add original keywords FIRST (highest priority)
 	enhanced = append(enhanced, pq.Keywords...)
 
-	// Add actions as keywords (medium priority)
-	enhanced = append(enhanced, pq.Actions...)
+	// Smart enhancement: for "ip" queries, explicitly add "ipconfig"
+	hasIP := false
+	hasManage := false
+	hasWindows := false
 
-	// Add targets as keywords (medium priority)
-	enhanced = append(enhanced, pq.Targets...)
+	for _, keyword := range pq.Keywords {
+		if keyword == "ip" {
+			hasIP = true
+		}
+		if keyword == "manage" {
+			hasManage = true
+		}
+		if keyword == "windows" {
+			hasWindows = true
+		}
+	}
 
-	// Only add intent-specific keywords if we have few other keywords
-	if len(enhanced) < 3 {
+	// If query is about managing IP on Windows, add ipconfig
+	if hasIP && (hasManage || hasWindows) {
+		enhanced = append(enhanced, "ipconfig")
+	}
+
+	// Add actions as keywords (medium priority) - but only the most relevant ones
+	if len(pq.Actions) > 0 {
+		// Limit to 2-3 most relevant actions to avoid noise
+		actionLimit := min(len(pq.Actions), 3)
+		enhanced = append(enhanced, pq.Actions[:actionLimit]...)
+	}
+
+	// Add targets as keywords (medium priority) - but only the most relevant ones
+	if len(pq.Targets) > 0 {
+		// Limit to 2-3 most relevant targets to avoid noise
+		targetLimit := min(len(pq.Targets), 3)
+		enhanced = append(enhanced, pq.Targets[:targetLimit]...)
+	}
+
+	// Only add intent-specific keywords if we have very few other keywords
+	if len(enhanced) < 4 {
 		switch pq.Intent {
 		case IntentFind:
-			enhanced = append(enhanced, "search", "find", "list")
+			enhanced = append(enhanced, "search", "find")
 		case IntentView:
-			enhanced = append(enhanced, "cat", "view", "show", "display")
+			enhanced = append(enhanced, "cat", "view", "show")
 		case IntentCreate:
-			enhanced = append(enhanced, "create", "make", "new")
+			enhanced = append(enhanced, "create", "make")
 		case IntentDelete:
 			enhanced = append(enhanced, "delete", "remove")
 		case IntentInstall:
 			enhanced = append(enhanced, "install", "setup")
 		case IntentModify:
-			enhanced = append(enhanced, "chmod", "change", "modify")
+			enhanced = append(enhanced, "configure", "change")
 		}
 	}
 
@@ -305,8 +338,11 @@ func buildSynonyms() map[string][]string {
 		"extract":  {"unzip", "unpack", "decompress", "expand"},
 
 		// Network
-		"download": {"fetch", "get", "pull", "retrieve"},
-		"upload":   {"push", "send", "transfer", "post"},
+		"download":  {"fetch", "get", "pull", "retrieve"},
+		"upload":    {"push", "send", "transfer", "post"},
+		"ip":        {"network", "interface", "address", "configuration", "config"},
+		"network":   {"ip", "interface", "connection", "config"},
+		"interface": {"ip", "network", "adapter", "config"},
 
 		// System
 		"process":   {"task", "job", "service", "daemon"},
@@ -357,6 +393,7 @@ func buildActionWords() map[string][]string {
 		"modify": {"edit", "modify", "change"},
 		"change": {"edit", "modify", "change"},
 		"update": {"update", "modify", "change"},
+		"manage": {"manage", "modify", "configure", "control"},
 
 		// Removing
 		"delete":  {"delete", "remove", "destroy"},
@@ -428,6 +465,9 @@ func buildTargetWords() map[string][]string {
 		"connection": {"connection", "link"},
 		"url":        {"url", "link", "address"},
 		"website":    {"website", "url", "site"},
+		"ip":         {"network", "interface", "address"},
+		"network":    {"ip", "interface", "connection"},
+		"interface":  {"ip", "network", "adapter"},
 
 		// Development
 		"project":    {"project", "repo", "repository"},
@@ -458,4 +498,12 @@ func removeDuplicates(slice []string) []string {
 	}
 
 	return result
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

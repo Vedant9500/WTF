@@ -146,22 +146,19 @@ Examples:
 		}
 		fmt.Printf("Searching for: %s\n\n", query)
 
-		// Use the original database search with improved NLP
+		// Use original search with smart NLP enhancement
 		searchOptions := database.SearchOptions{
 			Limit:          cfg.MaxResults,
 			UseFuzzy:       true,
 			FuzzyThreshold: -30,
-			UseNLP:         true,
+			UseNLP:         true, // Enable smart NLP enhancement
 		}
 		if projectContext != nil {
 			searchOptions.ContextBoosts = projectContext.GetContextBoosts()
 		}
 
-		// Prefer universal BM25F search; fall back to NLP if needed
+		// Use enhanced universal search
 		results := db.SearchUniversal(query, searchOptions)
-		if len(results) == 0 {
-			results = db.SearchWithNLP(query, searchOptions)
-		}
 
 		searchDuration := time.Since(startTime)
 
