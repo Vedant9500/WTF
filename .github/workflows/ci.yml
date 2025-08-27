@@ -6,10 +6,79 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+env:
+  GO_VERSION: '1.24.5'
+
 jobs:
+  # Pre-checks for fast feedback
+  pre-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Check formatting (gofmt)
+        shell: bash
+        run: |
+          fmt_out=$(gofmt -l .)
+          if [ -n "$fmt_out" ]; then
+            echo "❌ The following files are not gofmt formatted:"
+            echo "$fmt_out"
+            echo ""
+            echo "💡 Run 'gofmt -w .' to fix formatting issues"
+            exit 1
+          fi
+          echo "✅ All files are properly formatted"
+
+      - name: Go vet
+        run: |
+          echo "🔍 Running go vet..."
+          go vet ./...
+          echo "✅ go vet passed"
+
+      - name: Module verification
+        run: |
+          echo "🔍 Verifying module integrity..."
+          go mod verify
+          echo "✅ Module verification passed"
+
+      - name: Module tidy check
+        shell: bash
+        run: |
+          echo "🔍 Checking if go.mod and go.sum are tidy..."
+          go mod tidy
+          git update-index -q --refresh
+          if ! git diff --quiet -- go.mod go.sum; then
+            echo "❌ go.mod or go.sum changed after tidy:"
+            git --no-pager diff -- go.mod go.sum
+            echo ""
+            echo "💡 Run 'go mod tidy' locally and commit the changes"
+            exit 1
+          fi
+          echo "✅ go.mod and go.sum are tidy"
+
+  # Comprehensive testing across platforms
   test:
     runs-on: ${{ matrix.os }}
+    needs: pre-checks
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         go-version: ['1.24.5']
@@ -34,132 +103,222 @@ jobs:
       - name: Install dependencies
         run: go mod download
 
-      - name: Tidy (no changes)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Run tests with race detection
         shell: bash
         run: |
-          go mod tidy
-          git update-index -q --refresh
-          if ! git diff --quiet -- go.mod go.sum; then
-            echo "go.mod or go.sum changed after tidy. Please run 'go mod tidy' locally.";
-            git --no-pager diff -- go.mod go.sum;
-            exit 1;
+          echo "🧪 Running tests on ${{ matrix.os }}..."
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            # Windows: race detector requires CGO
+            echo "⚠️  Running tests without race detector on Windows (requires CGO)"
+            go test -v -coverprofile=coverage.out ./...
+          else
+            # Unix: run with race detector
+            go test -v -race -coverprofile=coverage.out ./...
           fi
+          echo "✅ Tests completed successfully"
 
-      - name: Verify module integrity
-        run: go mod verify
-
-      - name: Go vet
-        run: go vet ./...
-
-      - name: Check formatting (gofmt)
+      - name: Generate coverage report
         if: matrix.os == 'ubuntu-latest'
-        shell: bash
         run: |
-          fmt_out=$(gofmt -l .)
-          if [ -n "$fmt_out" ]; then
-            echo "The following files are not gofmt formatted:";
-            echo "$fmt_out";
-            exit 1;
-          fi
-
-      - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+          echo "📊 Generating coverage report..."
+          go tool cover -html=coverage.out -o coverage.html
 
       - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v4
         continue-on-error: true
         with:
           files: ./coverage.out
           use_oidc: true
           fail_ci_if_error: false
+          verbose: true
 
-      - name: Check coverage threshold (soft)
+      - name: Check coverage threshold
         if: matrix.os == 'ubuntu-latest'
         env:
-          COVERAGE_MIN: "0"
+          COVERAGE_MIN: "75"
         shell: bash
         run: |
+          echo "📊 Checking coverage threshold..."
           total=$(go tool cover -func=coverage.out | awk '/total:/ {print $3}' | sed 's/%//')
-          echo "Total coverage: ${total}%"
-          min=${COVERAGE_MIN:-0}
-          awk -v t="$total" -v m="$min" 'BEGIN { if (t+0 < m+0) { printf("Coverage %.2f < min %.2f (soft check)\n", t, m); } else { printf("Coverage %.2f >= min %.2f\n", t, m); } }'
+          echo "Current coverage: ${total}%"
+          min=${COVERAGE_MIN:-75}
+          
+          if awk -v t="$total" -v m="$min" 'BEGIN { exit (t+0 < m+0) }'; then
+            echo "✅ Coverage ${total}% meets minimum requirement of ${min}%"
+          else
+            echo "❌ Coverage ${total}% is below minimum requirement of ${min}%"
+            echo ""
+            echo "💡 Add more tests to improve coverage"
+            exit 1
+          fi
 
+      - name: Upload coverage artifacts
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.out
+            coverage.html
+          retention-days: 30
+
+  # Code quality and linting
   lint:
     runs-on: ubuntu-latest
+    needs: pre-checks
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.5'
+          go-version: ${{ env.GO_VERSION }}
           check-latest: true
 
-      - name: Install golangci-lint (built with correct Go)
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Install golangci-lint
+        run: |
+          echo "📦 Installing golangci-lint..."
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          echo "✅ golangci-lint installed"
 
       - name: Run golangci-lint
         run: |
-          "$(go env GOPATH)/bin/golangci-lint" run --timeout=5m --go=1.24.5
+          echo "🔍 Running golangci-lint with comprehensive checks..."
+          "$(go env GOPATH)/bin/golangci-lint" run --timeout=10m --verbose
+          echo "✅ Linting completed successfully"
 
+      - name: Check for TODO/FIXME comments
+        shell: bash
+        run: |
+          echo "🔍 Checking for TODO/FIXME comments..."
+          todos=$(grep -r -n "TODO\|FIXME" --include="*.go" . || true)
+          if [ -n "$todos" ]; then
+            echo "📝 Found TODO/FIXME comments:"
+            echo "$todos"
+            echo ""
+            echo "ℹ️  This is informational - consider addressing these items"
+          else
+            echo "✅ No TODO/FIXME comments found"
+          fi
+
+  # Security scanning
   security:
     runs-on: ubuntu-latest
+    needs: pre-checks
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.5'
+          go-version: ${{ env.GO_VERSION }}
           check-latest: true
 
-      - name: Ensure jq is available
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
-      - name: Prepare Go tools path
-        shell: bash
-        run: |
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Install dependencies
+        run: go mod download
 
-      - name: Run Go vulnerability check
+      - name: Install security tools
         run: |
+          echo "📦 Installing security scanning tools..."
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          "$(go env GOPATH)/bin/govulncheck" ./...
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          sudo apt-get update && sudo apt-get install -y jq
+          echo "✅ Security tools installed"
 
-      - name: Run security linting (gosec, gocritic)
+      - name: Run vulnerability scan
         run: |
-          if ! command -v golangci-lint &> /dev/null; then
-            go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-          fi
-          "$(go env GOPATH)/bin/golangci-lint" run --timeout=5m --disable-all --enable=gosec --enable=gocritic --go=1.24.5
-
-      - name: Check for hardcoded secrets
-        run: |
-          if grep -r -i -E "(password|api[_-]?key|secret|token)\s*=\s*['\"][^'\"]*['\"]" --include="*.go" --include="*.yml" --include="*.yaml" .; then
-            echo "Potential hardcoded secrets found"
+          echo "🔍 Running vulnerability scan..."
+          if "$(go env GOPATH)/bin/govulncheck" ./...; then
+            echo "✅ No vulnerabilities found"
+          else
+            echo "❌ Vulnerabilities detected"
+            echo ""
+            echo "💡 Review and update dependencies to fix vulnerabilities"
             exit 1
           fi
-          echo "No hardcoded secrets detected"
 
-      - name: Dependency vulnerability scan
+      - name: Run security linting
         run: |
-          go list -json -deps ./... | jq -r '.Module | select(.Path != null) | .Path + "@" + .Version' | sort -u > deps.txt
-          echo "Dependencies scanned for vulnerabilities"
+          echo "🔍 Running security-focused linting..."
+          "$(go env GOPATH)/bin/golangci-lint" run \
+            --timeout=10m \
+            --disable-all \
+            --enable=gosec \
+            --enable=gocritic \
+            --verbose
+          echo "✅ Security linting completed"
+
+      - name: Check for hardcoded secrets
+        shell: bash
+        run: |
+          echo "🔍 Scanning for potential hardcoded secrets..."
+          secrets_found=false
+          
+          # Define patterns to check
+          patterns=(
+            "password\s*[:=]\s*['\"][^'\"]{8,}['\"]"
+            "api[_-]?key\s*[:=]\s*['\"][^'\"]{16,}['\"]"
+            "secret\s*[:=]\s*['\"][^'\"]{16,}['\"]"
+            "token\s*[:=]\s*['\"][^'\"]{16,}['\"]"
+          )
+          
+          for pattern in "${patterns[@]}"; do
+            if grep -r -i -E "$pattern" --include="*.go" --include="*.yml" --include="*.yaml" .; then
+              secrets_found=true
+            fi
+          done
+          
+          if [ "$secrets_found" = true ]; then
+            echo "❌ Potential hardcoded secrets found"
+            echo ""
+            echo "💡 Remove hardcoded secrets and use environment variables or secure storage"
+            exit 1
+          else
+            echo "✅ No hardcoded secrets detected"
+          fi
 
       - name: Generate security report
         if: always()
         run: |
-          echo "# Security Scan Report" > security-report.md
-          echo "Generated: $(date)" >> security-report.md
-          echo "" >> security-report.md
-          echo "## Go Version" >> security-report.md
-          go version >> security-report.md
-          echo "" >> security-report.md
-          echo "## Dependencies" >> security-report.md
-          go list -m all >> security-report.md
+          echo "📋 Generating security report..."
+          {
+            echo "# Security Scan Report"
+            echo "Generated: $(date)"
+            echo ""
+            echo "## Go Version"
+            go version
+            echo ""
+            echo "## Dependencies"
+            go list -m all
+            echo ""
+            echo "## Vulnerability Scan Status"
+            if "$(go env GOPATH)/bin/govulncheck" ./... >/dev/null 2>&1; then
+              echo "✅ No vulnerabilities found"
+            else
+              echo "❌ Vulnerabilities detected - see CI logs"
+            fi
+          } > security-report.md
+          echo "✅ Security report generated"
 
       - name: Upload security report
         if: always()
@@ -167,11 +326,14 @@ jobs:
         with:
           name: security-report
           path: security-report.md
+          retention-days: 30
 
+  # Cross-platform build testing
   build:
     runs-on: ubuntu-latest
     needs: [test, lint, security]
     strategy:
+      fail-fast: false
       matrix:
         goos: [linux, windows, darwin]
         goarch: [amd64, arm64]
@@ -184,42 +346,120 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.5'
+          go-version: ${{ env.GO_VERSION }}
 
-      - name: Build
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build binary
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
+          echo "🔨 Building for ${{ matrix.goos }}/${{ matrix.goarch }}..."
           mkdir -p dist
-          if [ "$GOOS" = "windows" ]; then
-            go build -trimpath -o dist/wtf-${{ matrix.goos }}-${{ matrix.goarch }}.exe ./cmd/wtf
-          else
-            go build -trimpath -o dist/wtf-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/wtf
+          
+          # Set binary name with proper extension
+          binary_name="wtf-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            binary_name="${binary_name}.exe"
           fi
+          
+          # Build with optimizations
+          go build \
+            -trimpath \
+            -ldflags="-s -w -X github.com/Vedant9500/WTF/internal/version.Version=$(git describe --tags --always --dirty)" \
+            -o "dist/${binary_name}" \
+            ./cmd/wtf
+          
+          echo "✅ Built ${binary_name}"
 
-      - name: Upload artifacts
+      - name: Test binary execution
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: |
+          echo "🧪 Testing binary execution..."
+          ./dist/wtf-linux-amd64 --version
+          echo "✅ Binary execution test passed"
+
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: wtf-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/
+          retention-days: 30
 
-  bench:
+  # Performance benchmarks
+  benchmark:
     runs-on: ubuntu-latest
+    needs: pre-checks
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.5'
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install dependencies
+        run: go mod download
 
       - name: Run benchmarks
         run: |
-          go test -run=^$ -bench=. -benchmem ./... | tee bench.txt
+          echo "⚡ Running performance benchmarks..."
+          go test -run=^$ -bench=. -benchmem -count=3 ./... | tee bench.txt
+          echo "✅ Benchmarks completed"
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results
           path: bench.txt
+          retention-days: 30
+
+  # Final status check
+  ci-success:
+    runs-on: ubuntu-latest
+    needs: [pre-checks, test, lint, security, build, benchmark]
+    if: always()
+    steps:
+      - name: Check CI status
+        run: |
+          echo "🔍 Checking overall CI status..."
+          
+          # Check if any required job failed
+          if [ "${{ needs.pre-checks.result }}" != "success" ] || \
+             [ "${{ needs.test.result }}" != "success" ] || \
+             [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.security.result }}" != "success" ] || \
+             [ "${{ needs.build.result }}" != "success" ]; then
+            echo "❌ CI failed - one or more required jobs failed"
+            echo ""
+            echo "Job status:"
+            echo "  Pre-checks: ${{ needs.pre-checks.result }}"
+            echo "  Test: ${{ needs.test.result }}"
+            echo "  Lint: ${{ needs.lint.result }}"
+            echo "  Security: ${{ needs.security.result }}"
+            echo "  Build: ${{ needs.build.result }}"
+            echo "  Benchmark: ${{ needs.benchmark.result }}"
+            exit 1
+          fi
+          
+          echo "✅ All CI checks passed successfully!"
+          echo ""
+          echo "🎉 Code is ready for deployment!"
