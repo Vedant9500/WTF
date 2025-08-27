@@ -9,25 +9,7 @@ import (
 	"github.com/Vedant9500/WTF/internal/nlp"
 )
 
-// Universal Search Engine
-//
-// This file implements the primary search engine for the WTF command database.
-// It uses BM25F (Best Matching 25 with field weights) for robust ranking and
-// integrates with NLP processing for semantic understanding.
-//
-// Key features:
-// - BM25F inverted index with per-field term frequency tracking
-// - Platform-aware filtering without hardcoded rules
-// - NLP-enhanced query processing (intent/action/target detection)
-// - TF-IDF semantic reranking for top results
-// - Top-IDF term selection to handle long queries
-// - Co-occurrence boost for multi-term matches
-//
-// This replaces the legacy heuristic-based search methods and provides
-// scalable, data-driven ranking that improves with database size.
-
-// universalIndex implements a scalable, data-driven inverted index with BM25F scoring.
-// It avoids hardcoded domain rules and scales with database size.
+// universalIndex implements BM25F scoring with field weights.
 type universalIndex struct {
 	// term -> postings
 	postings map[string][]posting
@@ -115,84 +97,6 @@ func defaultParams() bm25fParams {
 		w:      docLensF{cmd: 2.5, desc: 1.0, keys: 1.8, tags: 1.2},
 		minIDF: 0.0,
 	}
-}
-
-// selectTopTermsWithOriginal keeps the most informative terms by IDF while preserving original query terms.
-func (db *Database) selectTopTermsWithOriginal(terms []string, originalTerms []string, max int) []string {
-	if max <= 0 || len(terms) <= max || db.uIndex == nil {
-		return terms
-	}
-
-	// Create set of original terms for fast lookup
-	originalSet := make(map[string]bool)
-	for _, term := range originalTerms {
-		originalSet[term] = true
-	}
-
-	idx := db.uIndex
-	seen := map[string]bool{}
-	type tw struct {
-		term       string
-		idf        float64
-		isOriginal bool
-	}
-	list := make([]tw, 0, len(terms))
-
-	for _, t := range terms {
-		if seen[t] {
-			continue
-		}
-		seen[t] = true
-		df, ok := idx.df[t]
-		if !ok || df == 0 {
-			// If term not in index, still preserve it if it's from original query
-			if originalSet[t] {
-				list = append(list, tw{term: t, idf: 1.0, isOriginal: true})
-			}
-			continue
-		}
-		isOriginal := originalSet[t]
-		list = append(list, tw{term: t, idf: bm25IDF(idx.N, df), isOriginal: isOriginal})
-	}
-
-	if len(list) <= max {
-		out := make([]string, 0, len(list))
-		for _, it := range list {
-			out = append(out, it.term)
-		}
-		return out
-	}
-
-	// Separate original and enhanced terms
-	var originalList, enhancedList []tw
-	for _, item := range list {
-		if item.isOriginal {
-			originalList = append(originalList, item)
-		} else {
-			enhancedList = append(enhancedList, item)
-		}
-	}
-
-	// Always keep all original terms, then add best enhanced terms
-	out := make([]string, 0, max)
-
-	// Add all original terms first
-	for _, item := range originalList {
-		out = append(out, item.term)
-	}
-
-	// Add enhanced terms by IDF score to fill remaining slots
-	remaining := max - len(out)
-	if remaining > 0 && len(enhancedList) > 0 {
-		sort.Slice(enhancedList, func(i, j int) bool {
-			return enhancedList[i].idf > enhancedList[j].idf
-		})
-		for i := 0; i < min(remaining, len(enhancedList)); i++ {
-			out = append(out, enhancedList[i].term)
-		}
-	}
-
-	return out
 }
 
 // selectTopTerms keeps the most informative terms by IDF to avoid noise from long queries.
@@ -416,18 +320,15 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 	terms := normalizeAndTokenize(query)
 	var pq *nlp.ProcessedQuery
 
-	// Simple, conservative NLP enhancement that preserves original terms
+	// NLP enhancement
 	if options.UseNLP {
 		processor := nlp.NewQueryProcessor()
 		pq = processor.ProcessQuery(query)
 		enh := pq.GetEnhancedKeywords()
 
-		// CONSERVATIVE approach: only ADD highly relevant enhanced terms
-		// Keep original terms untouched and add only the best 2-3 enhanced terms
+		// Add relevant enhanced terms that aren't already present
 		if len(enh) > 0 {
-			// Find enhanced terms that aren't already in original terms
 			for _, enhTerm := range enh {
-				// Only add if it's not already present and it's a high-value term
 				found := false
 				for _, origTerm := range terms {
 					if origTerm == enhTerm {
@@ -435,11 +336,8 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 						break
 					}
 				}
-				if !found && len(terms) < 6 { // Limit total terms to avoid noise
-					// Only add terms that are likely to improve search
-					if enhTerm == "ipconfig" || enhTerm == "network" || enhTerm == "config" || enhTerm == "manage" {
-						terms = append(terms, enhTerm)
-					}
+				if !found && len(terms) < 6 {
+					terms = append(terms, enhTerm)
 				}
 			}
 		}

@@ -1,12 +1,4 @@
 // Package nlp provides natural language processing capabilities for query understanding.
-//
-// This package implements advanced query preprocessing including:
-//   - Stop word filtering and synonym expansion
-//   - Intent detection (create, find, delete, etc.)
-//   - Action and target word extraction
-//   - Keyword enhancement for improved search relevance
-//
-// The QueryProcessor is the main entry point for NLP functionality.
 package nlp
 
 import (
@@ -227,10 +219,10 @@ func (qp *QueryProcessor) detectIntent(actions []string, keywords []string) Quer
 func (pq *ProcessedQuery) GetEnhancedKeywords() []string {
 	var enhanced []string
 
-	// Add original keywords FIRST (highest priority)
+	// Add original keywords first
 	enhanced = append(enhanced, pq.Keywords...)
 
-	// Smart enhancement: for "ip" queries, explicitly add "ipconfig"
+	// Add ipconfig for IP-related queries
 	hasIP := false
 	hasManage := false
 	hasWindows := false
