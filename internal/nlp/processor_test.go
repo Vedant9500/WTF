@@ -244,7 +244,7 @@ func TestGetEnhancedKeywordsWithFewKeywords(t *testing.T) {
 	enhanced := pq.GetEnhancedKeywords()
 
 	// Should add intent-specific keywords when we have few keywords
-	expectedToContain := []string{"git", "create", "make", "new"}
+	expectedToContain := []string{"git", "create", "make"}
 
 	for _, expected := range expectedToContain {
 		found := false

@@ -34,14 +34,31 @@ When you can't remember a command, you think "What's The Function I need?" - tha
 	},
 }
 
-// Execute runs the root command and handles all CLI interactions.
-//
-// This is the main entry point for the WTF CLI application. It initializes
-// the Cobra command tree and processes command-line arguments and flags.
-//
-// Returns an error if command execution fails, nil on successful completion.
+// Execute starts the CLI application
 func Execute() error {
 	return rootCmd.Execute()
+}
+
+// NewRootCommand creates a new root command for testing
+func NewRootCommand() *cobra.Command {
+	// Create a new command similar to rootCmd but for testing
+	testRootCmd := &cobra.Command{
+		Use:     "wtf [query]",
+		Short:   "What's The Function - A CLI tool to find shell commands using natural language",
+		Version: version.Version,
+		Long: `WTF (What's The Function) helps you discover shell commands by searching through a curated database
+of common command-line tools and their usage examples. Simply describe what you want to do
+in natural language, and WTF will suggest relevant commands.
+
+When you can't remember a command, you think "What's The Function I need?" - that's WTF! 😄`,
+		Args: cobra.MinimumNArgs(1),
+		Run:  rootCmd.Run, // Use the same run function
+	}
+
+	// Add the search command to the test root command
+	testRootCmd.AddCommand(searchCmd)
+	
+	return testRootCmd
 }
 
 func init() {
