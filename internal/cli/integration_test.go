@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package cli
@@ -19,7 +20,7 @@ func TestEndToEndSearchWorkflow(t *testing.T) {
 
 	testDB := testutil.CreateTestDatabase(testutil.GetSampleCommands())
 	dbPath := tempDir + "/test-commands.yml"
-	
+
 	err := testutil.SaveDatabase(testDB, dbPath)
 	if err != nil {
 		t.Fatalf("Failed to save test database: %v", err)
@@ -79,7 +80,7 @@ func TestEndToEndSearchWorkflow(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Capture output
 			buf := new(bytes.Buffer)
-			
+
 			// Create root command for testing
 			rootCmd := NewRootCommand()
 			rootCmd.SetOut(buf)
@@ -173,7 +174,7 @@ func TestConcurrentSearches(t *testing.T) {
 
 	testDB := testutil.CreateTestDatabase(testutil.GetSampleCommands())
 	dbPath := tempDir + "/concurrent-test.yml"
-	
+
 	err := testutil.SaveDatabase(testDB, dbPath)
 	if err != nil {
 		t.Fatalf("Failed to save test database: %v", err)
@@ -184,7 +185,7 @@ func TestConcurrentSearches(t *testing.T) {
 	const searchesPerWorker = 5
 
 	errors := make(chan error, numWorkers*searchesPerWorker)
-	
+
 	for i := 0; i < numWorkers; i++ {
 		go func(workerID int) {
 			for j := 0; j < searchesPerWorker; j++ {
@@ -258,7 +259,7 @@ func TestConfigurationValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dbPath := tt.setupConfig()
-			
+
 			// Add database path to args if it's valid
 			args := tt.args
 			if !tt.shouldFail {
@@ -321,17 +322,17 @@ func TestNLPIntegration(t *testing.T) {
 
 	testDB := testutil.CreateTestDatabase(nlpTestCommands)
 	dbPath := tempDir + "/nlp-test.yml"
-	
+
 	err := testutil.SaveDatabase(testDB, dbPath)
 	if err != nil {
 		t.Fatalf("Failed to save NLP test database: %v", err)
 	}
 
 	nlpTests := []struct {
-		name           string
-		query          string
-		expectedFirst  string // First result should contain this
-		description    string
+		name          string
+		query         string
+		expectedFirst string // First result should contain this
+		description   string
 	}{
 		{
 			name:          "Natural language IP query",
@@ -367,7 +368,7 @@ func TestNLPIntegration(t *testing.T) {
 			}
 
 			output := buf.String()
-			
+
 			// Check that the expected command appears in the results
 			if !strings.Contains(strings.ToLower(output), strings.ToLower(tt.expectedFirst)) {
 				t.Errorf("%s: Expected output to contain '%s', got: %s", tt.description, tt.expectedFirst, output)

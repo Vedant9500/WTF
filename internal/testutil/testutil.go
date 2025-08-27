@@ -58,7 +58,7 @@ func CreateTestDatabase(commands []Command) *database.Database {
 func CreateLargeDatabase(count int) *database.Database {
 	sampleCommands := GetSampleCommands()
 	commands := make([]Command, count)
-	
+
 	for i := 0; i < count; i++ {
 		// Cycle through sample commands and modify them slightly
 		base := sampleCommands[i%len(sampleCommands)]
@@ -69,7 +69,7 @@ func CreateLargeDatabase(count int) *database.Database {
 			Platform:    base.Platform,
 		}
 	}
-	
+
 	return &database.Database{
 		Commands: commands,
 	}
@@ -99,11 +99,11 @@ func CreateTempDir() (string, func()) {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	cleanup := func() {
 		os.RemoveAll(tempDir)
 	}
-	
+
 	return tempDir, cleanup
 }
 

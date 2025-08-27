@@ -57,7 +57,7 @@ When you can't remember a command, you think "What's The Function I need?" - tha
 
 	// Add the search command to the test root command
 	testRootCmd.AddCommand(searchCmd)
-	
+
 	return testRootCmd
 }
 
