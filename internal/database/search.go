@@ -7,16 +7,9 @@ import (
 
 	"github.com/Vedant9500/WTF/internal/constants"
 	"github.com/Vedant9500/WTF/internal/nlp"
+	"github.com/Vedant9500/WTF/internal/utils"
 	"github.com/sahilm/fuzzy"
 )
-
-// min returns the minimum of two integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
 
 // SearchResult represents a command with its relevance score
 type SearchResult struct {
@@ -52,7 +45,7 @@ func (db *Database) SearchWithOptions(query string, options SearchOptions) []Sea
 	}
 
 	queryWords := strings.Fields(strings.ToLower(query))
-	results := make([]SearchResult, 0, min(len(db.Commands), options.Limit*constants.ResultsBufferMultiplier))
+	results := make([]SearchResult, 0, utils.Min(len(db.Commands), options.Limit*constants.ResultsBufferMultiplier))
 
 	currentPlatform := getCurrentPlatform()
 
@@ -76,7 +69,7 @@ func (db *Database) SearchWithPipelineOptions(query string, options SearchOption
 	}
 
 	queryWords := strings.Fields(strings.ToLower(query))
-	results := make([]SearchResult, 0, min(len(db.Commands), options.Limit*constants.ResultsBufferMultiplier))
+	results := make([]SearchResult, 0, utils.Min(len(db.Commands), options.Limit*constants.ResultsBufferMultiplier))
 
 	for i := range db.Commands {
 		cmd := &db.Commands[i]
@@ -183,12 +176,12 @@ func calculateWordScore(word string, cmd *Command) float64 {
 func calculateCommandScore(word, cmdLower string) float64 {
 	// Exact command match
 	if cmdLower == word {
-		return constants.DirectCommandMatchScore * 2.0
+		return constants.DirectCommandMatchScore * constants.ExactCommandMatchMultiplier
 	}
 
 	// Command starts with the word
 	if strings.HasPrefix(cmdLower, word+" ") || strings.HasPrefix(cmdLower, word) {
-		return constants.DirectCommandMatchScore * 1.5
+		return constants.DirectCommandMatchScore * constants.PrefixCommandMatchMultiplier
 	}
 
 	// Word appears as a separate word in command
@@ -198,7 +191,7 @@ func calculateCommandScore(word, cmdLower string) float64 {
 
 	// Word appears anywhere in command
 	if strings.Contains(cmdLower, word) {
-		return constants.CommandMatchScore * 0.7
+		return constants.CommandMatchScore * constants.ContainsMatchMultiplier
 	}
 
 	return 0
@@ -217,7 +210,7 @@ func calculateKeywordScore(word string, keywordsLower []string) float64 {
 	// Check for exact match first
 	for _, keyword := range keywordsLower {
 		if keyword == word {
-			return constants.KeywordExactScore * 1.5
+			return constants.KeywordExactScore * constants.KeywordExactMatchMultiplier
 		}
 	}
 
@@ -240,7 +233,7 @@ func calculateDescriptionScore(word, descLower string) float64 {
 
 	// Partial match in description
 	if strings.Contains(descLower, word) {
-		return constants.DescriptionMatchScore * 0.6
+		return constants.DescriptionMatchScore * constants.PartialMatchScoreMultiplier
 	}
 
 	return 0
@@ -301,9 +294,9 @@ func calculateScore(cmd *Command, queryWords []string, contextBoosts map[string]
 	}
 
 	if maxWordScore >= constants.DirectCommandMatchScore {
-		score *= 1.8
+		score *= constants.DirectCommandMatchBonus
 	} else if maxWordScore >= constants.CommandMatchScore {
-		score *= 1.4
+		score *= constants.CommandMatchBonus
 	}
 
 	score *= getCategoryRelevanceBoost(cmd, queryWords)
@@ -753,7 +746,7 @@ func (db *Database) SearchWithNLP(query string, options SearchOptions) []SearchR
 		// Apply intent-based scoring boost to fallback results
 		for i := range fallbackResults {
 			intentBoost := calculateIntentBoost(fallbackResults[i].Command, processedQuery)
-			fallbackResults[i].Score *= intentBoost * 0.8 // Slightly lower priority than TF-IDF
+			fallbackResults[i].Score *= intentBoost * constants.FallbackResultPriority // Slightly lower priority than TF-IDF
 		}
 
 		// Combine results

@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	"github.com/Vedant9500/WTF/internal/nlp"
+	"github.com/Vedant9500/WTF/internal/utils"
 )
 
 // universalIndex implements BM25F scoring with field weights.
@@ -107,7 +108,7 @@ func (db *Database) selectTopTerms(terms []string, max int) []string {
 	}
 
 	// Conservative approach: preserve the first few terms which are likely from the original query
-	preserveCount := min(4, len(terms)) // Preserve at least first 4 terms
+	preserveCount := utils.Min(4, len(terms)) // Preserve at least first 4 terms
 
 	idx := db.uIndex
 	seen := map[string]bool{}
@@ -167,7 +168,7 @@ func (db *Database) selectTopTerms(terms []string, max int) []string {
 		sort.Slice(enhancedList, func(i, j int) bool {
 			return enhancedList[i].idf > enhancedList[j].idf
 		})
-		for i := 0; i < min(remaining, len(enhancedList)); i++ {
+		for i := 0; i < utils.Min(remaining, len(enhancedList)); i++ {
 			out = append(out, enhancedList[i].term)
 		}
 	}
@@ -415,7 +416,7 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 	}
 
 	// Collect and optionally apply pipeline boost
-	results := make([]SearchResult, 0, min(len(scores), options.Limit*3))
+	results := make([]SearchResult, 0, utils.Min(len(scores), options.Limit*3))
 	for docID, score := range scores {
 		cmd := &db.Commands[docID]
 		// Apply intent-based boost if NLP is active

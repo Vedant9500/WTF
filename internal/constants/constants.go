@@ -36,6 +36,20 @@ const (
 	CategoryBoostDownload           = 1.4
 	CategoryBoostSpecialCompression = 2.5
 	CategoryBoostSearchPenalty      = 0.2
+
+	// Score multipliers for command matching
+	ExactCommandMatchMultiplier  = 2.0 // Applied when command exactly matches query word
+	PrefixCommandMatchMultiplier = 1.5 // Applied when command starts with query word
+	ContainsMatchMultiplier      = 0.7 // Applied for partial substring matches
+	KeywordExactMatchMultiplier  = 1.5 // Applied for exact keyword matches
+	PartialMatchScoreMultiplier  = 0.6 // Applied for partial description matches
+
+	// Scoring bonus multipliers
+	DirectCommandMatchBonus = 1.8 // Bonus when max word score >= DirectCommandMatchScore
+	CommandMatchBonus       = 1.4 // Bonus when max word score >= CommandMatchScore
+
+	// Fallback priority multipliers
+	FallbackResultPriority = 0.8 // Lower priority for fallback/fuzzy results
 )
 
 // Search defaults

@@ -4,6 +4,8 @@ package nlp
 import (
 	"regexp"
 	"strings"
+
+	"github.com/Vedant9500/WTF/internal/utils"
 )
 
 // QueryProcessor handles natural language query preprocessing
@@ -247,14 +249,14 @@ func (pq *ProcessedQuery) GetEnhancedKeywords() []string {
 	// Add actions as keywords (medium priority) - but only the most relevant ones
 	if len(pq.Actions) > 0 {
 		// Limit to 2-3 most relevant actions to avoid noise
-		actionLimit := min(len(pq.Actions), 3)
+		actionLimit := utils.Min(len(pq.Actions), 3)
 		enhanced = append(enhanced, pq.Actions[:actionLimit]...)
 	}
 
 	// Add targets as keywords (medium priority) - but only the most relevant ones
 	if len(pq.Targets) > 0 {
 		// Limit to 2-3 most relevant targets to avoid noise
-		targetLimit := min(len(pq.Targets), 3)
+		targetLimit := utils.Min(len(pq.Targets), 3)
 		enhanced = append(enhanced, pq.Targets[:targetLimit]...)
 	}
 
@@ -492,10 +494,4 @@ func removeDuplicates(slice []string) []string {
 	return result
 }
 
-// min returns the minimum of two integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
+
