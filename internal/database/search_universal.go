@@ -352,11 +352,11 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 	currentPlatform := getCurrentPlatform()
 
 	// Reduce noise for long queries by keeping top-IDF terms
-	cap := options.TopTermsCap
-	if cap <= 0 {
-		cap = 10
+	termsCap := options.TopTermsCap
+	if termsCap <= 0 {
+		termsCap = 10
 	}
-	terms = db.selectTopTerms(terms, cap)
+	terms = db.selectTopTerms(terms, termsCap)
 
 	// Prepare per-term boosts (context + NLP action/target emphasis)
 	termBoost := map[string]float64{}
@@ -454,9 +454,8 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 		for i := range topK {
 			idx := db.cmdIndex[topK[i].Command]
 			if sim, ok := simByIdx[idx]; ok {
-				// blend: new = bm25f*(1) + sim*(alpha)
 				alpha := 0.35
-				topK[i].Score = topK[i].Score + sim*alpha*100.0
+				topK[i].Score += sim * alpha * 100.0
 			}
 		}
 		// Resort after blending
@@ -503,9 +502,9 @@ func (idx *universalIndex) fieldBM25(tf, dl, avgdl, w, b float64) float64 {
 	return (tfw * (k1 + 1)) / (tfw + k1*norm)
 }
 
-func bm25IDF(N, df int) float64 {
+func bm25IDF(n, df int) float64 {
 	// Okapi BM25 idf with 0.5 adjustments
-	return math.Log((float64(N)-float64(df)+0.5)/(float64(df)+0.5) + 1)
+	return math.Log((float64(n)-float64(df)+0.5)/(float64(df)+0.5) + 1)
 }
 
 func isPlatformCompatible(platforms []string, current string) bool {

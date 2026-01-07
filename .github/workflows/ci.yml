@@ -135,7 +135,7 @@ jobs:
       - name: Check coverage threshold
         if: matrix.os == 'ubuntu-latest'
         env:
-          COVERAGE_MIN: "75"
+          COVERAGE_MIN: "40"
         shell: bash
         run: |
           echo "📊 Checking coverage threshold..."

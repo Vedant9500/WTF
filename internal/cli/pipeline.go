@@ -238,11 +238,3 @@ func formatPipelineCommand(command string) string {
 	formatted := strings.ReplaceAll(command, "|", " │ ")
 	return formatted
 }
-
-// Helper function to check if a command is likely a pipeline
-func isPipelineCommand(command string) bool {
-	return strings.Contains(command, "|") ||
-		strings.Contains(strings.ToLower(command), "pipe") ||
-		strings.Contains(command, "&&") ||
-		strings.Contains(command, ">>")
-}
