@@ -138,127 +138,13 @@ func runTarWizard() {
 
 	switch operation {
 	case 0: // Create
-		command.WriteString("-c")
-
-		// Compression
-		compressions := []string{
-			"No compression (.tar)",
-			"Gzip compression (.tar.gz / .tgz)",
-			"Bzip2 compression (.tar.bz2)",
-			"XZ compression (.tar.xz)",
-		}
-
-		compression := readChoice("\nChoose compression:", compressions)
-		switch compression {
-		case 1:
-			command.WriteString("z")
-		case 2:
-			command.WriteString("j")
-		case 3:
-			command.WriteString("J")
-		}
-
-		// Verbose
-		if readYesNo("\nShow files being processed (verbose)?") {
-			command.WriteString("v")
-		}
-
-		command.WriteString("f")
-
-		// Archive name
-		archiveName := readInput("\nEnter archive name: ")
-		if archiveName == "" {
-			archiveName = "archive.tar"
-			if compression == 1 {
-				archiveName = "archive.tar.gz"
-			} else if compression == 2 {
-				archiveName = "archive.tar.bz2"
-			} else if compression == 3 {
-				archiveName = "archive.tar.xz"
-			}
-		}
-		command.WriteString(" " + archiveName)
-
-		// Source files/directories
-		source := readInput("Enter files/directories to archive (default: current directory): ")
-		if source == "" {
-			source = "."
-		}
-		command.WriteString(" " + source)
-
-		// Exclude patterns
-		if readYesNo("\nExclude any files/patterns?") {
-			exclude := readInput("Enter exclude pattern (e.g., '*.tmp'): ")
-			if exclude != "" {
-				command.WriteString(" --exclude='" + exclude + "'")
-			}
-		}
-
+		buildTarCreate(&command)
 	case 1: // Extract
-		command.WriteString("-x")
-
-		// Auto-detect compression
-		if readYesNo("\nAuto-detect compression?") {
-			command.WriteString("a")
-		} else {
-			compressions := []string{
-				"No compression",
-				"Gzip compression",
-				"Bzip2 compression",
-				"XZ compression",
-			}
-			compression := readChoice("Choose compression type:", compressions)
-			switch compression {
-			case 1:
-				command.WriteString("z")
-			case 2:
-				command.WriteString("j")
-			case 3:
-				command.WriteString("J")
-			}
-		}
-
-		// Verbose
-		if readYesNo("\nShow files being extracted (verbose)?") {
-			command.WriteString("v")
-		}
-
-		command.WriteString("f")
-
-		// Archive name
-		archiveName := readInput("\nEnter archive file name: ")
-		command.WriteString(" " + archiveName)
-
-		// Extract directory
-		if readYesNo("\nExtract to specific directory?") {
-			extractDir := readInput("Enter directory: ")
-			command.WriteString(" -C " + extractDir)
-		}
-
+		buildTarExtract(&command)
 	case 2: // List
-		command.WriteString("-tv")
-
-		// Auto-detect compression
-		if readYesNo("\nAuto-detect compression?") {
-			command.WriteString("a")
-		}
-
-		command.WriteString("f")
-
-		// Archive name
-		archiveName := readInput("\nEnter archive file name: ")
-		command.WriteString(" " + archiveName)
-
+		buildTarList(&command)
 	case 3: // Add files
-		command.WriteString("-rv")
-
-		// Archive name
-		archiveName := readInput("\nEnter existing archive name: ")
-		command.WriteString("f " + archiveName)
-
-		// Files to add
-		files := readInput("Enter files to add: ")
-		command.WriteString(" " + files)
+		buildTarAdd(&command)
 	}
 
 	// Final command
@@ -283,6 +169,30 @@ func runTarWizard() {
 	}
 }
 
+func buildTarCompressionFlag(sb *strings.Builder, compression int) {
+	switch compression {
+	case 1:
+		sb.WriteString("z")
+	case 2:
+		sb.WriteString("j")
+	case 3:
+		sb.WriteString("J")
+	}
+}
+
+func getDefaultArchiveName(compression int) string {
+	switch compression {
+	case 1:
+		return "archive.tar.gz"
+	case 2:
+		return "archive.tar.bz2"
+	case 3:
+		return "archive.tar.xz"
+	default:
+		return "archive.tar"
+	}
+}
+
 func runFindWizard() {
 	fmt.Println("🧙 ✨ FIND Command Wizard ✨")
 	fmt.Println("I'll help you build the perfect find command!")
@@ -303,111 +213,19 @@ func runFindWizard() {
 	fmt.Println("I'll ask about different search criteria.")
 
 	// Name pattern
+	// Name pattern
 	if readYesNo("Search by name pattern?") {
 		pattern := readInput("Enter name pattern (e.g., '*.txt', 'test*'): ")
-		if strings.Contains(pattern, "*") || strings.Contains(pattern, "?") {
-			command.WriteString(" -name '" + pattern + "'")
-		} else {
-			command.WriteString(" -name '*" + pattern + "*'")
-		}
+		buildFindNamePattern(&command, pattern)
 	}
 
-	// File type
-	if readYesNo("\nFilter by file type?") {
-		types := []string{
-			"Regular files",
-			"Directories",
-			"Symbolic links",
-			"Executable files",
-		}
-
-		typeChoice := readChoice("Choose file type:", types)
-		switch typeChoice {
-		case 0:
-			command.WriteString(" -type f")
-		case 1:
-			command.WriteString(" -type d")
-		case 2:
-			command.WriteString(" -type l")
-		case 3:
-			command.WriteString(" -type f -executable")
-		}
-	}
-
-	// File size
-	if readYesNo("\nFilter by file size?") {
-		sizeOps := []string{
-			"Larger than",
-			"Smaller than",
-			"Exactly",
-		}
-
-		sizeOp := readChoice("Size comparison:", sizeOps)
-		size := readInput("Enter size (e.g., 100k, 1M, 2G): ")
-
-		switch sizeOp {
-		case 0:
-			command.WriteString(" -size +" + size)
-		case 1:
-			command.WriteString(" -size -" + size)
-		case 2:
-			command.WriteString(" -size " + size)
-		}
-	}
-
-	// Modification time
-	if readYesNo("\nFilter by modification time?") {
-		timeOps := []string{
-			"Modified within last N days",
-			"Modified more than N days ago",
-			"Modified exactly N days ago",
-		}
-
-		timeOp := readChoice("Time comparison:", timeOps)
-		days := readInput("Enter number of days: ")
-
-		switch timeOp {
-		case 0:
-			command.WriteString(" -mtime -" + days)
-		case 1:
-			command.WriteString(" -mtime +" + days)
-		case 2:
-			command.WriteString(" -mtime " + days)
-		}
-	}
+	// Filters
+	buildFindTypeFilter(&command)
+	buildFindSizeFilter(&command)
+	buildFindTimeFilter(&command)
 
 	// Actions
-	if readYesNo("\nPerform action on found files?") {
-		actions := []string{
-			"Just list them (default)",
-			"Delete them",
-			"Copy to directory",
-			"Move to directory",
-			"Execute command on each",
-			"Print detailed info",
-		}
-
-		action := readChoice("Choose action:", actions)
-		switch action {
-		case 0:
-			// Default action, do nothing
-		case 1:
-			if readYesNo("⚠️  This will DELETE files! Are you sure?") {
-				command.WriteString(" -delete")
-			}
-		case 2:
-			destDir := readInput("Enter destination directory: ")
-			command.WriteString(" -exec cp {} " + destDir + " \\;")
-		case 3:
-			destDir := readInput("Enter destination directory: ")
-			command.WriteString(" -exec mv {} " + destDir + " \\;")
-		case 4:
-			execCmd := readInput("Enter command to execute (use {} for filename): ")
-			command.WriteString(" -exec " + execCmd + " \\;")
-		case 5:
-			command.WriteString(" -ls")
-		}
-	}
+	buildFindActions(&command)
 
 	// Limit search depth
 	if readYesNo("\nLimit search depth?") {
@@ -439,6 +257,74 @@ func runFindWizard() {
 	}
 }
 
+func buildFindNamePattern(sb *strings.Builder, pattern string) {
+	if strings.Contains(pattern, "*") || strings.Contains(pattern, "?") {
+		sb.WriteString(" -name '" + pattern + "'")
+	} else {
+		sb.WriteString(" -name '*" + pattern + "*'")
+	}
+}
+
+func buildFindTypeFilter(sb *strings.Builder) {
+	if !readYesNo("\nFilter by file type?") {
+		return
+	}
+	types := []string{
+		"Regular files",
+		"Directories",
+		"Symbolic links",
+		"Executable files",
+	}
+	switch readChoice("Choose file type:", types) {
+	case 0:
+		sb.WriteString(" -type f")
+	case 1:
+		sb.WriteString(" -type d")
+	case 2:
+		sb.WriteString(" -type l")
+	case 3:
+		sb.WriteString(" -type f -executable")
+	}
+}
+
+func buildFindSizeFilter(sb *strings.Builder) {
+	if !readYesNo("\nFilter by file size?") {
+		return
+	}
+	sizeOps := []string{"Larger than", "Smaller than", "Exactly"}
+	sizeOp := readChoice("Size comparison:", sizeOps)
+	size := readInput("Enter size (e.g., 100k, 1M, 2G): ")
+	switch sizeOp {
+	case 0:
+		sb.WriteString(" -size +" + size)
+	case 1:
+		sb.WriteString(" -size -" + size)
+	case 2:
+		sb.WriteString(" -size " + size)
+	}
+}
+
+func buildFindTimeFilter(sb *strings.Builder) {
+	if !readYesNo("\nFilter by modification time?") {
+		return
+	}
+	timeOps := []string{
+		"Modified within last N days",
+		"Modified more than N days ago",
+		"Modified exactly N days ago",
+	}
+	timeOp := readChoice("Time comparison:", timeOps)
+	days := readInput("Enter number of days: ")
+	switch timeOp {
+	case 0:
+		sb.WriteString(" -mtime -" + days)
+	case 1:
+		sb.WriteString(" -mtime +" + days)
+	case 2:
+		sb.WriteString(" -mtime " + days)
+	}
+}
+
 func runFFmpegWizard() {
 	fmt.Println("🧙 ✨ FFMPEG Wizard ✨")
 	fmt.Println("I'll help you build the perfect ffmpeg command!")
@@ -466,126 +352,13 @@ func runFFmpegWizard() {
 
 	switch operation {
 	case 0: // Convert video format
-		formats := []string{
-			"MP4 (H.264)",
-			"AVI",
-			"MOV",
-			"MKV",
-			"WebM",
-			"WMV",
-		}
-
-		format := readChoice("\nChoose output format:", formats)
-
-		// Quality settings
-		qualities := []string{
-			"High quality (slower encoding)",
-			"Medium quality (balanced)",
-			"Low quality (faster encoding)",
-			"Custom settings",
-		}
-
-		quality := readChoice("\nChoose quality:", qualities)
-
-		switch format {
-		case 0: // MP4
-			command.WriteString(" -c:v libx264")
-			switch quality {
-			case 0:
-				command.WriteString(" -crf 18")
-			case 1:
-				command.WriteString(" -crf 23")
-			case 2:
-				command.WriteString(" -crf 28")
-			case 3:
-				crf := readInput("Enter CRF value (18-28, lower = better): ")
-				command.WriteString(" -crf " + crf)
-			}
-			command.WriteString(" -c:a aac")
-		case 1: // AVI
-			command.WriteString(" -c:v libxvid -c:a mp3")
-		case 2: // MOV
-			command.WriteString(" -c:v libx264 -c:a aac")
-		case 3: // MKV
-			command.WriteString(" -c:v libx264 -c:a aac")
-		case 4: // WebM
-			command.WriteString(" -c:v libvpx-vp9 -c:a libopus")
-		case 5: // WMV
-			command.WriteString(" -c:v wmv2 -c:a wmav2")
-		}
-
+		buildFFmpegConvertVideo(&command)
 	case 1: // Extract audio
-		audioFormats := []string{
-			"MP3",
-			"AAC",
-			"WAV",
-			"FLAC",
-			"OGG",
-		}
-
-		audioFormat := readChoice("\nChoose audio format:", audioFormats)
-
-		switch audioFormat {
-		case 0: // MP3
-			command.WriteString(" -vn -c:a libmp3lame")
-			bitrate := readInput("Enter bitrate (default: 192k): ")
-			if bitrate == "" {
-				bitrate = "192k"
-			}
-			command.WriteString(" -b:a " + bitrate)
-		case 1: // AAC
-			command.WriteString(" -vn -c:a aac")
-		case 2: // WAV
-			command.WriteString(" -vn -c:a pcm_s16le")
-		case 3: // FLAC
-			command.WriteString(" -vn -c:a flac")
-		case 4: // OGG
-			command.WriteString(" -vn -c:a libvorbis")
-		}
-
+		buildFFmpegExtractAudio(&command)
 	case 2: // Resize video
-		resolutions := []string{
-			"1920x1080 (1080p)",
-			"1280x720 (720p)",
-			"854x480 (480p)",
-			"640x360 (360p)",
-			"Custom resolution",
-			"Scale by factor",
-		}
-
-		resolution := readChoice("\nChoose resolution:", resolutions)
-
-		switch resolution {
-		case 0:
-			command.WriteString(" -vf scale=1920:1080")
-		case 1:
-			command.WriteString(" -vf scale=1280:720")
-		case 2:
-			command.WriteString(" -vf scale=854:480")
-		case 3:
-			command.WriteString(" -vf scale=640:360")
-		case 4:
-			width := readInput("Enter width: ")
-			height := readInput("Enter height: ")
-			command.WriteString(" -vf scale=" + width + ":" + height)
-		case 5:
-			factor := readInput("Enter scale factor (e.g., 0.5 for half size): ")
-			command.WriteString(" -vf scale=iw*" + factor + ":ih*" + factor)
-		}
-
+		buildFFmpegResizeVideo(&command)
 	case 3: // Cut/trim video
-		fmt.Println("\nTrim options:")
-		startTime := readInput("Enter start time (HH:MM:SS or seconds): ")
-
-		if readYesNo("Specify duration?") {
-			duration := readInput("Enter duration (HH:MM:SS or seconds): ")
-			command.WriteString(" -ss " + startTime + " -t " + duration)
-		} else {
-			endTime := readInput("Enter end time (HH:MM:SS or seconds): ")
-			command.WriteString(" -ss " + startTime + " -to " + endTime)
-		}
-
-		command.WriteString(" -c copy") // Copy streams for speed
+		buildFFmpegTrimVideo(&command)
 	}
 
 	// Output file

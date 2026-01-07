@@ -98,8 +98,19 @@ func (td *DefaultTestDatabase) CreateMinimalDB() *database.Database {
 
 // CreateLargeDB creates a larger database for performance testing
 func (td *DefaultTestDatabase) CreateLargeDB() *database.Database {
-	commands := []database.Command{
-		// Git commands
+	var commands []database.Command
+	commands = append(commands, td.createGitCommands()...)
+	commands = append(commands, td.createFileCommands()...)
+	commands = append(commands, td.createArchiveCommands()...)
+	commands = append(commands, td.createPipelineCommands()...)
+	commands = append(commands, td.createNetworkCommands()...)
+	commands = append(commands, td.createSystemCommands()...)
+
+	return td.CreateTestDB(commands)
+}
+
+func (td *DefaultTestDatabase) createGitCommands() []database.Command {
+	return []database.Command{
 		{
 			Command:     "git init",
 			Description: "initialize a new git repository",
@@ -135,7 +146,11 @@ func (td *DefaultTestDatabase) CreateLargeDB() *database.Database {
 			Platform:    []string{"linux", "macos", "windows"},
 			Pipeline:    false,
 		},
-		// File operations
+	}
+}
+
+func (td *DefaultTestDatabase) createFileCommands() []database.Command {
+	return []database.Command{
 		{
 			Command:     "find . -name '*.txt'",
 			Description: "find text files",
@@ -171,7 +186,11 @@ func (td *DefaultTestDatabase) CreateLargeDB() *database.Database {
 			Platform:    []string{"linux", "macos"},
 			Pipeline:    false,
 		},
-		// Archive operations
+	}
+}
+
+func (td *DefaultTestDatabase) createArchiveCommands() []database.Command {
+	return []database.Command{
 		{
 			Command:     "tar -czf archive.tar.gz .",
 			Description: "create compressed archive",
@@ -200,7 +219,11 @@ func (td *DefaultTestDatabase) CreateLargeDB() *database.Database {
 			Platform:    []string{"linux", "macos", "windows"},
 			Pipeline:    false,
 		},
-		// Pipeline commands
+	}
+}
+
+func (td *DefaultTestDatabase) createPipelineCommands() []database.Command {
+	return []database.Command{
 		{
 			Command:     "ps aux | grep process",
 			Description: "find running processes",
@@ -215,7 +238,11 @@ func (td *DefaultTestDatabase) CreateLargeDB() *database.Database {
 			Platform:    []string{"linux", "macos"},
 			Pipeline:    true,
 		},
-		// Network commands
+	}
+}
+
+func (td *DefaultTestDatabase) createNetworkCommands() []database.Command {
+	return []database.Command{
 		{
 			Command:     "curl -O https://example.com/file",
 			Description: "download file from URL",
@@ -237,7 +264,11 @@ func (td *DefaultTestDatabase) CreateLargeDB() *database.Database {
 			Platform:    []string{"linux", "macos", "windows"},
 			Pipeline:    false,
 		},
-		// System commands
+	}
+}
+
+func (td *DefaultTestDatabase) createSystemCommands() []database.Command {
+	return []database.Command{
 		{
 			Command:     "top",
 			Description: "display running processes",
@@ -253,7 +284,6 @@ func (td *DefaultTestDatabase) CreateLargeDB() *database.Database {
 			Pipeline:    false,
 		},
 	}
-	return td.CreateTestDB(commands)
 }
 
 // CreateEmptyDB creates an empty database for testing edge cases
@@ -351,7 +381,7 @@ func (tf *DefaultTestFixtures) GetTestQueries() []TestQuery {
 }
 
 // CreateTempDir creates a temporary directory for testing
-func (tf *DefaultTestFixtures) CreateTempDir() (string, func()) {
+func (tf *DefaultTestFixtures) CreateTempDir() (dir string, cleanupFn func()) {
 	tempDir, err := os.MkdirTemp("", "wtf_test_")
 	if err != nil {
 		panic("Failed to create temp directory: " + err.Error())
@@ -365,7 +395,7 @@ func (tf *DefaultTestFixtures) CreateTempDir() (string, func()) {
 }
 
 // CreateTempFile creates a temporary file with the given content
-func (tf *DefaultTestFixtures) CreateTempFile(content string) (string, func()) {
+func (tf *DefaultTestFixtures) CreateTempFile(content string) (path string, cleanupFn func()) {
 	tempFile, err := os.CreateTemp("", "wtf_test_*.txt")
 	if err != nil {
 		panic("Failed to create temp file: " + err.Error())
@@ -462,7 +492,7 @@ func GetTestDataPath() string {
 }
 
 // SetupTestEnvironment sets up a complete test environment
-func SetupTestEnvironment(t *testing.T) (*database.Database, func()) {
+func SetupTestEnvironment(t *testing.T) (resultDB *database.Database, cleanupFn func()) {
 	t.Helper()
 
 	// Create test database

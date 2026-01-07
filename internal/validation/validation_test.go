@@ -710,12 +710,14 @@ func TestValidateConfig(t *testing.T) {
 	}
 }
 
+type sanitizationTestCase struct {
+	name     string
+	input    string
+	expected string
+}
+
 func TestSanitizeInput(t *testing.T) {
-	testCases := []struct {
-		name     string
-		input    string
-		expected string
-	}{
+	testCases := []sanitizationTestCase{
 		{
 			name:     "Clean input",
 			input:    "git commit -m 'message'",
@@ -753,22 +755,11 @@ func TestSanitizeInput(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := SanitizeInput(tc.input)
-			if result != tc.expected {
-				t.Errorf("Expected result '%s', got '%s'", tc.expected, result)
-			}
-		})
-	}
+	runSanitizationTests(t, testCases, SanitizeInput)
 }
 
 func TestSanitizeLogData(t *testing.T) {
-	testCases := []struct {
-		name     string
-		input    string
-		expected string
-	}{
+	testCases := []sanitizationTestCase{
 		{
 			name:     "Password in log",
 			input:    "user login with password=secret123",
@@ -806,9 +797,15 @@ func TestSanitizeLogData(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	runSanitizationTests(t, testCases, SanitizeLogData)
+}
+
+// Helper to run sanitization tests
+func runSanitizationTests(t *testing.T, cases []sanitizationTestCase, sanitizer func(string) string) {
+	t.Helper()
+	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := SanitizeLogData(tc.input)
+			result := sanitizer(tc.input)
 			if result != tc.expected {
 				t.Errorf("Expected result '%s', got '%s'", tc.expected, result)
 			}

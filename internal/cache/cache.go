@@ -7,14 +7,14 @@ import (
 )
 
 // CacheItem represents a cached item with expiration
-type CacheItem struct {
+type Item struct {
 	Value     interface{}
 	ExpiresAt time.Time
 }
 
 // Cache provides a thread-safe in-memory cache with expiration and automatic cleanup
 type Cache struct {
-	items         map[string]*CacheItem
+	items         map[string]*Item
 	mutex         sync.RWMutex
 	ttl           time.Duration
 	cleanupTicker *time.Ticker
@@ -25,7 +25,7 @@ type Cache struct {
 // NewCache creates a new cache with the specified TTL
 func NewCache(ttl time.Duration) *Cache {
 	return &Cache{
-		items: make(map[string]*CacheItem),
+		items: make(map[string]*Item),
 		ttl:   ttl,
 	}
 }
@@ -35,7 +35,7 @@ func NewCache(ttl time.Duration) *Cache {
 // Call Stop() to gracefully shut down the cleanup goroutine.
 func NewCacheWithAutoCleanup(ttl, cleanupInterval time.Duration) *Cache {
 	c := &Cache{
-		items:         make(map[string]*CacheItem),
+		items:         make(map[string]*Item),
 		ttl:           ttl,
 		cleanupTicker: time.NewTicker(cleanupInterval),
 		stopCleanup:   make(chan struct{}),
@@ -95,7 +95,7 @@ func (c *Cache) Set(key string, value interface{}) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.items[key] = &CacheItem{
+	c.items[key] = &Item{
 		Value:     value,
 		ExpiresAt: time.Now().Add(c.ttl),
 	}
@@ -114,7 +114,7 @@ func (c *Cache) Clear() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.items = make(map[string]*CacheItem)
+	c.items = make(map[string]*Item)
 }
 
 // Cleanup removes expired items from the cache

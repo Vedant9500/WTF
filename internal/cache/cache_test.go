@@ -266,7 +266,7 @@ func TestSearchCache_Invalidation(t *testing.T) {
 }
 
 func TestCacheManager(t *testing.T) {
-	manager := NewCacheManager()
+	manager := NewManager()
 
 	if !manager.IsEnabled() {
 		t.Error("Expected cache manager to be enabled by default")

@@ -7,14 +7,14 @@ import (
 // CachedDatabase wraps Database with caching capabilities
 type CachedDatabase struct {
 	*Database
-	cacheManager *cache.CacheManager
+	cacheManager *cache.Manager
 }
 
 // NewCachedDatabase creates a new database with caching
 func NewCachedDatabase(db *Database) *CachedDatabase {
 	return &CachedDatabase{
 		Database:     db,
-		cacheManager: cache.NewCacheManager(),
+		cacheManager: cache.NewManager(),
 	}
 }
 
@@ -74,7 +74,7 @@ func (cdb *CachedDatabase) IsCacheEnabled() bool {
 }
 
 // GetCacheStats returns cache statistics
-func (cdb *CachedDatabase) GetCacheStats() map[string]cache.CacheStats {
+func (cdb *CachedDatabase) GetCacheStats() map[string]cache.Stats {
 	return cdb.cacheManager.GetStats()
 }
 
@@ -92,66 +92,12 @@ func (cdb *CachedDatabase) UpdateDatabase(commands []Command) {
 
 // SearchWithPipelineOptionsAndCache performs pipeline search with caching
 func (cdb *CachedDatabase) SearchWithPipelineOptionsAndCache(query string, options SearchOptions) []SearchResult {
-	searchCache := cdb.cacheManager.GetSearchCache()
-	if !cdb.cacheManager.IsEnabled() {
-		return cdb.SearchUniversal(query, options)
-	}
-
-	// Convert SearchOptions to cache.SearchOptions
-	cacheOptions := cache.SearchOptions{
-		Limit:          options.Limit,
-		ContextBoosts:  options.ContextBoosts,
-		PipelineOnly:   options.PipelineOnly,
-		PipelineBoost:  options.PipelineBoost,
-		UseFuzzy:       options.UseFuzzy,
-		FuzzyThreshold: options.FuzzyThreshold,
-		UseNLP:         options.UseNLP,
-	}
-
-	// Try cache first
-	if cachedResults, found := searchCache.Get(query, cacheOptions); found {
-		return convertCacheResults(cachedResults)
-	}
-
-	// Cache miss - perform search
-	results := cdb.SearchUniversal(query, options)
-
-	// Store in cache
-	if len(results) > 0 {
-		searchCache.Put(query, cacheOptions, convertDBResults(results))
-	}
-
-	return results
+	return cdb.SearchWithOptionsAndCache(query, options)
 }
 
 // SearchWithFuzzyAndCache performs fuzzy search with caching
 func (cdb *CachedDatabase) SearchWithFuzzyAndCache(query string, options SearchOptions) []SearchResult {
-	searchCache := cdb.cacheManager.GetSearchCache()
-	if !cdb.cacheManager.IsEnabled() {
-		return cdb.SearchUniversal(query, options)
-	}
-
-	cacheOptions := cache.SearchOptions{
-		Limit:          options.Limit,
-		ContextBoosts:  options.ContextBoosts,
-		PipelineOnly:   options.PipelineOnly,
-		PipelineBoost:  options.PipelineBoost,
-		UseFuzzy:       options.UseFuzzy,
-		FuzzyThreshold: options.FuzzyThreshold,
-		UseNLP:         options.UseNLP,
-	}
-
-	if cachedResults, found := searchCache.Get(query, cacheOptions); found {
-		return convertCacheResults(cachedResults)
-	}
-
-	results := cdb.SearchUniversal(query, options)
-
-	if len(results) > 0 {
-		searchCache.Put(query, cacheOptions, convertDBResults(results))
-	}
-
-	return results
+	return cdb.SearchWithOptionsAndCache(query, options)
 }
 
 // convertCacheResults converts cached results to database results.

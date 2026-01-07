@@ -23,10 +23,7 @@ func TestSearchScoringConstants(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.value < tc.minValue || tc.value > tc.maxValue {
-				t.Errorf("%s = %f, expected between %f and %f",
-					tc.name, tc.value, tc.minValue, tc.maxValue)
-			}
+			checkConstantRange(t, tc.name, tc.value, tc.minValue, tc.maxValue)
 		})
 	}
 }
@@ -48,10 +45,7 @@ func TestIntentBoostConstants(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.value < tc.minValue || tc.value > tc.maxValue {
-				t.Errorf("%s = %f, expected between %f and %f",
-					tc.name, tc.value, tc.minValue, tc.maxValue)
-			}
+			checkConstantRange(t, tc.name, tc.value, tc.minValue, tc.maxValue)
 		})
 	}
 }
@@ -74,11 +68,17 @@ func TestCategoryBoostConstants(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.value < tc.minValue || tc.value > tc.maxValue {
-				t.Errorf("%s = %f, expected between %f and %f",
-					tc.name, tc.value, tc.minValue, tc.maxValue)
-			}
+			checkConstantRange(t, tc.name, tc.value, tc.minValue, tc.maxValue)
 		})
+	}
+}
+
+// Helper function to check constant range
+func checkConstantRange(t *testing.T, name string, value, minValue, maxValue float64) {
+	t.Helper()
+	if value < minValue || value > maxValue {
+		t.Errorf("%s = %f, expected between %f and %f",
+			name, value, minValue, maxValue)
 	}
 }
 
@@ -202,9 +202,6 @@ func TestConstantRelationships(t *testing.T) {
 func TestConstantTypes(_ *testing.T) {
 	// Test that constants are of expected types
 
-	var i int
-	var d time.Duration
-
 	// Scoring constants should be float64
 	_ = float64(ScoreDirectCommandMatch)
 	_ = float64(ScoreCommandMatch)
@@ -214,19 +211,17 @@ func TestConstantTypes(_ *testing.T) {
 	_ = float64(ScoreDomainSpecificMatch)
 
 	// Search defaults should be int
-	i = DefaultSearchLimit
-	i = DefaultFuzzyThreshold
-	i = DefaultMaxResults
-	i = DefaultHistorySize
-	i = MaxQueryLength
-	i = MinWordLength
-	i = MaxSynonymsPerWord
-	i = StopWordThreshold
-	_ = i
+	_ = int(DefaultSearchLimit)
+	_ = int(DefaultFuzzyThreshold)
+	_ = int(DefaultMaxResults)
+	_ = int(DefaultHistorySize)
+	_ = int(MaxQueryLength)
+	_ = int(MinWordLength)
+	_ = int(MaxSynonymsPerWord)
+	_ = int(StopWordThreshold)
 
 	// Cache TTL should be time.Duration
-	d = DefaultCacheTTL
-	_ = d
+	_ = DefaultCacheTTL
 }
 
 func TestConstantValues(t *testing.T) {

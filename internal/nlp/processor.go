@@ -4,8 +4,6 @@ package nlp
 import (
 	"regexp"
 	"strings"
-
-	"github.com/Vedant9500/WTF/internal/utils"
 )
 
 // QueryProcessor handles natural language query preprocessing
@@ -130,7 +128,7 @@ func (qp *QueryProcessor) ProcessQuery(query string) *ProcessedQuery {
 // cleanQuery removes unnecessary characters and normalizes the text
 func (qp *QueryProcessor) cleanQuery(query string) string {
 	// Remove special characters but keep spaces and common punctuation
-	re := regexp.MustCompile(`[^\w\s\-\.]`)
+	re := regexp.MustCompile(`[^\w\s\-.]`)
 	cleaned := re.ReplaceAllString(query, " ")
 
 	// Normalize multiple spaces
@@ -143,7 +141,7 @@ func (qp *QueryProcessor) cleanQuery(query string) string {
 // NormalizeText applies the same cleanup used in the NLP query processor.
 // It removes special characters (keeping spaces, hyphens, and dots) and collapses whitespace.
 func NormalizeText(s string) string {
-	re := regexp.MustCompile(`[^\w\s\-\.]`)
+	re := regexp.MustCompile(`[^\w\s\-.]`)
 	cleaned := re.ReplaceAllString(s, " ")
 	re = regexp.MustCompile(`\s+`)
 	cleaned = re.ReplaceAllString(cleaned, " ")
@@ -162,8 +160,17 @@ func StopWords() map[string]bool {
 }
 
 // detectIntent analyzes actions and keywords to determine user intent
-func (qp *QueryProcessor) detectIntent(actions []string, keywords []string) QueryIntent {
-	// Check actions for clear intent
+func (qp *QueryProcessor) detectIntent(actions, keywords []string) QueryIntent {
+	// Check actions for clear intent first
+	if intent := qp.detectIntentFromActions(actions); intent != IntentGeneral {
+		return intent
+	}
+
+	// Check keywords for intent hints with context
+	return qp.detectIntentFromKeywords(keywords, actions)
+}
+
+func (qp *QueryProcessor) detectIntentFromActions(actions []string) QueryIntent {
 	for _, action := range actions {
 		switch action {
 		case "find", "search", "locate", "list":
@@ -184,24 +191,16 @@ func (qp *QueryProcessor) detectIntent(actions []string, keywords []string) Quer
 			return IntentConfigure
 		}
 	}
+	return IntentGeneral
+}
 
-	// Check keywords for intent hints with context
+func (qp *QueryProcessor) detectIntentFromKeywords(keywords, actions []string) QueryIntent {
 	for _, keyword := range keywords {
 		switch keyword {
 		case "contents", "content", "inside", "text":
 			// Check if this is about viewing (see, show, read) or clearing (clear, empty)
-			hasViewAction := false
-			hasClearAction := false
-			for _, action := range actions {
-				if action == "view" || action == "show" || action == "see" || action == "read" || action == "display" {
-					hasViewAction = true
-				}
-				if action == "clear" || action == "empty" || action == "delete" || action == "remove" {
-					hasClearAction = true
-				}
-			}
-			if hasViewAction || (!hasClearAction && len(actions) == 0) {
-				return IntentView // Default to view if no clear action detected
+			if qp.isViewContext(actions) {
+				return IntentView
 			}
 		case "install", "installation":
 			return IntentInstall
@@ -213,8 +212,21 @@ func (qp *QueryProcessor) detectIntent(actions []string, keywords []string) Quer
 			return IntentModify
 		}
 	}
-
 	return IntentGeneral
+}
+
+func (qp *QueryProcessor) isViewContext(actions []string) bool {
+	hasViewAction := false
+	hasClearAction := false
+	for _, action := range actions {
+		switch action {
+		case "view", "show", "see", "read", "display":
+			hasViewAction = true
+		case "clear", "empty", "delete", "remove":
+			hasClearAction = true
+		}
+	}
+	return hasViewAction || (!hasClearAction && len(actions) == 0)
 }
 
 // GetEnhancedKeywords returns expanded keywords for better search
@@ -247,35 +259,14 @@ func (pq *ProcessedQuery) GetEnhancedKeywords() []string {
 	}
 
 	// Add actions as keywords (medium priority) - but only the most relevant ones
-	if len(pq.Actions) > 0 {
-		// Limit to 2-3 most relevant actions to avoid noise
-		actionLimit := utils.Min(len(pq.Actions), 3)
-		enhanced = append(enhanced, pq.Actions[:actionLimit]...)
-	}
+	enhanced = append(enhanced, pq.getRelevantActions()...)
 
 	// Add targets as keywords (medium priority) - but only the most relevant ones
-	if len(pq.Targets) > 0 {
-		// Limit to 2-3 most relevant targets to avoid noise
-		targetLimit := utils.Min(len(pq.Targets), 3)
-		enhanced = append(enhanced, pq.Targets[:targetLimit]...)
-	}
+	enhanced = append(enhanced, pq.getRelevantTargets()...)
 
 	// Only add intent-specific keywords if we have very few other keywords
 	if len(enhanced) < 4 {
-		switch pq.Intent {
-		case IntentFind:
-			enhanced = append(enhanced, "search", "find")
-		case IntentView:
-			enhanced = append(enhanced, "cat", "view", "show")
-		case IntentCreate:
-			enhanced = append(enhanced, "create", "make")
-		case IntentDelete:
-			enhanced = append(enhanced, "delete", "remove")
-		case IntentInstall:
-			enhanced = append(enhanced, "install", "setup")
-		case IntentModify:
-			enhanced = append(enhanced, "configure", "change")
-		}
+		enhanced = append(enhanced, pq.getIntentKeywords()...)
 	}
 
 	return removeDuplicates(enhanced)

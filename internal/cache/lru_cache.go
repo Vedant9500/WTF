@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// CacheEntry represents a cached item with metadata
-type CacheEntry struct {
+// Entry represents a cached item with metadata
+type Entry struct {
 	Key         string
 	Value       interface{}
 	CreatedAt   time.Time
@@ -55,7 +55,7 @@ func (c *LRUCache) Get(key string) (interface{}, bool) {
 		return nil, false
 	}
 
-	entry := element.Value.(*CacheEntry)
+	entry := element.Value.(*Entry)
 
 	// Check TTL expiration
 	if c.ttl > 0 && time.Since(entry.CreatedAt) > c.ttl {
@@ -85,7 +85,7 @@ func (c *LRUCache) Put(key string, value interface{}) {
 	// Check if key already exists
 	if element, exists := c.items[key]; exists {
 		// Update existing entry
-		entry := element.Value.(*CacheEntry)
+		entry := element.Value.(*Entry)
 		entry.Value = value
 		entry.AccessedAt = now
 		entry.AccessCount++
@@ -94,7 +94,7 @@ func (c *LRUCache) Put(key string, value interface{}) {
 	}
 
 	// Create new entry
-	entry := &CacheEntry{
+	entry := &Entry{
 		Key:         key,
 		Value:       value,
 		CreatedAt:   now,
@@ -149,7 +149,7 @@ func (c *LRUCache) Capacity() int {
 }
 
 // Stats returns cache statistics
-func (c *LRUCache) Stats() CacheStats {
+func (c *LRUCache) Stats() Stats {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -159,7 +159,7 @@ func (c *LRUCache) Stats() CacheStats {
 		hitRatio = float64(c.hits) / float64(total)
 	}
 
-	return CacheStats{
+	return Stats{
 		Hits:      c.hits,
 		Misses:    c.misses,
 		Evictions: c.evictions,
@@ -195,7 +195,7 @@ func (c *LRUCache) CleanupExpired() int {
 
 	// Walk from back to front (oldest to newest)
 	for element := c.evictList.Back(); element != nil; {
-		entry := element.Value.(*CacheEntry)
+		entry := element.Value.(*Entry)
 
 		if now.Sub(entry.CreatedAt) > c.ttl {
 			next := element.Prev()
@@ -223,12 +223,12 @@ func (c *LRUCache) evictOldest() {
 // removeElement removes an element from both the list and map
 func (c *LRUCache) removeElement(element *list.Element) {
 	c.evictList.Remove(element)
-	entry := element.Value.(*CacheEntry)
+	entry := element.Value.(*Entry)
 	delete(c.items, entry.Key)
 }
 
-// CacheStats holds cache performance statistics
-type CacheStats struct {
+// Stats holds cache performance statistics
+type Stats struct {
 	Hits      int64   `json:"hits"`
 	Misses    int64   `json:"misses"`
 	Evictions int64   `json:"evictions"`
@@ -238,7 +238,7 @@ type CacheStats struct {
 }
 
 // String returns a string representation of cache stats
-func (s CacheStats) String() string {
+func (s Stats) String() string {
 	return fmt.Sprintf("Cache Stats: Hits=%d, Misses=%d, Evictions=%d, Size=%d/%d, HitRatio=%.2f%%",
 		s.Hits, s.Misses, s.Evictions, s.Size, s.Capacity, s.HitRatio*100)
 }

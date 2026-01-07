@@ -8,12 +8,12 @@
 //   - System metrics collection (memory, GC, goroutines)
 //   - Thread-safe operations with atomic operations and mutexes
 //
-// The MetricsCollector provides a centralized way to manage all metrics,
+// The Collector provides a centralized way to manage all metrics,
 // while individual metric types can be used independently.
 //
 // Example usage:
 //
-//	collector := NewMetricsCollector()
+//	collector := NewCollector()
 //	counter := collector.Counter("requests_total", map[string]string{"method": "GET"})
 //	counter.Inc()
 //
@@ -260,8 +260,8 @@ func (t *Timer) Histogram() *Histogram {
 	return t.histogram
 }
 
-// MetricsCollector collects and manages metrics
-type MetricsCollector struct {
+// Collector collects and manages metrics
+type Collector struct {
 	mu         sync.RWMutex
 	counters   map[string]*Counter
 	gauges     map[string]*Gauge
@@ -270,9 +270,9 @@ type MetricsCollector struct {
 	startTime  time.Time
 }
 
-// NewMetricsCollector creates a new metrics collector
-func NewMetricsCollector() *MetricsCollector {
-	return &MetricsCollector{
+// NewCollector creates a new metrics collector
+func NewCollector() *Collector {
+	return &Collector{
 		counters:   make(map[string]*Counter),
 		gauges:     make(map[string]*Gauge),
 		histograms: make(map[string]*Histogram),
@@ -281,14 +281,20 @@ func NewMetricsCollector() *MetricsCollector {
 	}
 }
 
-// Counter gets or creates a counter
-func (mc *MetricsCollector) Counter(name string, tags map[string]string) *Counter {
+// getOrCreate is a generic helper to safely get or create a metric
+func getOrCreate[T any](
+	mc *Collector,
+	storage map[string]*T,
+	name string,
+	tags map[string]string,
+	factory func(string, map[string]string) *T,
+) *T {
 	key := mc.metricKey(name, tags)
 
 	mc.mu.RLock()
-	if counter, exists := mc.counters[key]; exists {
+	if item, exists := storage[key]; exists {
 		mc.mu.RUnlock()
-		return counter
+		return item
 	}
 	mc.mu.RUnlock()
 
@@ -296,86 +302,41 @@ func (mc *MetricsCollector) Counter(name string, tags map[string]string) *Counte
 	defer mc.mu.Unlock()
 
 	// Double-check after acquiring write lock
-	if counter, exists := mc.counters[key]; exists {
-		return counter
+	if item, exists := storage[key]; exists {
+		return item
 	}
 
-	counter := NewCounter(name, tags)
-	mc.counters[key] = counter
-	return counter
+	item := factory(name, tags)
+	storage[key] = item
+	return item
+}
+
+// Counter gets or creates a counter
+// Counter gets or creates a counter
+func (mc *Collector) Counter(name string, tags map[string]string) *Counter {
+	return getOrCreate(mc, mc.counters, name, tags, NewCounter)
 }
 
 // Gauge gets or creates a gauge
-func (mc *MetricsCollector) Gauge(name string, tags map[string]string) *Gauge {
-	key := mc.metricKey(name, tags)
-
-	mc.mu.RLock()
-	if gauge, exists := mc.gauges[key]; exists {
-		mc.mu.RUnlock()
-		return gauge
-	}
-	mc.mu.RUnlock()
-
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-
-	if gauge, exists := mc.gauges[key]; exists {
-		return gauge
-	}
-
-	gauge := NewGauge(name, tags)
-	mc.gauges[key] = gauge
-	return gauge
+// Gauge gets or creates a gauge
+func (mc *Collector) Gauge(name string, tags map[string]string) *Gauge {
+	return getOrCreate(mc, mc.gauges, name, tags, NewGauge)
 }
 
 // Histogram gets or creates a histogram
-func (mc *MetricsCollector) Histogram(name string, tags map[string]string) *Histogram {
-	key := mc.metricKey(name, tags)
-
-	mc.mu.RLock()
-	if histogram, exists := mc.histograms[key]; exists {
-		mc.mu.RUnlock()
-		return histogram
-	}
-	mc.mu.RUnlock()
-
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-
-	if histogram, exists := mc.histograms[key]; exists {
-		return histogram
-	}
-
-	histogram := NewHistogram(name, tags)
-	mc.histograms[key] = histogram
-	return histogram
+// Histogram gets or creates a histogram
+func (mc *Collector) Histogram(name string, tags map[string]string) *Histogram {
+	return getOrCreate(mc, mc.histograms, name, tags, NewHistogram)
 }
 
 // Timer gets or creates a timer
-func (mc *MetricsCollector) Timer(name string, tags map[string]string) *Timer {
-	key := mc.metricKey(name, tags)
-
-	mc.mu.RLock()
-	if timer, exists := mc.timers[key]; exists {
-		mc.mu.RUnlock()
-		return timer
-	}
-	mc.mu.RUnlock()
-
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-
-	if timer, exists := mc.timers[key]; exists {
-		return timer
-	}
-
-	timer := NewTimer(name, tags)
-	mc.timers[key] = timer
-	return timer
+// Timer gets or creates a timer
+func (mc *Collector) Timer(name string, tags map[string]string) *Timer {
+	return getOrCreate(mc, mc.timers, name, tags, NewTimer)
 }
 
 // GetAllMetrics returns all current metrics
-func (mc *MetricsCollector) GetAllMetrics() []Metric {
+func (mc *Collector) GetAllMetrics() []Metric {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
 
@@ -408,32 +369,31 @@ func (mc *MetricsCollector) GetAllMetrics() []Metric {
 
 	// Add histograms
 	for _, histogram := range mc.histograms {
-		metrics = append(metrics, Metric{
-			Name:      histogram.name + "_count",
-			Type:      MetricTypeHistogram,
-			Value:     float64(histogram.Count()),
-			Unit:      "count",
-			Timestamp: now,
-			Tags:      histogram.tags,
-		})
-
-		metrics = append(metrics, Metric{
-			Name:      histogram.name + "_sum",
-			Type:      MetricTypeHistogram,
-			Value:     histogram.Sum(),
-			Unit:      "ms",
-			Timestamp: now,
-			Tags:      histogram.tags,
-		})
-
-		metrics = append(metrics, Metric{
-			Name:      histogram.name + "_mean",
-			Type:      MetricTypeHistogram,
-			Value:     histogram.Mean(),
-			Unit:      "ms",
-			Timestamp: now,
-			Tags:      histogram.tags,
-		})
+		metrics = append(metrics,
+			Metric{
+				Name:      histogram.name + "_count",
+				Type:      MetricTypeHistogram,
+				Value:     float64(histogram.Count()),
+				Unit:      "count",
+				Timestamp: now,
+				Tags:      histogram.tags,
+			},
+			Metric{
+				Name:      histogram.name + "_sum",
+				Type:      MetricTypeHistogram,
+				Value:     histogram.Sum(),
+				Unit:      "ms",
+				Timestamp: now,
+				Tags:      histogram.tags,
+			},
+			Metric{
+				Name:      histogram.name + "_mean",
+				Type:      MetricTypeHistogram,
+				Value:     histogram.Mean(),
+				Unit:      "ms",
+				Timestamp: now,
+				Tags:      histogram.tags,
+			})
 
 		// Add percentiles
 		for _, p := range []float64{50, 90, 95, 99} {
@@ -452,7 +412,7 @@ func (mc *MetricsCollector) GetAllMetrics() []Metric {
 }
 
 // GetSystemMetrics returns system-level metrics
-func (mc *MetricsCollector) GetSystemMetrics() []Metric {
+func (mc *Collector) GetSystemMetrics() []Metric {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
@@ -512,7 +472,7 @@ func (mc *MetricsCollector) GetSystemMetrics() []Metric {
 }
 
 // Reset clears all metrics
-func (mc *MetricsCollector) Reset() {
+func (mc *Collector) Reset() {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 
@@ -524,7 +484,7 @@ func (mc *MetricsCollector) Reset() {
 }
 
 // metricKey generates a unique key for a metric with tags
-func (mc *MetricsCollector) metricKey(name string, tags map[string]string) string {
+func (mc *Collector) metricKey(name string, tags map[string]string) string {
 	if len(tags) == 0 {
 		return name
 	}
@@ -537,7 +497,7 @@ func (mc *MetricsCollector) metricKey(name string, tags map[string]string) strin
 }
 
 // Global metrics collector instance
-var defaultCollector = NewMetricsCollector()
+var defaultCollector = NewCollector()
 
 // Default functions for convenience
 func DefaultCounter(name string, tags map[string]string) *Counter {

@@ -210,7 +210,6 @@ func (s *TFIDFSearcher) Search(query string, limit int) []TFIDFResult {
 // cosineSimilarity calculates cosine similarity between query and document vectors
 func (s *TFIDFSearcher) cosineSimilarity(queryVector map[int]float64, queryNorm float64,
 	docVector map[int]float64, docNorm float64) float64 {
-
 	if queryNorm == 0 || docNorm == 0 {
 		return 0
 	}

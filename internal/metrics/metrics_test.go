@@ -123,8 +123,8 @@ func TestTimer(t *testing.T) {
 	}
 }
 
-func TestMetricsCollector(t *testing.T) {
-	collector := NewMetricsCollector()
+func TestCollector(t *testing.T) {
+	collector := NewCollector()
 
 	// Test counter creation and retrieval
 	counter1 := collector.Counter("test_counter", nil)
@@ -322,8 +322,8 @@ func BenchmarkTimer(b *testing.B) {
 	}
 }
 
-func BenchmarkMetricsCollector(b *testing.B) {
-	collector := NewMetricsCollector()
+func BenchmarkCollector(b *testing.B) {
+	collector := NewCollector()
 
 	b.ResetTimer()
 	b.ReportAllocs()

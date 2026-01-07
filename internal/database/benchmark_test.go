@@ -370,11 +370,10 @@ func BenchmarkQueryParsing(b *testing.B) {
 	})
 
 	b.Run("StringsFieldsFunc", func(b *testing.B) {
-		words := make([]string, 0, 10)
+		var words []string
 		b.ResetTimer()
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			words = words[:0]
 			queryLower := strings.ToLower(query)
 			words = strings.Fields(queryLower)
 			_ = words

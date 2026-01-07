@@ -9,14 +9,14 @@ import (
 
 // PerformanceMonitor tracks application performance metrics
 type PerformanceMonitor struct {
-	collector *MetricsCollector
+	collector *Collector
 	enabled   bool
 }
 
 // NewPerformanceMonitor creates a new performance monitor
 func NewPerformanceMonitor() *PerformanceMonitor {
 	return &PerformanceMonitor{
-		collector: NewMetricsCollector(),
+		collector: NewCollector(),
 		enabled:   true,
 	}
 }
@@ -277,7 +277,7 @@ func (b *Benchmarker) BenchmarkFunction(name string, fn func(), iterations int) 
 		allocDiff := m2.Alloc - m1.Alloc
 
 		// Safe conversion with overflow check
-		const maxInt64 = uint64(^uint64(0) >> 1) // Maximum value that fits in int64
+		const maxInt64 = uint64(1<<63 - 1)
 		if totalAllocDiff <= maxInt64 {
 			bytesPerOp = int64(totalAllocDiff) / int64(iterations)
 		}

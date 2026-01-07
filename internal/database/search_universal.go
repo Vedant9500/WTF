@@ -103,22 +103,33 @@ func defaultParams() bm25fParams {
 
 // selectTopTerms keeps the most informative terms by IDF to avoid noise from long queries.
 // Preserves original query terms to ensure important specific terms aren't lost.
-func (db *Database) selectTopTerms(terms []string, max int) []string {
-	if max <= 0 || len(terms) <= max || db.uIndex == nil {
+func (db *Database) selectTopTerms(terms []string, maxTerms int) []string {
+	if maxTerms <= 0 || len(terms) <= maxTerms || db.uIndex == nil {
 		return terms
 	}
 
 	// Conservative approach: preserve the first few terms which are likely from the original query
 	preserveCount := utils.Min(4, len(terms)) // Preserve at least first 4 terms
 
+	list := db.scoreTerms(terms, preserveCount)
+
+	if len(list) <= maxTerms {
+		return flattenTermList(list)
+	}
+
+	return db.filterAndSortTerms(list, maxTerms)
+}
+
+type termWithScore struct {
+	term       string
+	idf        float64
+	isOriginal bool
+}
+
+func (db *Database) scoreTerms(terms []string, preserveCount int) []termWithScore {
 	idx := db.uIndex
 	seen := map[string]bool{}
-	type tw struct {
-		term       string
-		idf        float64
-		isOriginal bool
-	}
-	list := make([]tw, 0, len(terms))
+	list := make([]termWithScore, 0, len(terms))
 
 	for i, t := range terms {
 		if seen[t] {
@@ -129,24 +140,27 @@ func (db *Database) selectTopTerms(terms []string, max int) []string {
 		if !ok || df == 0 {
 			// If term not in index, still preserve it if it's from original query
 			if i < preserveCount {
-				list = append(list, tw{term: t, idf: 1.0, isOriginal: true})
+				list = append(list, termWithScore{term: t, idf: 1.0, isOriginal: true})
 			}
 			continue
 		}
 		isOriginal := i < preserveCount
-		list = append(list, tw{term: t, idf: bm25IDF(idx.N, df), isOriginal: isOriginal})
+		list = append(list, termWithScore{term: t, idf: bm25IDF(idx.N, df), isOriginal: isOriginal})
 	}
+	return list
+}
 
-	if len(list) <= max {
-		out := make([]string, 0, len(list))
-		for _, it := range list {
-			out = append(out, it.term)
-		}
-		return out
+func flattenTermList(list []termWithScore) []string {
+	out := make([]string, 0, len(list))
+	for _, it := range list {
+		out = append(out, it.term)
 	}
+	return out
+}
 
+func (db *Database) filterAndSortTerms(list []termWithScore, maxTerms int) []string {
 	// Separate original and enhanced terms
-	var originalList, enhancedList []tw
+	var originalList, enhancedList []termWithScore
 	for _, item := range list {
 		if item.isOriginal {
 			originalList = append(originalList, item)
@@ -156,7 +170,7 @@ func (db *Database) selectTopTerms(terms []string, max int) []string {
 	}
 
 	// Always keep all original terms, then add best enhanced terms
-	out := make([]string, 0, max)
+	out := make([]string, 0, maxTerms)
 
 	// Add all original terms first
 	for _, item := range originalList {
@@ -164,7 +178,7 @@ func (db *Database) selectTopTerms(terms []string, max int) []string {
 	}
 
 	// Add enhanced terms by IDF score to fill remaining slots
-	remaining := max - len(out)
+	remaining := maxTerms - len(out)
 	if remaining > 0 && len(enhancedList) > 0 {
 		sort.Slice(enhancedList, func(i, j int) bool {
 			return enhancedList[i].idf > enhancedList[j].idf
@@ -196,67 +210,8 @@ func (db *Database) BuildUniversalIndex() {
 	// First pass: tokenize per field, accumulate TFs and lengths per doc
 	perDocTFs := make([]map[string]fieldTF, idx.N)
 	for i := range db.Commands {
-		cmd := &db.Commands[i]
-
-		// prefer cached lowercase fields if available
-		cmdText := cmd.Command
-		if cmd.CommandLower != "" {
-			cmdText = cmd.CommandLower
-		}
-		descText := cmd.Description
-		if cmd.DescriptionLower != "" {
-			descText = cmd.DescriptionLower
-		}
-
-		// tokens per field
-		cmdTokens := normalizeAndTokenize(cmdText)
-		descTokens := normalizeAndTokenize(descText)
-		keysTokens := make([]string, 0)
-		if len(cmd.KeywordsLower) > 0 {
-			keysTokens = normalizeAndTokenize(strings.Join(cmd.KeywordsLower, " "))
-		} else if len(cmd.Keywords) > 0 {
-			keysTokens = normalizeAndTokenize(strings.Join(cmd.Keywords, " "))
-		}
-		tagsTokens := make([]string, 0)
-		if len(cmd.TagsLower) > 0 {
-			tagsTokens = normalizeAndTokenize(strings.Join(cmd.TagsLower, " "))
-		} else if len(cmd.Tags) > 0 {
-			tagsTokens = normalizeAndTokenize(strings.Join(cmd.Tags, " "))
-		}
-
-		// record doc lengths
-		idx.docLens[i] = docLens{cmd: len(cmdTokens), desc: len(descTokens), keys: len(keysTokens), tags: len(tagsTokens)}
-
-		// term frequencies
-		tf := make(map[string]fieldTF)
-		inc := func(tok string, f string) {
-			entry := tf[tok]
-			switch f {
-			case "cmd":
-				entry.cmd++
-			case "desc":
-				entry.desc++
-			case "keys":
-				entry.keys++
-			case "tags":
-				entry.tags++
-			}
-			tf[tok] = entry
-		}
-
-		for _, t := range cmdTokens {
-			inc(t, "cmd")
-		}
-		for _, t := range descTokens {
-			inc(t, "desc")
-		}
-		for _, t := range keysTokens {
-			inc(t, "keys")
-		}
-		for _, t := range tagsTokens {
-			inc(t, "tags")
-		}
-
+		lens, tf := indexCommand(&db.Commands[i])
+		idx.docLens[i] = lens
 		perDocTFs[i] = tf
 
 		// update df once per term per doc
@@ -324,34 +279,11 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 
 	// NLP enhancement
 	if options.UseNLP {
-		processor := nlp.NewQueryProcessor()
-		pq = processor.ProcessQuery(query)
-		enh := pq.GetEnhancedKeywords()
-
-		// Add relevant enhanced terms that aren't already present
-		if len(enh) > 0 {
-			for _, enhTerm := range enh {
-				found := false
-				for _, origTerm := range terms {
-					if origTerm == enhTerm {
-						found = true
-						break
-					}
-				}
-				if !found && len(terms) < 6 {
-					terms = append(terms, enhTerm)
-				}
-			}
-		}
+		pq, terms = db.enhanceQueryWithNLP(query, terms)
 	}
 	if len(terms) == 0 {
 		return nil
 	}
-
-	idx := db.uIndex
-	scores := make(map[int]float64, len(db.Commands)/4)
-	currentPlatform := getCurrentPlatform()
-
 	// Reduce noise for long queries by keeping top-IDF terms
 	termsCap := options.TopTermsCap
 	if termsCap <= 0 {
@@ -359,8 +291,37 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 	}
 	terms = db.selectTopTerms(terms, termsCap)
 
+	// Calculate initial scores using BM25F
+	scores := db.calculateInitialScores(terms, pq, options)
+	if len(scores) == 0 {
+		return nil
+	}
+
+	// Convert to results and apply pipeline boosts
+	results := db.collectResults(scores, pq, options)
+
+	// Sort preliminarily
+	sort.Slice(results, func(i, j int) bool { return results[i].Score > results[j].Score })
+
+	// Optional NLP-based reranking
+	if options.UseNLP && db.tfidf != nil {
+		results = db.rerankWithNLP(results, query, options)
+	}
+
+	// Limit
+	if len(results) > options.Limit {
+		results = results[:options.Limit]
+	}
+	return results
+}
+
+func (db *Database) calculateInitialScores(terms []string, pq *nlp.ProcessedQuery, options SearchOptions) map[int]float64 {
+	idx := db.uIndex
+	scores := make(map[int]float64, len(db.Commands)/4)
+	currentPlatform := getCurrentPlatform()
+
 	// Prepare per-term boosts (context + NLP action/target emphasis)
-	termBoost := map[string]float64{}
+	termBoost := make(map[string]float64)
 	for k, v := range options.ContextBoosts {
 		termBoost[k] = v
 	}
@@ -391,39 +352,134 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 		if b, ok := termBoost[term]; ok && b > 0 {
 			boost = b
 		}
-		for _, p := range postings {
-			doc := &db.Commands[p.docID]
+		db.processPostingsForTerm(postings, idx, idf, boost, scores, currentPlatform, options)
+	}
+	return scores
+}
 
-			// Platform filtering (fast, non-hardcoded)
-			if len(doc.Platform) > 0 {
-				if !isPlatformCompatible(doc.Platform, currentPlatform) && !isCrossPlatformTool(doc.Command) {
-					continue
-				}
-			}
+func (db *Database) processPostingsForTerm(
+	postings []posting,
+	idx *universalIndex,
+	idf, boost float64,
+	scores map[int]float64,
+	currentPlatform string,
+	options SearchOptions,
+) {
+	for _, p := range postings {
+		doc := &db.Commands[p.docID]
 
-			// Optional pipeline-only filter
-			if options.PipelineOnly && !isPipelineCommand(doc) {
+		// Platform filtering
+		if len(doc.Platform) > 0 {
+			if !isPlatformCompatible(doc.Platform, currentPlatform) && !isCrossPlatformTool(doc.Command) {
 				continue
 			}
+		}
 
-			s := scores[p.docID]
-			s += (idf * boost) * idx.termBM25F(p.docID, p.tf)
-			scores[p.docID] = s
+		// Pipeline filtering
+		if options.PipelineOnly && !isPipelineCommand(doc) {
+			continue
+		}
+
+		s := scores[p.docID]
+		s += (idf * boost) * idx.termBM25F(p.docID, p.tf)
+		scores[p.docID] = s
+	}
+}
+
+func (db *Database) enhanceQueryWithNLP(query string, terms []string) (pq *nlp.ProcessedQuery, enhancedTerms []string) {
+	processor := nlp.NewQueryProcessor()
+	pq = processor.ProcessQuery(query)
+	enh := pq.GetEnhancedKeywords()
+
+	// Add relevant enhanced terms that aren't already present
+	if len(enh) > 0 {
+		for _, enhTerm := range enh {
+			found := false
+			for _, origTerm := range terms {
+				if origTerm == enhTerm {
+					found = true
+					break
+				}
+			}
+			if !found && len(terms) < 6 {
+				terms = append(terms, enhTerm)
+			}
 		}
 	}
+	return pq, terms
+}
 
-	if len(scores) == 0 {
-		return nil
+func indexCommand(cmd *Command) (uniqueLens docLens, termFreqs map[string]fieldTF) {
+	// prefer cached lowercase fields if available
+	cmdText := cmd.Command
+	if cmd.CommandLower != "" {
+		cmdText = cmd.CommandLower
+	}
+	descText := cmd.Description
+	if cmd.DescriptionLower != "" {
+		descText = cmd.DescriptionLower
 	}
 
-	// Collect and optionally apply pipeline boost
+	// tokens per field
+	cmdTokens := normalizeAndTokenize(cmdText)
+	descTokens := normalizeAndTokenize(descText)
+	keysTokens := make([]string, 0)
+	if len(cmd.KeywordsLower) > 0 {
+		keysTokens = normalizeAndTokenize(strings.Join(cmd.KeywordsLower, " "))
+	} else if len(cmd.Keywords) > 0 {
+		keysTokens = normalizeAndTokenize(strings.Join(cmd.Keywords, " "))
+	}
+	tagsTokens := make([]string, 0)
+	if len(cmd.TagsLower) > 0 {
+		tagsTokens = normalizeAndTokenize(strings.Join(cmd.TagsLower, " "))
+	} else if len(cmd.Tags) > 0 {
+		tagsTokens = normalizeAndTokenize(strings.Join(cmd.Tags, " "))
+	}
+
+	// record doc lengths
+	uniqueLens = docLens{cmd: len(cmdTokens), desc: len(descTokens), keys: len(keysTokens), tags: len(tagsTokens)}
+
+	// term frequencies
+	termFreqs = make(map[string]fieldTF)
+	inc := func(tok string, f string) {
+		entry := termFreqs[tok]
+		switch f {
+		case "cmd":
+			entry.cmd++
+		case "desc":
+			entry.desc++
+		case "keys":
+			entry.keys++
+		case "tags":
+			entry.tags++
+		}
+		termFreqs[tok] = entry
+	}
+
+	for _, t := range cmdTokens {
+		inc(t, "cmd")
+	}
+	for _, t := range descTokens {
+		inc(t, "desc")
+	}
+	for _, t := range keysTokens {
+		inc(t, "keys")
+	}
+	for _, t := range tagsTokens {
+		inc(t, "tags")
+	}
+	return uniqueLens, termFreqs
+}
+
+func (db *Database) collectResults(scores map[int]float64, pq *nlp.ProcessedQuery, options SearchOptions) []SearchResult {
 	results := make([]SearchResult, 0, utils.Min(len(scores), options.Limit*3))
 	for docID, score := range scores {
 		cmd := &db.Commands[docID]
+
 		// Apply intent-based boost if NLP is active
 		if pq != nil {
 			score *= calculateIntentBoost(cmd, pq)
-			// Co-occurrence boost: action + target hints present in text (order/adjacency not required)
+			// Co-occurrence boost
 			docText := cmd.CommandLower + " " + cmd.DescriptionLower
 			if containsAnyLocal(docText, pq.Actions) && containsAnyLocal(docText, pq.Targets) {
 				score *= 1.2
@@ -434,41 +490,32 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 		}
 		results = append(results, SearchResult{Command: cmd, Score: score})
 	}
-
-	// Sort preliminarily
-	sort.Slice(results, func(i, j int) bool { return results[i].Score > results[j].Score })
-
-	// Optional NLP-based reranking using TF-IDF cosine similarity
-	if options.UseNLP && db.tfidf != nil {
-		// Take a top slice for reranking to keep it fast
-		topK := results
-		if len(topK) > options.Limit*2 {
-			topK = topK[:options.Limit*2]
-		}
-		// Run TF-IDF search to get semantic similarity
-		tfidfRes := db.tfidf.Search(query, len(topK))
-		simByIdx := make(map[int]float64, len(tfidfRes))
-		for _, r := range tfidfRes {
-			simByIdx[r.CommandIndex] = r.Similarity
-		}
-		// Blend similarity into scores (small weight to avoid overdominance)
-		for i := range topK {
-			idx := db.cmdIndex[topK[i].Command]
-			if sim, ok := simByIdx[idx]; ok {
-				alpha := 0.35
-				topK[i].Score += sim * alpha * 100.0
-			}
-		}
-		// Resort after blending
-		sort.Slice(topK, func(i, j int) bool { return topK[i].Score > topK[j].Score })
-		results = topK
-	}
-
-	// Limit
-	if len(results) > options.Limit {
-		results = results[:options.Limit]
-	}
 	return results
+}
+
+func (db *Database) rerankWithNLP(results []SearchResult, query string, options SearchOptions) []SearchResult {
+	// Take a top slice for reranking to keep it fast
+	topK := results
+	if len(topK) > options.Limit*2 {
+		topK = topK[:options.Limit*2]
+	}
+	// Run TF-IDF search to get semantic similarity
+	tfidfRes := db.tfidf.Search(query, len(topK))
+	simByIdx := make(map[int]float64, len(tfidfRes))
+	for _, r := range tfidfRes {
+		simByIdx[r.CommandIndex] = r.Similarity
+	}
+	// Blend similarity into scores (small weight to avoid overdominance)
+	for i := range topK {
+		idx := db.cmdIndex[topK[i].Command]
+		if sim, ok := simByIdx[idx]; ok {
+			alpha := 0.35
+			topK[i].Score += sim * alpha * 100.0
+		}
+	}
+	// Resort after blending
+	sort.Slice(topK, func(i, j int) bool { return topK[i].Score > topK[j].Score })
+	return topK
 }
 
 func (idx *universalIndex) termBM25F(docID int, tf fieldTF) float64 {
@@ -513,28 +560,29 @@ func isPlatformCompatible(platforms []string, current string) bool {
 		if strings.EqualFold(p, "cross-platform") || strings.EqualFold(p, current) {
 			return true
 		}
-		// Handle Windows-specific platform variants
-		if current == constants.PlatformWindows {
-			pLower := strings.ToLower(p)
-			if pLower == "cmd" || pLower == "powershell" || pLower == "windows-cmd" ||
-				pLower == "windows-powershell" || strings.HasPrefix(pLower, constants.PlatformWindows) {
-				return true
-			}
+		if checkPlatformVariant(p, current) {
+			return true
 		}
-		// Handle macOS variants
-		if current == constants.PlatformMacOS {
-			pLower := strings.ToLower(p)
-			if pLower == "darwin" || strings.HasPrefix(pLower, "macos") {
-				return true
-			}
+	}
+	return false
+}
+
+func checkPlatformVariant(p, current string) bool {
+	pLower := strings.ToLower(p)
+	switch current {
+	case constants.PlatformWindows:
+		if pLower == "cmd" || pLower == "powershell" || pLower == "windows-cmd" ||
+			pLower == "windows-powershell" || strings.HasPrefix(pLower, constants.PlatformWindows) {
+			return true
 		}
-		// Handle Linux variants
-		if current == constants.PlatformLinux {
-			pLower := strings.ToLower(p)
-			if pLower == "unix" || pLower == "bash" || pLower == "zsh" ||
-				strings.HasPrefix(pLower, "linux") {
-				return true
-			}
+	case constants.PlatformMacOS:
+		if pLower == "darwin" || strings.HasPrefix(pLower, "macos") {
+			return true
+		}
+	case constants.PlatformLinux:
+		if pLower == "unix" || pLower == "bash" || pLower == "zsh" ||
+			strings.HasPrefix(pLower, "linux") {
+			return true
 		}
 	}
 	return false

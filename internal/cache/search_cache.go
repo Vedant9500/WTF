@@ -106,7 +106,7 @@ func (sc *SearchCache) IsEnabled() bool {
 }
 
 // Stats returns cache statistics
-func (sc *SearchCache) Stats() CacheStats {
+func (sc *SearchCache) Stats() Stats {
 	return sc.cache.Stats()
 }
 
@@ -146,15 +146,15 @@ func (sc *SearchCache) generateCacheKey(query string, options SearchOptions) str
 	return fmt.Sprintf("%s%x", sc.keyPrefix, hash)
 }
 
-// CacheManager manages multiple cache instances
-type CacheManager struct {
+// Manager manages multiple cache instances
+type Manager struct {
 	searchCache *SearchCache
 	enabled     bool
 }
 
-// NewCacheManager creates a new cache manager
-func NewCacheManager() *CacheManager {
-	return &CacheManager{
+// NewManager creates a new cache manager
+func NewManager() *Manager {
+	return &Manager{
 		searchCache: NewSearchCache(
 			constants.DefaultCacheCapacity,
 			constants.DefaultCacheTTL,
@@ -164,35 +164,35 @@ func NewCacheManager() *CacheManager {
 }
 
 // GetSearchCache returns the search cache instance
-func (cm *CacheManager) GetSearchCache() *SearchCache {
+func (cm *Manager) GetSearchCache() *SearchCache {
 	return cm.searchCache
 }
 
 // Enable enables or disables all caches
-func (cm *CacheManager) Enable(enabled bool) {
+func (cm *Manager) Enable(enabled bool) {
 	cm.enabled = enabled
 	cm.searchCache.Enable(enabled)
 }
 
 // IsEnabled returns whether caching is enabled
-func (cm *CacheManager) IsEnabled() bool {
+func (cm *Manager) IsEnabled() bool {
 	return cm.enabled
 }
 
 // InvalidateAll clears all caches
-func (cm *CacheManager) InvalidateAll() {
+func (cm *Manager) InvalidateAll() {
 	cm.searchCache.Invalidate()
 }
 
 // GetStats returns statistics for all caches
-func (cm *CacheManager) GetStats() map[string]CacheStats {
-	return map[string]CacheStats{
+func (cm *Manager) GetStats() map[string]Stats {
+	return map[string]Stats{
 		"search": cm.searchCache.Stats(),
 	}
 }
 
 // CleanupExpired removes expired entries from all caches
-func (cm *CacheManager) CleanupExpired() map[string]int {
+func (cm *Manager) CleanupExpired() map[string]int {
 	return map[string]int{
 		"search": cm.searchCache.CleanupExpired(),
 	}

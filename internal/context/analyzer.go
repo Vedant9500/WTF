@@ -40,6 +40,68 @@ const (
 	ProjectTypeGeneric    ProjectType = "generic"
 )
 
+var projectBoosts = map[ProjectType]map[string]float64{
+	ProjectTypeGit: {
+		"git": 2.0, "commit": 1.5, "branch": 1.5, "merge": 1.5,
+		"pull": 1.5, "push": 1.5, "clone": 1.5, "checkout": 1.5,
+	},
+	ProjectTypeDocker: {
+		"docker": 2.0, "container": 1.8, "image": 1.5, "build": 1.3,
+		"run": 1.3, "compose": 1.5,
+	},
+	ProjectTypeNode: {
+		"npm": 2.0, "yarn": 2.0, "node": 1.8, "javascript": 1.5,
+		"package": 1.3, "install": 1.3,
+	},
+	ProjectTypePython: {
+		"python": 2.0, "pip": 2.0, "virtual": 1.5, "venv": 1.5,
+		"conda": 1.5, "requirements": 1.3,
+	},
+	ProjectTypeGo: {
+		"go": 2.0, "mod": 1.8, "build": 1.5, "test": 1.5, "run": 1.3,
+	},
+	ProjectTypeRust: {
+		"cargo": 2.0, "rust": 1.8, "build": 1.5, "test": 1.5,
+	},
+	ProjectTypeJava: {
+		"java": 2.0, "maven": 1.8, "gradle": 1.8, "build": 1.5, "compile": 1.5,
+	},
+	ProjectTypeDotNet: {
+		"dotnet": 2.0, "nuget": 1.8, "build": 1.5, "restore": 1.5,
+	},
+	ProjectTypeRuby: {
+		"ruby": 2.0, "gem": 1.8, "bundle": 1.5, "rake": 1.5,
+	},
+	ProjectTypePHP: {
+		"php": 2.0, "composer": 1.8, "artisan": 1.5, "laravel": 1.3,
+	},
+	ProjectTypeC: {
+		"gcc": 2.0, "make": 1.8, "cmake": 1.8, "compile": 1.5, "build": 1.5,
+	},
+	ProjectTypeCpp: {
+		"gcc": 2.0, "make": 1.8, "cmake": 1.8, "compile": 1.5, "build": 1.5,
+	},
+	ProjectTypeKubernetes: {
+		"kubectl": 2.0, "kubernetes": 1.8, "k8s": 1.8, "pod": 1.5,
+		"service": 1.3, "deploy": 1.3,
+	},
+	ProjectTypeTerraform: {
+		"terraform": 2.0, "plan": 1.8, "apply": 1.8, "destroy": 1.5, "init": 1.5,
+	},
+	ProjectTypeAnsible: {
+		"ansible": 2.0, "playbook": 1.8, "inventory": 1.5, "vault": 1.5,
+	},
+	ProjectTypeWebpack: {
+		"webpack": 2.0, "build": 1.5, "bundle": 1.5,
+	},
+	ProjectTypeVite: {
+		"vite": 2.0, "build": 1.5, "dev": 1.5,
+	},
+	ProjectTypeMake: {
+		"make": 2.0, "build": 1.5,
+	},
+}
+
 // Context holds information about the current working directory
 type Context struct {
 	WorkingDir     string
@@ -269,120 +331,10 @@ func (ctx *Context) GetContextBoosts() map[string]float64 {
 	boosts := make(map[string]float64)
 
 	for _, projectType := range ctx.ProjectTypes {
-		switch projectType {
-		case ProjectTypeGit:
-			boosts["git"] = 2.0
-			boosts["commit"] = 1.5
-			boosts["branch"] = 1.5
-			boosts["merge"] = 1.5
-			boosts["pull"] = 1.5
-			boosts["push"] = 1.5
-			boosts["clone"] = 1.5
-			boosts["checkout"] = 1.5
-
-		case ProjectTypeDocker:
-			boosts["docker"] = 2.0
-			boosts["container"] = 1.8
-			boosts["image"] = 1.5
-			boosts["build"] = 1.3
-			boosts["run"] = 1.3
-			boosts["compose"] = 1.5
-
-		case ProjectTypeNode:
-			boosts["npm"] = 2.0
-			boosts["yarn"] = 2.0
-			boosts["node"] = 1.8
-			boosts["javascript"] = 1.5
-			boosts["package"] = 1.3
-			boosts["install"] = 1.3
-
-		case ProjectTypePython:
-			boosts["python"] = 2.0
-			boosts["pip"] = 2.0
-			boosts["virtual"] = 1.5
-			boosts["venv"] = 1.5
-			boosts["conda"] = 1.5
-			boosts["requirements"] = 1.3
-
-		case ProjectTypeGo:
-			boosts["go"] = 2.0
-			boosts["mod"] = 1.8
-			boosts["build"] = 1.5
-			boosts["test"] = 1.5
-			boosts["run"] = 1.3
-
-		case ProjectTypeRust:
-			boosts["cargo"] = 2.0
-			boosts["rust"] = 1.8
-			boosts["build"] = 1.5
-			boosts["test"] = 1.5
-
-		case ProjectTypeJava:
-			boosts["java"] = 2.0
-			boosts["maven"] = 1.8
-			boosts["gradle"] = 1.8
-			boosts["build"] = 1.5
-			boosts["compile"] = 1.5
-
-		case ProjectTypeDotNet:
-			boosts["dotnet"] = 2.0
-			boosts["nuget"] = 1.8
-			boosts["build"] = 1.5
-			boosts["restore"] = 1.5
-
-		case ProjectTypeRuby:
-			boosts["ruby"] = 2.0
-			boosts["gem"] = 1.8
-			boosts["bundle"] = 1.5
-			boosts["rake"] = 1.5
-
-		case ProjectTypePHP:
-			boosts["php"] = 2.0
-			boosts["composer"] = 1.8
-			boosts["artisan"] = 1.5
-			boosts["laravel"] = 1.3
-
-		case ProjectTypeC, ProjectTypeCpp:
-			boosts["gcc"] = 2.0
-			boosts["make"] = 1.8
-			boosts["cmake"] = 1.8
-			boosts["compile"] = 1.5
-			boosts["build"] = 1.5
-
-		case ProjectTypeKubernetes:
-			boosts["kubectl"] = 2.0
-			boosts["kubernetes"] = 1.8
-			boosts["k8s"] = 1.8
-			boosts["pod"] = 1.5
-			boosts["service"] = 1.3
-			boosts["deploy"] = 1.3
-
-		case ProjectTypeTerraform:
-			boosts["terraform"] = 2.0
-			boosts["plan"] = 1.8
-			boosts["apply"] = 1.8
-			boosts["destroy"] = 1.5
-			boosts["init"] = 1.5
-
-		case ProjectTypeAnsible:
-			boosts["ansible"] = 2.0
-			boosts["playbook"] = 1.8
-			boosts["inventory"] = 1.5
-			boosts["vault"] = 1.5
-
-		case ProjectTypeWebpack:
-			boosts["webpack"] = 2.0
-			boosts["build"] = 1.5
-			boosts["bundle"] = 1.5
-
-		case ProjectTypeVite:
-			boosts["vite"] = 2.0
-			boosts["build"] = 1.5
-			boosts["dev"] = 1.5
-
-		case ProjectTypeMake:
-			boosts["make"] = 2.0
-			boosts["build"] = 1.5
+		if boostsMap, ok := projectBoosts[projectType]; ok {
+			for k, v := range boostsMap {
+				boosts[k] = v
+			}
 		}
 	}
 
@@ -398,52 +350,38 @@ func (ctx *Context) GetContextBoosts() map[string]float64 {
 }
 
 // GetContextDescription returns a human-readable description of the detected context
+// GetContextDescription returns a human-readable description of the detected context
 func (ctx *Context) GetContextDescription() string {
 	if len(ctx.ProjectTypes) == 0 {
 		return "generic directory"
 	}
 
+	projectDescriptions := map[ProjectType]string{
+		ProjectTypeGit:        "Git repository",
+		ProjectTypeDocker:     "Docker project",
+		ProjectTypeNode:       "Node.js project",
+		ProjectTypePython:     "Python project",
+		ProjectTypeGo:         "Go project",
+		ProjectTypeRust:       "Rust project",
+		ProjectTypeJava:       "Java project",
+		ProjectTypeDotNet:     ".NET project",
+		ProjectTypeRuby:       "Ruby project",
+		ProjectTypePHP:        "PHP project",
+		ProjectTypeC:          "C/C++ project",
+		ProjectTypeCpp:        "C++ project",
+		ProjectTypeKubernetes: "Kubernetes deployment",
+		ProjectTypeTerraform:  "Terraform infrastructure",
+		ProjectTypeAnsible:    "Ansible playbook",
+		ProjectTypeWebpack:    "Webpack project",
+		ProjectTypeVite:       "Vite project",
+		ProjectTypeMake:       "Makefile project",
+		ProjectTypeGeneric:    "generic directory",
+	}
+
 	var descriptions []string
 	for _, projectType := range ctx.ProjectTypes {
-		switch projectType {
-		case ProjectTypeGit:
-			descriptions = append(descriptions, "Git repository")
-		case ProjectTypeDocker:
-			descriptions = append(descriptions, "Docker project")
-		case ProjectTypeNode:
-			descriptions = append(descriptions, "Node.js project")
-		case ProjectTypePython:
-			descriptions = append(descriptions, "Python project")
-		case ProjectTypeGo:
-			descriptions = append(descriptions, "Go project")
-		case ProjectTypeRust:
-			descriptions = append(descriptions, "Rust project")
-		case ProjectTypeJava:
-			descriptions = append(descriptions, "Java project")
-		case ProjectTypeDotNet:
-			descriptions = append(descriptions, ".NET project")
-		case ProjectTypeRuby:
-			descriptions = append(descriptions, "Ruby project")
-		case ProjectTypePHP:
-			descriptions = append(descriptions, "PHP project")
-		case ProjectTypeC:
-			descriptions = append(descriptions, "C/C++ project")
-		case ProjectTypeCpp:
-			descriptions = append(descriptions, "C++ project")
-		case ProjectTypeKubernetes:
-			descriptions = append(descriptions, "Kubernetes deployment")
-		case ProjectTypeTerraform:
-			descriptions = append(descriptions, "Terraform infrastructure")
-		case ProjectTypeAnsible:
-			descriptions = append(descriptions, "Ansible playbook")
-		case ProjectTypeWebpack:
-			descriptions = append(descriptions, "Webpack project")
-		case ProjectTypeVite:
-			descriptions = append(descriptions, "Vite project")
-		case ProjectTypeMake:
-			descriptions = append(descriptions, "Makefile project")
-		case ProjectTypeGeneric:
-			descriptions = append(descriptions, "generic directory")
+		if desc, ok := projectDescriptions[projectType]; ok {
+			descriptions = append(descriptions, desc)
 		}
 	}
 

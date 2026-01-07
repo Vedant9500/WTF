@@ -80,7 +80,11 @@ func (dr *DatabaseRecovery) LoadDatabaseWithFallback(primaryPath, personalPath s
 				fmt.Sprintf("primary database failed, using %s", strategy.name),
 				primaryErr,
 			).WithUserMessage(
-				fmt.Sprintf("Warning: Could not load the main database, using %s instead.\n\nSome commands may be missing. To fix this:\n• Check the database file at '%s'\n• Run 'wtf setup' to reinitialize the database\n• Restore from backup if available", strategy.name, primaryPath),
+				fmt.Sprintf("Warning: Could not load the main database, using %s instead.\n\n"+
+					"Some commands may be missing. To fix this:\n"+
+					"• Check the database file at '%s'\n"+
+					"• Run 'wtf setup' to reinitialize the database\n"+
+					"• Restore from backup if available", strategy.name, primaryPath),
 			).WithContext("fallback_strategy", strategy.name).
 				WithContext("primary_path", primaryPath).
 				WithSuggestions(
@@ -101,7 +105,10 @@ func (dr *DatabaseRecovery) LoadDatabaseWithFallback(primaryPath, personalPath s
 		"all database loading strategies failed",
 		primaryErr,
 	).WithUserMessage(
-		"Failed to load any database. The application cannot function without a command database.\n\nPlease:\n• Check the database file exists\n• Run 'wtf setup' to create a new database\n• Ensure you have proper file permissions",
+		"Failed to load any database. The application cannot function without a command database.\n\n"+
+			"Please:\n• Check the database file exists\n"+
+			"• Run 'wtf setup' to create a new database\n"+
+			"• Ensure you have proper file permissions",
 	).WithSuggestions(
 		"Run 'wtf setup' to create a new database",
 		"Check file permissions on the database directory",
@@ -317,7 +324,11 @@ func NewSearchRecovery() *SearchRecovery {
 }
 
 // RecoverFromSearchFailure provides graceful degradation when search fails
-func (sr *SearchRecovery) RecoverFromSearchFailure(query string, originalErr error, db *database.Database) ([]database.SearchResult, error) {
+func (sr *SearchRecovery) RecoverFromSearchFailure(
+	query string,
+	originalErr error,
+	db *database.Database,
+) ([]database.SearchResult, error) {
 	// Try simpler search strategies as fallback
 	fallbackStrategies := []struct {
 		name string

@@ -125,7 +125,12 @@ func isPipelineCommand(cmd *Command) bool {
 }
 
 // calculateCommandScore handles platform filtering and score calculation for a single command
-func (db *Database) calculateCommandScore(cmd *Command, queryWords []string, contextBoosts map[string]float64, currentPlatform string) *SearchResult {
+func (db *Database) calculateCommandScore(
+	cmd *Command,
+	queryWords []string,
+	contextBoosts map[string]float64,
+	currentPlatform string,
+) *SearchResult {
 	if len(cmd.Platform) > 0 {
 		isCrossPlatform := false
 		platformMatch := false
@@ -787,49 +792,89 @@ func calculateIntentBoost(cmd *Command, pq *nlp.ProcessedQuery) float64 {
 func applyIntentBoost(cmdLower, descLower string, intent nlp.QueryIntent) float64 {
 	switch intent {
 	case nlp.IntentFind:
-		if containsAny(cmdLower, []string{"find", "search", "ls", "grep"}) {
-			return 2.0
-		}
+		return boostFindIntent(cmdLower)
 	case nlp.IntentView:
-		if containsAny(cmdLower, []string{"cat", "less", "more", "head", "tail", "view"}) {
-			return 2.5 // Higher boost for view commands
-		}
-		if strings.Contains(descLower, "display") || strings.Contains(descLower, "show") ||
-			strings.Contains(descLower, "view") || strings.Contains(descLower, "print") {
-			return 2.0
-		}
+		return boostViewIntent(cmdLower, descLower)
 	case nlp.IntentCreate:
-		if containsAny(cmdLower, []string{"mkdir", "touch", "create", "make"}) {
-			boost := 2.0
-			// Penalize package creation tools for simple "create directory" queries
-			if strings.Contains(cmdLower, "makepkg") && !strings.Contains(descLower, "package") {
-				boost *= 0.3
-			}
-			return boost
-		}
+		return boostCreateIntent(cmdLower, descLower)
 	case nlp.IntentDelete:
-		if containsAny(cmdLower, []string{"rm", "del", "delete", "remove"}) {
-			return 2.0
-		}
+		return boostDeleteIntent(cmdLower)
 	case nlp.IntentModify:
-		if containsAny(cmdLower, []string{"chmod", "chown", "edit", "modify", "change"}) {
-			return 2.0
-		}
-		if strings.Contains(descLower, "permission") || strings.Contains(descLower, "modify") {
-			return 1.8
-		}
+		return boostModifyIntent(cmdLower, descLower)
 	case nlp.IntentInstall:
-		if containsAny(cmdLower, []string{"install", "add", "setup"}) || strings.Contains(descLower, "install") {
-			return 2.0
-		}
+		return boostInstallIntent(cmdLower, descLower)
 	case nlp.IntentRun:
-		if containsAny(cmdLower, []string{"run", "exec", "start", "launch"}) {
-			return 2.0
-		}
+		return boostRunIntent(cmdLower)
 	case nlp.IntentConfigure:
-		if containsAny(cmdLower, []string{"config", "set", "configure"}) || strings.Contains(descLower, "config") {
-			return 2.0
+		return boostConfigureIntent(cmdLower, descLower)
+	}
+	return 1.0
+}
+
+func boostFindIntent(cmdLower string) float64 {
+	if containsAny(cmdLower, []string{"find", "search", "ls", "grep"}) {
+		return 2.0
+	}
+	return 1.0
+}
+
+func boostViewIntent(cmdLower, descLower string) float64 {
+	if containsAny(cmdLower, []string{"cat", "less", "more", "head", "tail", "view"}) {
+		return 2.5 // Higher boost for view commands
+	}
+	if strings.Contains(descLower, "display") || strings.Contains(descLower, "show") ||
+		strings.Contains(descLower, "view") || strings.Contains(descLower, "print") {
+		return 2.0
+	}
+	return 1.0
+}
+
+func boostCreateIntent(cmdLower, descLower string) float64 {
+	if containsAny(cmdLower, []string{"mkdir", "touch", "create", "make"}) {
+		boost := 2.0
+		// Penalize package creation tools for simple "create directory" queries
+		if strings.Contains(cmdLower, "makepkg") && !strings.Contains(descLower, "package") {
+			boost *= 0.3
 		}
+		return boost
+	}
+	return 1.0
+}
+
+func boostDeleteIntent(cmdLower string) float64 {
+	if containsAny(cmdLower, []string{"rm", "del", "delete", "remove"}) {
+		return 2.0
+	}
+	return 1.0
+}
+
+func boostModifyIntent(cmdLower, descLower string) float64 {
+	if containsAny(cmdLower, []string{"chmod", "chown", "edit", "modify", "change"}) {
+		return 2.0
+	}
+	if strings.Contains(descLower, "permission") || strings.Contains(descLower, "modify") {
+		return 1.8
+	}
+	return 1.0
+}
+
+func boostInstallIntent(cmdLower, descLower string) float64 {
+	if containsAny(cmdLower, []string{"install", "add", "setup"}) || strings.Contains(descLower, "install") {
+		return 2.0
+	}
+	return 1.0
+}
+
+func boostRunIntent(cmdLower string) float64 {
+	if containsAny(cmdLower, []string{"run", "exec", "start", "launch"}) {
+		return 2.0
+	}
+	return 1.0
+}
+
+func boostConfigureIntent(cmdLower, descLower string) float64 {
+	if containsAny(cmdLower, []string{"config", "set", "configure"}) || strings.Contains(descLower, "config") {
+		return 2.0
 	}
 	return 1.0
 }
@@ -907,8 +952,8 @@ var crossPlatformTools = map[string]bool{
 	"grep": true, "find": true, "sed": true, "awk": true,
 
 	// Editors and utilities
-	"code": true, "vim": true, "nano": true, "tar": true, "gzip": true,
-	"unzip": true, "zip": true, "7z": true, "ffmpeg": true, "imagemagick": true,
+	"code": true, "vim": true, "nano": true, constants.FormatTar: true, "gzip": true,
+	"unzip": true, constants.FormatZip: true, "7z": true, "ffmpeg": true, "imagemagick": true,
 	"convert": true,
 
 	// Cloud and DevOps tools

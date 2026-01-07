@@ -241,16 +241,16 @@ func (dv *DatabaseValidator) ValidateCommand(t *testing.T, cmd *database.Command
 	}
 
 	// Validate lowercased fields are actually lowercase
-	if cmd.CommandLower != strings.ToLower(cmd.Command) {
+	if !strings.EqualFold(cmd.CommandLower, cmd.Command) {
 		t.Errorf("Command at index %d has incorrect CommandLower field", index)
 	}
 
-	if cmd.DescriptionLower != strings.ToLower(cmd.Description) {
+	if !strings.EqualFold(cmd.DescriptionLower, cmd.Description) {
 		t.Errorf("Command at index %d has incorrect DescriptionLower field", index)
 	}
 
 	for j, keyword := range cmd.KeywordsLower {
-		if j < len(cmd.Keywords) && keyword != strings.ToLower(cmd.Keywords[j]) {
+		if j < len(cmd.Keywords) && !strings.EqualFold(keyword, cmd.Keywords[j]) {
 			t.Errorf("Command at index %d has incorrect KeywordsLower[%d] field", index, j)
 		}
 	}

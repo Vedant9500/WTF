@@ -106,7 +106,7 @@ func SaveDatabase(db *Database, path string) error {
 }
 
 // CreateTempDir creates a temporary directory for testing
-func CreateTempDir() (string, func()) {
+func CreateTempDir() (dir string, cleanupFn func()) {
 	tempDir, err := os.MkdirTemp("", "wtf-test-*")
 	if err != nil {
 		panic(err)

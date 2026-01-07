@@ -86,9 +86,10 @@ func TestAnalyzer_AnalyzeDirectory(t *testing.T) {
 					if err != nil {
 						t.Fatalf("Failed to create directory %s: %v", dir, err)
 					}
-					file, err := os.Create(filePath)
+					var f *os.File
+					f, err = os.Create(filePath)
 					if err == nil {
-						file.Close()
+						f.Close()
 					}
 				}
 				if err != nil {

@@ -216,12 +216,12 @@ type QueryFrequency struct {
 }
 
 // GetStats returns usage statistics
-func (sh *SearchHistory) GetStats() HistoryStats {
+func (sh *SearchHistory) GetStats() Stats {
 	if len(sh.Entries) == 0 {
-		return HistoryStats{}
+		return Stats{}
 	}
 
-	stats := HistoryStats{
+	stats := Stats{
 		TotalSearches: len(sh.Entries),
 		UniqueQueries: len(sh.getUniqueQueries()),
 		OldestEntry:   sh.Entries[0].Timestamp,
@@ -245,7 +245,7 @@ func (sh *SearchHistory) GetStats() HistoryStats {
 }
 
 // HistoryStats represents usage statistics
-type HistoryStats struct {
+type Stats struct {
 	TotalSearches       int       `json:"total_searches"`
 	UniqueQueries       int       `json:"unique_queries"`
 	AvgResultsPerSearch float64   `json:"avg_results_per_search"`
