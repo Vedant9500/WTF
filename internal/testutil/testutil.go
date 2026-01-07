@@ -71,7 +71,7 @@ func CreateTestDatabase(commands []Command) *Database {
 func CreateLargeDatabase(count int) *Database {
 	sampleCommands := GetSampleCommands()
 	commands := make([]Command, count)
-	
+
 	for i := 0; i < count; i++ {
 		// Cycle through sample commands and modify them slightly
 		base := sampleCommands[i%len(sampleCommands)]
@@ -82,7 +82,7 @@ func CreateLargeDatabase(count int) *Database {
 			Platform:    base.Platform,
 		}
 	}
-	
+
 	return &Database{
 		Commands: commands,
 	}

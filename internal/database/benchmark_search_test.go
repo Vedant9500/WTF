@@ -7,7 +7,7 @@ import (
 // createLargeTestDatabase creates a large database for benchmarking without testutil
 func createLargeTestDatabase(size int) *Database {
 	commands := make([]Command, size)
-	
+
 	// Create diverse test commands
 	templates := []struct {
 		cmd, desc string
@@ -25,7 +25,7 @@ func createLargeTestDatabase(size int) *Database {
 		{"ps aux | grep %s", "find process", []string{"ps", "process", "find"}, []string{"linux", "macos"}},
 		{"netstat -tulpn", "show network connections", []string{"netstat", "network", "connections"}, []string{"linux", "macos"}},
 	}
-	
+
 	for i := 0; i < size; i++ {
 		template := templates[i%len(templates)]
 		commands[i] = Command{
@@ -36,7 +36,7 @@ func createLargeTestDatabase(size int) *Database {
 			Pipeline:    i%3 == 0, // every 3rd command is pipeline
 		}
 	}
-	
+
 	return &Database{Commands: commands}
 }
 

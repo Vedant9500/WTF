@@ -493,5 +493,3 @@ func removeDuplicates(slice []string) []string {
 
 	return result
 }
-
-
