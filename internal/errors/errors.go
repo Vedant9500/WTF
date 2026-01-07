@@ -3,6 +3,8 @@ package errors
 import (
 	"fmt"
 	"strings"
+
+	"github.com/Vedant9500/WTF/internal/utils"
 )
 
 // DatabaseError represents database-related errors
@@ -265,7 +267,7 @@ func NewLimitInvalidError(limit, maxLimit int) *AppError {
 		WithContext("provided_limit", limit).
 		WithContext("max_limit", maxLimit).
 		WithSuggestions(
-			fmt.Sprintf("Use --limit %d for more results", min(maxLimit, 10)),
+			fmt.Sprintf("Use --limit %d for more results", utils.Min(maxLimit, 10)),
 			"Omit --limit to use the default",
 			fmt.Sprintf("Maximum allowed limit is %d", maxLimit),
 		)
@@ -311,14 +313,6 @@ func NewConfigError(message string, cause error) *AppError {
 			"Reset to default configuration",
 			"Refer to the documentation for valid settings",
 		)
-}
-
-// Helper function to get minimum of two integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 // IsUserFriendlyError checks if an error is a user-friendly AppError

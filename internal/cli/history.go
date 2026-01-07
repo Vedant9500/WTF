@@ -5,8 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Vedant9500/WTF/internal/history"
 	"github.com/spf13/cobra"
+
+	"github.com/Vedant9500/WTF/internal/history"
 )
 
 var historyCmd = &cobra.Command{

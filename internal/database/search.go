@@ -5,10 +5,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/sahilm/fuzzy"
+
 	"github.com/Vedant9500/WTF/internal/constants"
 	"github.com/Vedant9500/WTF/internal/nlp"
 	"github.com/Vedant9500/WTF/internal/utils"
-	"github.com/sahilm/fuzzy"
 )
 
 // SearchResult represents a command with its relevance score
