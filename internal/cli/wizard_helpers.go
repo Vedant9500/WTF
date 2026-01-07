@@ -223,7 +223,7 @@ func buildFindActions(sb *strings.Builder) {
 		case 0:
 			// Default action, do nothing
 		case 1:
-			if readYesNo("⚠️  This will DELETE files! Are you sure?") {
+			if readYesNo("WARNING: This will DELETE files! Are you sure?") {
 				sb.WriteString(" -delete")
 			}
 		case 2:

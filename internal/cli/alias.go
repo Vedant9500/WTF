@@ -32,11 +32,11 @@ Examples:
 	Run: func(_ *cobra.Command, args []string) {
 		aliasName := args[0]
 		if err := addAlias(aliasName); err != nil {
-			fmt.Printf("❌ Error adding alias '%s': %v\n", aliasName, err)
+			fmt.Printf("Error adding alias '%s': %v\n", aliasName, err)
 			return
 		}
-		fmt.Printf("✅ Added alias '%s' successfully!\n", aliasName)
-		fmt.Printf("💡 You can now use: %s \"your query\"\n", aliasName)
+		fmt.Printf("Added alias '%s' successfully!\n", aliasName)
+		fmt.Printf("You can now use: %s \"your query\"\n", aliasName)
 	},
 }
 
@@ -48,7 +48,7 @@ var listAliasCmd = &cobra.Command{
 		aliases := listAliases()
 		if len(aliases) == 0 {
 			fmt.Println("No aliases configured yet.")
-			fmt.Println("💡 Add one with: wtf alias add hey")
+			fmt.Println("Add one with: wtf alias add hey")
 			return
 		}
 
@@ -66,10 +66,10 @@ var removeAliasCmd = &cobra.Command{
 	Run: func(_ *cobra.Command, args []string) {
 		aliasName := args[0]
 		if err := removeAlias(aliasName); err != nil {
-			fmt.Printf("❌ Error removing alias '%s': %v\n", aliasName, err)
+			fmt.Printf("Error removing alias '%s': %v\n", aliasName, err)
 			return
 		}
-		fmt.Printf("✅ Removed alias '%s'\n", aliasName)
+		fmt.Printf("Removed alias '%s'\n", aliasName)
 	},
 }
 
@@ -102,8 +102,8 @@ func addWindowsAlias(name, execPath, aliasDir string) error {
 	}
 
 	// Instructions for adding to PATH
-	fmt.Println("📁 Created:", batchPath)
-	fmt.Println("💡 To complete setup, add this directory to your PATH:")
+	fmt.Println("Created:", batchPath)
+	fmt.Println("To complete setup, add this directory to your PATH:")
 	fmt.Printf("   %s\n", aliasDir)
 	fmt.Println("   Or copy the .bat file to a directory already in PATH")
 
@@ -120,8 +120,8 @@ func addUnixAlias(name, execPath, aliasDir string) error {
 	}
 
 	// Instructions for adding to PATH
-	fmt.Println("📁 Created:", scriptPath)
-	fmt.Println("💡 To complete setup, add this directory to your PATH:")
+	fmt.Println("Created:", scriptPath)
+	fmt.Println("To complete setup, add this directory to your PATH:")
 	fmt.Printf("   export PATH=\"%s:$PATH\"\n", aliasDir)
 	fmt.Println("   Add this line to your ~/.bashrc or ~/.zshrc")
 

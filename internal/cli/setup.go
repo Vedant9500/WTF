@@ -25,21 +25,21 @@ This automatically handles all the complexity of setting up aliases for your sys
 	Run: func(_ *cobra.Command, args []string) {
 		aliasName := args[0]
 
-		fmt.Printf("🚀 Setting up '%s' as your WTF command...\n\n", aliasName)
+		fmt.Printf("Setting up '%s' as your WTF command...\n\n", aliasName)
 
 		if err := quickSetup(aliasName); err != nil {
-			fmt.Printf("❌ Setup failed: %v\n", err)
+			fmt.Printf("Setup failed: %v\n", err)
 			return
 		}
 
-		fmt.Printf("🎉 Setup complete!\n\n")
-		fmt.Printf("✅ You can now use: %s \"your query\"\n", aliasName)
-		fmt.Printf("💡 Example: %s \"compress files\"\n", aliasName)
+		fmt.Printf("Setup complete!\n\n")
+		fmt.Printf("You can now use: %s \"your query\"\n", aliasName)
+		fmt.Printf("Example: %s \"compress files\"\n", aliasName)
 
 		if runtime.GOOS == "windows" {
-			fmt.Println("\n📝 Note: You may need to restart your command prompt or add the alias directory to PATH")
+			fmt.Println("\nNote: You may need to restart your command prompt or add the alias directory to PATH")
 		} else {
-			fmt.Println("\n📝 Note: You may need to restart your terminal or run 'source ~/.bashrc'")
+			fmt.Println("\nNote: You may need to restart your terminal or run 'source ~/.bashrc'")
 		}
 	},
 }
@@ -65,13 +65,13 @@ func setupWindows(aliasName, execPath string) error {
 		return err
 	}
 
-	fmt.Printf("📁 Created: %s\n", batchPath)
-	fmt.Println("💡 This file is in your current directory. You can:")
+	fmt.Printf("Created: %s\n", batchPath)
+	fmt.Println("This file is in your current directory. You can:")
 	fmt.Println("   1. Copy it to a directory in your PATH")
 	fmt.Printf("   2. Or use it directly: .\\%s \"your query\"\n", aliasName)
 
 	// Also try DOSKEY approach
-	fmt.Printf("\n🔧 Alternative: Run this command for current session:\n")
+	fmt.Printf("\nAlternative: Run this command for current session:\n")
 	fmt.Printf("   doskey %s=\"%s\" $*\n", aliasName, execPath)
 
 	return nil
@@ -100,15 +100,15 @@ func setupUnix(aliasName, execPath string) error {
 				if err == nil {
 					_, _ = file.WriteString(content)
 					file.Close()
-					fmt.Printf("✅ Added alias to %s\n", shellFile)
+					fmt.Printf("Added alias to %s\n", shellFile)
 				}
 			} else {
-				fmt.Printf("ℹ️  Alias already exists in %s\n", shellFile)
+				fmt.Printf("Alias already exists in %s\n", shellFile)
 			}
 		}
 	}
 
-	fmt.Printf("💡 Manual setup: Add this line to your shell config:\n")
+	fmt.Printf("Manual setup: Add this line to your shell config:\n")
 	fmt.Printf("   %s\n", aliasLine)
 
 	return nil

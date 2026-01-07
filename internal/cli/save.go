@@ -55,7 +55,7 @@ Examples:
 			return
 		}
 
-		fmt.Printf("✅ Command saved successfully!\n")
+		fmt.Printf("Command saved successfully!\n")
 		fmt.Printf("Command: %s\n", command)
 		fmt.Printf("Description: %s\n", description)
 		if len(keywords) > 0 {
@@ -70,7 +70,7 @@ Examples:
 		if pipeline {
 			fmt.Printf("Pipeline: true\n")
 		}
-		fmt.Printf("\nYour command will now appear in search results! 🎉\n")
+		fmt.Printf("\nYour command will now appear in search results!\n")
 	},
 }
 

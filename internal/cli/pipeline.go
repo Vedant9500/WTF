@@ -199,23 +199,23 @@ Examples:
 			return
 		}
 
-		fmt.Printf("✅ Pipeline saved successfully!\n")
-		fmt.Printf("📋 Name: %s\n", name)
-		fmt.Printf("🔗 Command: %s\n", command)
-		fmt.Printf("📝 Description: %s\n", description)
-		fmt.Printf("🔢 Steps: %d\n", stepCount)
+		fmt.Printf("Pipeline saved successfully!\n")
+		fmt.Printf("Name: %s\n", name)
+		fmt.Printf("Command: %s\n", command)
+		fmt.Printf("Description: %s\n", description)
+		fmt.Printf("Steps: %d\n", stepCount)
 
 		if len(allKeywords) > 0 {
-			fmt.Printf("🏷️  Keywords: %s\n", strings.Join(allKeywords, ", "))
+			fmt.Printf("Keywords: %s\n", strings.Join(allKeywords, ", "))
 		}
 		if niche != "" {
-			fmt.Printf("📂 Category: %s\n", niche)
+			fmt.Printf("Category: %s\n", niche)
 		}
 		if len(platforms) > 0 {
-			fmt.Printf("💻 Platforms: %s\n", strings.Join(platforms, ", "))
+			fmt.Printf("Platforms: %s\n", strings.Join(platforms, ", "))
 		}
 
-		fmt.Println("\n🎉 Your pipeline will now appear in searches!")
+		fmt.Println("\nYour pipeline will now appear in searches!")
 		fmt.Printf("Try: wtf pipeline \"%s\"\n", name)
 	},
 }

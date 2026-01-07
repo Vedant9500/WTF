@@ -45,11 +45,11 @@ Examples:
 }
 
 func showAvailableWizards() {
-	fmt.Println("🧙 Available Command Wizards:")
+	fmt.Println("Available Command Wizards:")
 	fmt.Println()
-	fmt.Println("📁 tar     - Create and extract archives")
-	fmt.Println("🔍 find    - Search for files and directories")
-	fmt.Println("🎬 ffmpeg  - Convert and process media files")
+	fmt.Println("  tar     - Create and extract archives")
+	fmt.Println("  find    - Search for files and directories")
+	fmt.Println("  ffmpeg  - Convert and process media files")
 	fmt.Println()
 	fmt.Println("Usage: wtf wizard <command>")
 }
@@ -119,7 +119,7 @@ func readYesNo(prompt string) bool {
 }
 
 func runTarWizard() {
-	fmt.Println("🧙 ✨ TAR Archive Wizard ✨")
+	fmt.Println("=== TAR Archive Wizard ===")
 	fmt.Println("I'll help you build the perfect tar command!")
 	fmt.Println()
 
@@ -151,7 +151,7 @@ func runTarWizard() {
 	finalCommand := command.String()
 
 	fmt.Println("\n" + strings.Repeat("=", 50))
-	fmt.Println("🎉 Your tar command is ready!")
+	fmt.Println("Your tar command is ready!")
 	fmt.Println(strings.Repeat("=", 50))
 	fmt.Printf("Command: %s\n", finalCommand)
 	fmt.Println(strings.Repeat("=", 50))
@@ -164,7 +164,7 @@ func runTarWizard() {
 		}
 
 		// Here we could call the save functionality
-		fmt.Printf("✅ Command saved: %s\n", description)
+		fmt.Printf("Command saved: %s\n", description)
 		fmt.Printf("   Command: %s\n", finalCommand)
 	}
 }
@@ -194,7 +194,7 @@ func getDefaultArchiveName(compression int) string {
 }
 
 func runFindWizard() {
-	fmt.Println("🧙 ✨ FIND Command Wizard ✨")
+	fmt.Println("=== FIND Command Wizard ===")
 	fmt.Println("I'll help you build the perfect find command!")
 	fmt.Println()
 
@@ -240,7 +240,7 @@ func runFindWizard() {
 	finalCommand := command.String()
 
 	fmt.Println("\n" + strings.Repeat("=", 50))
-	fmt.Println("🎉 Your find command is ready!")
+	fmt.Println("Your find command is ready!")
 	fmt.Println(strings.Repeat("=", 50))
 	fmt.Printf("Command: %s\n", finalCommand)
 	fmt.Println(strings.Repeat("=", 50))
@@ -252,7 +252,7 @@ func runFindWizard() {
 			description = "Generated find command"
 		}
 
-		fmt.Printf("✅ Command saved: %s\n", description)
+		fmt.Printf("Command saved: %s\n", description)
 		fmt.Printf("   Command: %s\n", finalCommand)
 	}
 }
@@ -326,7 +326,7 @@ func buildFindTimeFilter(sb *strings.Builder) {
 }
 
 func runFFmpegWizard() {
-	fmt.Println("🧙 ✨ FFMPEG Wizard ✨")
+	fmt.Println("=== FFMPEG Wizard ===")
 	fmt.Println("I'll help you build the perfect ffmpeg command!")
 	fmt.Println()
 
@@ -374,14 +374,14 @@ func runFFmpegWizard() {
 	finalCommand := command.String()
 
 	fmt.Println("\n" + strings.Repeat("=", 60))
-	fmt.Println("🎉 Your ffmpeg command is ready!")
+	fmt.Println("Your ffmpeg command is ready!")
 	fmt.Println(strings.Repeat("=", 60))
 	fmt.Printf("Command: %s\n", finalCommand)
 	fmt.Println(strings.Repeat("=", 60))
 
 	// Estimated time warning
 	if operation == 0 || operation == 2 {
-		fmt.Println("⏱️  Note: Video processing may take time depending on file size and quality settings.")
+		fmt.Println("Note: Video processing may take time depending on file size and quality settings.")
 	}
 
 	// Option to save
@@ -391,7 +391,7 @@ func runFFmpegWizard() {
 			description = "Generated ffmpeg command"
 		}
 
-		fmt.Printf("✅ Command saved: %s\n", description)
+		fmt.Printf("Command saved: %s\n", description)
 		fmt.Printf("   Command: %s\n", finalCommand)
 	}
 }
