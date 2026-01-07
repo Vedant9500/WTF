@@ -99,3 +99,16 @@ const (
 	MaxSynonymsPerWord = 1 // Only use the best synonym to avoid query expansion explosion
 	StopWordThreshold  = 2 // Minimum word length to avoid stop word filtering
 )
+
+// Platform constants
+const (
+	PlatformWindows = "windows"
+	PlatformLinux   = "linux"
+	PlatformMacOS   = "macos"
+)
+
+// File format constants
+const (
+	FormatZip = "zip"
+	FormatTar = "tar"
+)

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/Vedant9500/WTF/internal/constants"
 	"github.com/Vedant9500/WTF/internal/nlp"
 	"github.com/Vedant9500/WTF/internal/utils"
 )
@@ -513,22 +514,22 @@ func isPlatformCompatible(platforms []string, current string) bool {
 			return true
 		}
 		// Handle Windows-specific platform variants
-		if current == "windows" {
+		if current == constants.PlatformWindows {
 			pLower := strings.ToLower(p)
 			if pLower == "cmd" || pLower == "powershell" || pLower == "windows-cmd" ||
-				pLower == "windows-powershell" || strings.HasPrefix(pLower, "windows") {
+				pLower == "windows-powershell" || strings.HasPrefix(pLower, constants.PlatformWindows) {
 				return true
 			}
 		}
 		// Handle macOS variants
-		if current == "macos" {
+		if current == constants.PlatformMacOS {
 			pLower := strings.ToLower(p)
 			if pLower == "darwin" || strings.HasPrefix(pLower, "macos") {
 				return true
 			}
 		}
 		// Handle Linux variants
-		if current == "linux" {
+		if current == constants.PlatformLinux {
 			pLower := strings.ToLower(p)
 			if pLower == "unix" || pLower == "bash" || pLower == "zsh" ||
 				strings.HasPrefix(pLower, "linux") {

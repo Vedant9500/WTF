@@ -314,7 +314,7 @@ func TestRecoverFromSearchFailure(t *testing.T) {
 	}
 
 	// Test recovery with a query that won't find results
-	results, err = sr.RecoverFromSearchFailure("nonexistent", errors.New("search failed"), testDB)
+	_, err = sr.RecoverFromSearchFailure("nonexistent", errors.New("search failed"), testDB)
 	if err == nil {
 		t.Error("Expected error when recovery fails to find results")
 	}

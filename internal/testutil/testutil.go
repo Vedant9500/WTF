@@ -12,7 +12,6 @@ package testutil
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -103,12 +102,12 @@ func SaveDatabase(db *Database, path string) error {
 	}
 
 	// Write to file
-	return ioutil.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0644)
 }
 
 // CreateTempDir creates a temporary directory for testing
 func CreateTempDir() (string, func()) {
-	tempDir, err := ioutil.TempDir("", "wtf-test-*")
+	tempDir, err := os.MkdirTemp("", "wtf-test-*")
 	if err != nil {
 		panic(err)
 	}

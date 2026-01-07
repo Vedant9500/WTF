@@ -148,26 +148,28 @@ func formatTimeAgo(d time.Duration) string {
 			return "1 hour ago"
 		}
 		return fmt.Sprintf("%d hours ago", hours)
-	} else {
-		days := int(d.Hours()) / 24
-		if days == 1 {
-			return "1 day ago"
-		} else if days < 7 {
-			return fmt.Sprintf("%d days ago", days)
-		} else if days < 30 {
-			weeks := days / 7
-			if weeks == 1 {
-				return "1 week ago"
-			}
-			return fmt.Sprintf("%d weeks ago", weeks)
-		} else {
-			months := days / 30
-			if months == 1 {
-				return "1 month ago"
-			}
-			return fmt.Sprintf("%d months ago", months)
-		}
 	}
+
+	days := int(d.Hours()) / 24
+	if days == 1 {
+		return "1 day ago"
+	}
+	if days < 7 {
+		return fmt.Sprintf("%d days ago", days)
+	}
+	if days < 30 {
+		weeks := days / 7
+		if weeks == 1 {
+			return "1 week ago"
+		}
+		return fmt.Sprintf("%d weeks ago", weeks)
+	}
+
+	months := days / 30
+	if months == 1 {
+		return "1 month ago"
+	}
+	return fmt.Sprintf("%d months ago", months)
 }
 
 func init() {

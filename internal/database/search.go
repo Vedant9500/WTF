@@ -317,9 +317,9 @@ func isDomainSpecificMatch(word string, cmd *Command) bool {
 	cmdLower := strings.ToLower(cmd.Command)
 
 	domainMappings := map[string][]string{
-		"compress":   {"tar", "gzip", "zip", "bzip", "7z", "compress", "archive"},
-		"archive":    {"tar", "gzip", "zip", "bzip", "7z", "compress", "archive", "unzip"},
-		"extract":    {"tar", "unzip", "gunzip", "extract", "unarchive"},
+		"compress":   {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", "compress", "archive"},
+		"archive":    {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", "compress", "archive", "unzip"},
+		"extract":    {constants.FormatTar, "unzip", "gunzip", "extract", "unarchive"},
 		"directory":  {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
 		"folder":     {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
 		"create":     {"mkdir", "touch", "make", "new"},
@@ -366,9 +366,9 @@ func getCategoryBoostForWord(word, cmdLower string) float64 {
 	switch word {
 	case "compress", "archive":
 		return getCompressionBoost(cmdLower)
-	case "zip":
+	case constants.FormatZip:
 		return getZipBoost(cmdLower)
-	case "tar":
+	case constants.FormatTar:
 		return getTarBoost(cmdLower)
 	case "directory", "folder":
 		return getDirectoryBoost(cmdLower)
@@ -398,7 +398,7 @@ func getCompressionBoost(cmdLower string) float64 {
 
 // getZipBoost returns boost for zip-specific queries
 func getZipBoost(cmdLower string) float64 {
-	if cmdLower == "zip" || strings.HasPrefix(cmdLower, "zip ") {
+	if cmdLower == constants.FormatZip || strings.HasPrefix(cmdLower, constants.FormatZip+" ") {
 		return 3.0
 	}
 	if strings.Contains(cmdLower, "bzip") || strings.Contains(cmdLower, "gzip") {
@@ -409,7 +409,7 @@ func getZipBoost(cmdLower string) float64 {
 
 // getTarBoost returns boost for tar-specific queries
 func getTarBoost(cmdLower string) float64 {
-	if cmdLower == "tar" || strings.HasPrefix(cmdLower, "tar ") {
+	if cmdLower == constants.FormatTar || strings.HasPrefix(cmdLower, constants.FormatTar+" ") {
 		return 3.0
 	}
 	return 1.0
@@ -463,8 +463,8 @@ func getDownloadBoost(cmdLower string) float64 {
 
 // Helper functions for command classification
 func isCompressionTool(cmdLower string) bool {
-	return strings.HasPrefix(cmdLower, "tar ") || cmdLower == "tar" ||
-		strings.HasPrefix(cmdLower, "zip ") || cmdLower == "zip" ||
+	return strings.HasPrefix(cmdLower, constants.FormatTar+" ") || cmdLower == constants.FormatTar ||
+		strings.HasPrefix(cmdLower, constants.FormatZip+" ") || cmdLower == constants.FormatZip ||
 		strings.HasPrefix(cmdLower, "gzip ") || cmdLower == "gzip"
 }
 
@@ -846,7 +846,7 @@ func applyActionBoosts(cmdLower, descLower string, actions []string) float64 {
 
 		// Special handling for compression actions
 		if action == "compress" || action == "archive" {
-			if containsAny(cmdLower, []string{"tar", "zip", "gzip"}) {
+			if containsAny(cmdLower, []string{constants.FormatTar, constants.FormatZip, "gzip"}) {
 				boost *= 2.5
 			}
 			if containsAny(cmdLower, []string{"find", "locate"}) {
@@ -883,12 +883,12 @@ func containsAny(s string, substrings []string) bool {
 // getCurrentPlatform returns the platform string used in the command database for the current OS
 func getCurrentPlatform() string {
 	switch runtime.GOOS {
-	case "windows":
-		return "windows"
+	case constants.PlatformWindows:
+		return constants.PlatformWindows
 	case "darwin":
-		return "macos"
-	case "linux":
-		return "linux"
+		return constants.PlatformMacOS
+	case constants.PlatformLinux:
+		return constants.PlatformLinux
 	default:
 		return runtime.GOOS
 	}

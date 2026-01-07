@@ -201,18 +201,17 @@ func TestConstantRelationships(t *testing.T) {
 
 func TestConstantTypes(_ *testing.T) {
 	// Test that constants are of expected types
-	var f float64
+
 	var i int
 	var d time.Duration
 
 	// Scoring constants should be float64
-	f = ScoreDirectCommandMatch
-	f = ScoreCommandMatch
-	f = ScoreDescriptionMatch
-	f = ScoreKeywordExactMatch
-	f = ScoreKeywordPartialMatch
-	f = ScoreDomainSpecificMatch
-	_ = f
+	_ = float64(ScoreDirectCommandMatch)
+	_ = float64(ScoreCommandMatch)
+	_ = float64(ScoreDescriptionMatch)
+	_ = float64(ScoreKeywordExactMatch)
+	_ = float64(ScoreKeywordPartialMatch)
+	_ = float64(ScoreDomainSpecificMatch)
 
 	// Search defaults should be int
 	i = DefaultSearchLimit
