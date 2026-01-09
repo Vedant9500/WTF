@@ -28,20 +28,37 @@ This document breaks down the project into small, actionable steps.
 
 ---
 
-## Phase 3: Unique Features ✨
+## Phase 3: Unique Features ✨ ✅ COMPLETE
 
-* [ ] **Task 3.1: Context Analyzer**:
+* [x] **Task 3.1: Context Analyzer**:
     * Build the module to detect project types (`.git`, `Dockerfile`, etc.).
     * Integrate context into the scoring algorithm to boost relevant results.
-* [ ] **Task 3.2: Interactive Builder**:
+* [x] **Task 3.2: Interactive Builder**:
     * Design the state machine for the wizard.
     * Implement the builder for one or two complex commands like `tar` and `find`.
 
 ---
 
-## Phase 4: Release & Polish 📦
+## Phase 4: Release & Polish 📦 ✅ COMPLETE
 
 * [x] **Task 4.1: Testing**: Write unit tests for the search, scoring, and parsing modules.
 * [x] **Task 4.2: Build Automation**: Create a Makefile or build script to automate compilation for Linux, macOS, and Windows.
 * [x] **Task 4.3: Documentation**: Greatly expand the README with examples, GIFs, and details on all features.
 * [x] **Task 4.4: Release**: Tag v1.0.0 and create official releases on GitHub. Look into submitting to package managers like Homebrew.
+
+---
+
+## Phase 5: Intelligent & Interactive Evolution 🤖 (Proposed)
+
+* [x] **Task 5.1: Generative AI Integration**:
+    * Integrate with LLM APIs (OpenAI/Gemini/Anthropic) or local models (Ollama).
+    * Use GenAI to answer complex "how-to" queries that static command databases can't cover.
+    * Explain *why* a command does what it does.
+* [x] **Task 5.2: Terminal User Interface (TUI)**:
+    * Build a rich TUI using `bubbletea` for browsing search results.
+    * Features: Navigate with arrow keys, copy to clipboard, execute directly, view man pages.
+* [ ] **Task 5.3: Deep Shell Integration**:
+    * Create fuzzy-finder widgets (similar to fzf) for shell history and WTF search.
+    * Bind to hotkeys (e.g., Ctrl+E) to inject commands directly into the current shell buffer.
+* [ ] **Task 5.4: Cloud Sync**:
+    * Sync personal command notebooks across devices using a simple Gist or backend service.
