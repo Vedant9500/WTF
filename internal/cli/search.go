@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Vedant9500/WTF/internal/ai"
 	"github.com/Vedant9500/WTF/internal/config"
 	"github.com/Vedant9500/WTF/internal/context"
 	"github.com/Vedant9500/WTF/internal/database"
@@ -15,6 +16,8 @@ import (
 	"github.com/Vedant9500/WTF/internal/history"
 	"github.com/Vedant9500/WTF/internal/recovery"
 	"github.com/Vedant9500/WTF/internal/validation"
+
+	"runtime"
 
 	"github.com/spf13/cobra"
 )
@@ -184,6 +187,54 @@ Examples:
 		searchHistory.AddEntry(query, len(results), contextDesc, searchDuration)
 		_ = searchHistory.Save() // Ignore errors for history saving
 
+		// Check if we should use AI
+		useAI, _ := cmd.Flags().GetBool("ai")
+		aiConfig := ai.GetConfigFromEnv()
+		
+		// Determine if we should attempt AI generation
+		// Case 1:User explicitly requested --ai
+		// Case 2: No results found and AI provider is configured
+		attemptAI := useAI
+		if !attemptAI && len(results) == 0 && aiConfig.Provider != "" {
+			attemptAI = true
+		}
+
+		if attemptAI {
+			if len(results) == 0 {
+				fmt.Printf("No local commands found. Asking AI (%s)...\n", aiConfig.Provider)
+			} else if useAI {
+				fmt.Printf("Generating AI response (%s)...\n", aiConfig.Provider)
+			}
+
+			client, err := ai.NewClient(aiConfig)
+			if err != nil {
+				if useAI {
+					fmt.Printf("Error initializing AI client: %v\n", err)
+					return
+				}
+				// If fallback, just log invalid config and continue to standard not found msg
+			} else {
+				// Construct system context
+				sysCtx := fmt.Sprintf("OS: %s, Shell: %s", runtime.GOOS, os.Getenv("SHELL"))
+				if projectContext != nil {
+					sysCtx += fmt.Sprintf(", Project: %s", projectContext.GetContextDescription())
+				}
+
+				cmdSuggestion, err := client.GenerateCommand(cmd.Context(), query, sysCtx)
+				if err != nil {
+					fmt.Printf("AI generation failed: %v\n", err)
+				} else {
+					fmt.Printf("\n✨ AI Suggested Command:\n")
+					fmt.Printf("   %s\n\n", cmdSuggestion)
+					
+					// If we found an AI command, we can return unless we want to show local results too (which are empty if we are here in fallback)
+					if len(results) == 0 || useAI {
+						return
+					}
+				}
+			}
+		}
+
 		if len(results) == 0 {
 			// Use database suggestions
 			suggestions := db.GetSuggestions(query, 5)
@@ -204,6 +255,9 @@ Examples:
 				fmt.Printf("• Use simpler terms (e.g., 'compress files' instead of 'how do I compress files')\n")
 				if len(flags.platforms) > 0 {
 					fmt.Printf("• Try --all-platforms to search across all platforms\n")
+				}
+				if aiConfig.Provider == "" {
+					fmt.Printf("• Set WTF_AI_PROVIDER (openai, gemini, ollama) to enable AI suggestions\n")
 				}
 			}
 			return

@@ -71,6 +71,7 @@ func init() {
 	rootCmd.AddCommand(pipelineCmd)
 	rootCmd.AddCommand(savePipelineCmd)
 	rootCmd.AddCommand(historyCmd)
+	rootCmd.AddCommand(tuiCmd)
 
 	// Add global flags
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
@@ -83,4 +84,5 @@ func init() {
 	// Output formatting flags
 	rootCmd.PersistentFlags().String("format", "list", "Output format: list|table|json")
 	rootCmd.PersistentFlags().Bool("no-color", false, "Disable color output (or set NO_COLOR env)")
+	rootCmd.PersistentFlags().Bool("ai", false, "Use Generative AI to answer the query")
 }
