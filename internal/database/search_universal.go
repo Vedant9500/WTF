@@ -96,7 +96,7 @@ func defaultParams() bm25fParams {
 	return bm25fParams{
 		k1:     1.2,
 		b:      docLensF{cmd: 0.75, desc: 0.75, keys: 0.7, tags: 0.7},
-		w:      docLensF{cmd: 2.5, desc: 1.0, keys: 1.8, tags: 1.2},
+		w:      docLensF{cmd: 3.5, desc: 1.0, keys: 2.0, tags: 1.2}, // Increased cmd weight for better command matching
 		minIDF: 0.0,
 	}
 }

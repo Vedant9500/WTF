@@ -310,6 +310,7 @@ func buildSynonyms() map[string][]string {
 		"look":    {"view", "see", "show", "display", "cat"},
 		"check":   {"view", "see", "show", "display", "cat"},
 		"print":   {"cat", "echo", "printf", "show"},
+		"cat":     {"view", "show", "display", "less", "more", "head", "tail"},
 
 		// Actions
 		"find":   {"search", "locate", "discover", "lookup"},
@@ -318,9 +319,12 @@ func buildSynonyms() map[string][]string {
 		"copy":   {"duplicate", "clone", "backup"},
 		"move":   {"relocate", "transfer", "shift"},
 
-		// Compression
-		"compress": {"zip", "archive", "pack", "bundle", "tar"},
-		"extract":  {"unzip", "unpack", "decompress", "expand"},
+		// Compression - bi-directional mappings
+		"compress":   {"zip", "archive", "pack", "bundle", "tar"},
+		"extract":    {"unzip", "unpack", "decompress", "expand", "tar -x"},
+		"decompress": {"unzip", "extract", "unpack", "expand", "gunzip"},
+		"unpack":     {"unzip", "extract", "decompress", "expand"},
+		"unarchive":  {"unzip", "extract", "untar", "expand"},
 
 		// Network
 		"download":  {"fetch", "get", "pull", "retrieve"},
@@ -398,11 +402,12 @@ func buildActionWords() map[string][]string {
 		"add":     {"add", "install", "setup"},
 
 		// Compression
-		"compress": {"compress", "archive", "zip", "tar"},
-		"extract":  {"extract", "unzip", "unpack", "tar"},
-		"archive":  {"archive", "compress", "zip", "tar"},
-		"pack":     {"compress", "archive", "zip", "tar"},
-		"unpack":   {"extract", "unzip", "unpack", "tar"},
+		"compress":   {"compress", "archive", "zip", "tar"},
+		"extract":    {"extract", "unzip", "unpack", "tar"},
+		"archive":    {"archive", "compress", "zip", "tar"},
+		"pack":       {"compress", "archive", "zip", "tar"},
+		"unpack":     {"extract", "unzip", "unpack", "tar"},
+		"decompress": {"extract", "unzip", "decompress", "gunzip"},
 
 		// File operations
 		"copy":   {"copy", "cp", "duplicate"},
