@@ -401,7 +401,7 @@ func (db *Database) enhanceQueryWithNLP(query string, terms []string) (pq *nlp.P
 					break
 				}
 			}
-			if !found && len(terms) < 6 {
+			if !found && len(terms) < 8 {
 				terms = append(terms, enhTerm)
 			}
 		}

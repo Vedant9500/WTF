@@ -67,12 +67,17 @@ func (s *TFIDFSearcher) buildIndex() {
 		}
 	}
 
-	// Step 2: Build vocabulary index (only words that appear in multiple documents)
+	// Step 2: Build vocabulary index
 	s.vocabulary = make(map[string]int)
 	vocabIndex := 0
 	for word, docCount := range wordCounts {
-		// Only include words that appear in at least 2 documents but not in more than 50% of documents
-		if docCount >= 2 && docCount <= len(s.commands)/2 {
+		// Include unique terms (docCount >= 1) as they are highly discriminating
+		// Upper bound at 80% to exclude only very common terms
+		maxDocs := len(s.commands) * 8 / 10
+		if maxDocs < 1 {
+			maxDocs = 1
+		}
+		if docCount >= 1 && docCount <= maxDocs {
 			s.vocabulary[word] = vocabIndex
 			vocabIndex++
 		}
@@ -131,21 +136,12 @@ func (s *TFIDFSearcher) tokenize(text string) []string {
 	return tokens
 }
 
+// tfidfStopWords uses the shared stop words for consistency across the system
+var tfidfStopWords = StopWords()
+
 // isStopWord checks if a word is a common stop word
 func (s *TFIDFSearcher) isStopWord(word string) bool {
-	stopWords := map[string]bool{
-		"the": true, "a": true, "an": true, "and": true, "or": true, "but": true,
-		"in": true, "on": true, "at": true, "to": true, "for": true, "of": true,
-		"with": true, "by": true, "is": true, "are": true, "was": true, "were": true,
-		"be": true, "been": true, "have": true, "has": true, "had": true, "do": true,
-		"does": true, "did": true, "will": true, "would": true, "could": true, "should": true,
-		"this": true, "that": true, "these": true, "those": true, "it": true, "its": true,
-		"you": true, "your": true, "all": true, "any": true, "can": true, "from": true,
-		"not": true, "no": true, "if": true, "when": true, "where": true, "how": true,
-		"what": true, "which": true, "who": true, "why": true, "use": true, "used": true,
-		"using": true,
-	}
-	return stopWords[word]
+	return tfidfStopWords[word]
 }
 
 // Search performs TF-IDF based search with cosine similarity
