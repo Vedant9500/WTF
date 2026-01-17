@@ -24,18 +24,25 @@ WTF/
 │   │   ├── analyzer.go   # Directory and project analysis
 │   │   └── analyzer_test.go # Context analysis tests
 │   ├── database/         # Database operations and search
+│   │   ├── cascading_boost.go # Token-based weighted boost scoring
+│   │   ├── embedding_loader.go # Word vector embedding loader (optional)
 │   │   ├── loader.go     # Database loading and management
 │   │   ├── loader_test.go # Database loading tests
 │   │   ├── models.go     # Data structures and models
 │   │   ├── pipeline_test.go # Pipeline functionality tests
 │   │   ├── search.go     # Advanced search algorithms and scoring
+│   │   ├── search_universal.go # BM25F universal search with NLP
 │   │   └── search_test.go # Search functionality tests
 │   ├── errors/           # Error handling utilities
 │   │   └── errors.go     # Custom error types
 │   ├── history/          # Search history and analytics
 │   │   └── history.go    # Search tracking and statistics
+│   ├── embedding/        # Word vector embeddings (optional)
+│   │   ├── embedding.go  # Embedding loader and cosine similarity
+│   │   └── embedding_test.go # Embedding tests
 │   ├── nlp/              # Natural Language Processing
-│   │   └── processor.go  # Intent detection and query processing
+│   │   ├── processor.go  # Intent detection and query processing
+│   │   └── tfidf.go      # TF-IDF based search and reranking
 │   ├── recovery/         # Error recovery mechanisms
 │   │   ├── recovery.go   # Database and search recovery
 │   │   └── recovery_test.go # Recovery mechanism tests
@@ -55,7 +62,9 @@ WTF/
 ├── configs/              # Configuration files
 ├── build/                # Build artifacts (generated)
 ├── scripts/              # Build and utility scripts
-│   └── fetch_cheatsheets.go # Database update script
+│   ├── fetch_cheatsheets.go # Database update script
+│   ├── prepare_glove.py  # GloVe word vector preparation (optional)
+│   └── embed_commands.py # Command embedding generation (optional)
 ├── .editorconfig         # Editor configuration
 ├── .gitignore           # Git ignore rules
 ├── go.mod               # Go module definition
@@ -79,10 +88,12 @@ Private application code that cannot be imported by other projects. Organized by
 - **`cli/`**: All command-line interface logic, using Cobra framework
 - **`config/`**: Configuration management and file handling  
 - **`context/`**: Project type detection and context-aware suggestions (15+ project types)
-- **`database/`**: Command database operations, advanced search algorithms, and data models
+- **`database/`**: Command database operations, BM25F search, cascading boost scoring
+- **`embedding/`**: Optional word vector embeddings for semantic search
 - **`errors/`**: Custom error types and error handling utilities
 - **`history/`**: Search history tracking, analytics, and usage statistics
-- **`nlp/`**: Natural language processing for intent detection and query understanding
+- **`nlp/`**: Natural language processing for intent detection, TF-IDF reranking
+- **`recovery/`**: Database and search error recovery mechanisms
 - **`search/`**: Fuzzy search utilities and typo tolerance algorithms
 - **`version/`**: Version information and build metadata
 
@@ -140,9 +151,12 @@ github.com/Vedant9500/WTF/internal/version
 
 ### Core Technologies
 
-- **NLP Processing**: Lightweight intent detection and query understanding
+- **BM25F Search**: Field-weighted Best Match 25 scoring algorithm
+- **Cascading Boost**: Token-based weighted boosting (action 3x, context 2.5x, target 2x)
+- **NLP Processing**: Intent detection, synonym expansion, and query understanding
+- **TF-IDF Reranking**: Term frequency-inverse document frequency refinement
 - **Fuzzy Search**: Levenshtein distance-based typo tolerance
-- **Hybrid Search**: Combines exact, fuzzy, and semantic matching
+- **Platform Filtering**: Filter by OS with --platform and --all-platforms flags
 - **Context Detection**: 15+ project types with smart command prioritization
 - **Search Analytics**: JSON-based history tracking and usage statistics
 

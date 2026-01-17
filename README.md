@@ -17,7 +17,7 @@
 
 🔍 **Advanced Natural Language Search** - Find commands by describing what you want to do in plain English  
 🧠 **Intent Detection** - Understands your intent (create, search, compress, install, etc.) for better results  
-📚 **Massive Command Database** - 3,268+ commands sourced from TLDR pages and community contributions  
+📚 **Massive Command Database** - 3,846+ commands sourced from TLDR pages and community contributions  
 🎯 **Context-Aware Suggestions** - Smart recommendations based on your current directory and project type  
 ⚡ **Fuzzy Search & Typo Tolerance** - Finds commands even with spelling mistakes  
 🖥️ **Platform Filtering** - Filter commands by platform (Linux, macOS, Windows, cross-platform)  
@@ -123,19 +123,15 @@ wtf "mkdir direectory"               # Still finds directory commands
 wtf "gti comit changez"              # Finds git commit commands
 ```
 
-#### 🧩 How search works (BM25F + NLP + TF‑IDF)
+#### 🧩 How search works (BM25F + Cascading Boost + NLP)
 
-WTF uses a universal BM25F-based inverted index for fast, scalable search across:
-- Command text (highest weight)
-- Keywords and tags
-- Descriptions
+WTF uses a multi-stage search pipeline:
+1. **BM25F Inverted Index** - Field-weighted Best Match 25 scoring across command, keywords, and descriptions
+2. **NLP Enhancement** - Intent detection, synonym expansion, and action/target recognition
+3. **Cascading Boost** - Token-based weighted boosting (action 3x, context 2.5x, target 2x, keyword 1.5x)
+4. **TF-IDF Reranking** - Cosine similarity refinement for top results
 
-NLP enhances long or fuzzy queries:
-- Intent/actions/targets (e.g., create/delete/view + file/folder) boost relevant commands
-- Top‑IDF term selection trims long queries to the most informative words
-- Optional semantic reranking uses TF‑IDF cosine similarity to refine top results
-
-You can tune behavior via search options (limit, NLP on/off, top‑terms cap).
+You can tune behavior via search options (limit, NLP on/off, platform filtering).
 
 ### 🧠 Advanced Natural Language Processing
 
@@ -522,18 +518,18 @@ make benchmark
 
 WTF is optimized for speed with advanced algorithms:
 
-- **Search Performance**: ~200ms average response time (optimized for accuracy)
-- **NLP Processing**: < 50ms for intent detection and query analysis  
-- **Database Size**: 3,268+ commands, ~2.8MB total
-- **Memory Usage**: < 20MB RAM (includes enhanced search algorithms)
+- **Search Performance**: ~50ms average response time
+- **NLP Processing**: < 20ms for intent detection and query analysis  
+- **Database Size**: 3,846+ commands, ~2.8MB total
+- **Memory Usage**: < 20MB RAM
 - **Binary Size**: < 25MB (statically linked with all features)
 - **Cold Start**: < 150ms first run
 - **Fuzzy Search**: Advanced typo correction with Levenshtein distance
-- **Platform Filtering**: Instant filtering with full caching support
+- **Platform Filtering**: Instant filtering with --all-platforms and --platform flags
 
 **Optimization Features**:
-- **Hybrid Search Algorithm**: Combines exact, fuzzy, and semantic matching
-- **Smart Scoring**: Multi-factor relevance calculation with domain-specific boosts
+- **BM25F + Cascading Boost**: Multi-stage scoring with field weights and token-based boosting
+- **Smart Scoring**: Action/context/target weighted boosts for intent-aware ranking
 - **Efficient NLP**: Lightweight intent detection without external dependencies
 - **Memory Management**: Smart caching and cleanup for long-running sessions
 
@@ -542,10 +538,10 @@ WTF is optimized for speed with advanced algorithms:
 ## 🗄️ Database
 
 ### Built-in Database
-- **3,268+ curated commands** from [TLDR Pages](https://github.com/tldr-pages/tldr) and community contributions
+- **3,846+ curated commands** from [TLDR Pages](https://github.com/tldr-pages/tldr) and community contributions
 - **Categories**: compression, system, networking, development, version-control, text-processing, and more
 - **Multi-Platform**: Commands for Linux, macOS, Windows, and cross-platform tools
-- **Platform Filtering**: Advanced filtering by platform with smart cross-platform handling
+- **Platform Filtering**: Use --all-platforms (-a) to show all platforms, --platform to filter specific ones
 - **Enhanced Coverage**: Essential commands like `cal`, `wc`, `uniq`, `tr`, `yq` included
 - **Regular updates** with new commands and improvements
 - **Community Driven**: Maintained by multiple open-source communities worldwide
@@ -599,7 +595,7 @@ We welcome contributions! Here's how to get started:
 
 ## 🙏 Acknowledgments
 
-- **[TLDR Pages](https://github.com/tldr-pages/tldr)** - Primary command database source (3,845+ commands)
+- **[TLDR Pages](https://github.com/tldr-pages/tldr)** - Primary command database source (3,846+ commands)
 - **[Cheat/Cheatsheets](https://github.com/cheat/cheatsheets)** - Additional curated command examples and usage patterns
 - **[Cobra](https://github.com/spf13/cobra)** - Excellent CLI framework
 - **Go Community** - Amazing ecosystem and tools
