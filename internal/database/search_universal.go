@@ -293,6 +293,7 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 
 	// Calculate initial scores using BM25F
 	scores := db.calculateInitialScores(terms, pq, options)
+
 	if len(scores) == 0 {
 		return nil
 	}
@@ -306,6 +307,12 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 	// Optional NLP-based reranking
 	if options.UseNLP && db.tfidf != nil {
 		results = db.rerankWithNLP(results, query, options)
+	}
+
+	// Cascading boost: apply weighted boosts based on query token types
+	// This replaces word vector semantic search with more targeted boosting
+	if options.UseNLP && pq != nil && len(results) > 0 {
+		results = db.cascadingBoost(results, pq)
 	}
 
 	// Limit
@@ -368,8 +375,8 @@ func (db *Database) processPostingsForTerm(
 	for _, p := range postings {
 		doc := &db.Commands[p.docID]
 
-		// Platform filtering
-		if len(doc.Platform) > 0 {
+		// Platform filtering (skip if AllPlatforms is enabled)
+		if !options.AllPlatforms && len(doc.Platform) > 0 {
 			if !isPlatformCompatible(doc.Platform, currentPlatform) && !isCrossPlatformTool(doc.Command) {
 				continue
 			}
@@ -601,4 +608,122 @@ func containsAnyLocal(s string, words []string) bool {
 		}
 	}
 	return false
+}
+
+// rerankWithSemanticSearch blends BM25F scores with semantic similarity.
+// This improves accuracy for queries where exact keywords don't match but
+// semantic meaning is similar (e.g., "decompress" finding "unzip" commands).
+func (db *Database) rerankWithSemanticSearch(results []SearchResult, query string) []SearchResult {
+	// Compute query embedding
+	queryEmbedding := db.embeddingIndex.EmbedQuery(query)
+	if queryEmbedding == nil {
+		// No matching words in vocabulary, keep original scores
+		return results
+	}
+
+	// Check if we have pre-computed command embeddings
+	numCmdEmbeddings := db.embeddingIndex.NumCommands()
+	if numCmdEmbeddings == 0 {
+		return results
+	}
+
+	// Get semantic scores for all commands
+	semanticScores := db.embeddingIndex.SemanticScores(queryEmbedding)
+	if semanticScores == nil {
+		return results
+	}
+
+	// Build a map from Command pointer to its index in db.Commands
+	cmdToIdx := make(map[*Command]int, len(db.Commands))
+	for i := range db.Commands {
+		cmdToIdx[&db.Commands[i]] = i
+	}
+
+	// Normalize BM25F scores to 0-1 range for blending
+	maxBM25 := 0.0
+	for _, r := range results {
+		if r.Score > maxBM25 {
+			maxBM25 = r.Score
+		}
+	}
+	if maxBM25 <= 0 {
+		maxBM25 = 1.0
+	}
+
+	// Blend scores: 70% BM25F + 30% semantic similarity
+	// Keep BM25F dominant to preserve keyword matching
+	const bm25Weight = 0.7
+	const semanticWeight = 0.3
+
+	matchCount := 0
+	for i, r := range results {
+		// Find the index of this command in db.Commands
+		idx, ok := cmdToIdx[r.Command]
+		if !ok || idx >= len(semanticScores) {
+			continue
+		}
+		matchCount++
+
+		// Normalize BM25F to 0-1
+		normalizedBM25 := r.Score / maxBM25
+
+		// Semantic score is already -1 to 1, shift to 0-1
+		normalizedSemantic := (semanticScores[idx] + 1) / 2
+
+		// Blend and scale back
+		blendedNorm := bm25Weight*normalizedBM25 + semanticWeight*normalizedSemantic
+		results[i].Score = blendedNorm * maxBM25
+	}
+
+	// Re-sort after blending
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Score > results[j].Score
+	})
+
+	return results
+}
+
+// findSemanticCandidates finds commands with high semantic similarity to the query.
+// Returns a map of command index -> similarity score for top candidates.
+func (db *Database) findSemanticCandidates(query string, limit int) map[int]float64 {
+	if db.embeddingIndex == nil {
+		return nil
+	}
+
+	// Compute query embedding
+	queryEmbedding := db.embeddingIndex.EmbedQuery(query)
+	if queryEmbedding == nil {
+		return nil
+	}
+
+	// Get semantic scores for all commands
+	semanticScores := db.embeddingIndex.SemanticScores(queryEmbedding)
+	if semanticScores == nil || len(semanticScores) == 0 {
+		return nil
+	}
+
+	// Find top scoring commands
+	type candidate struct {
+		idx   int
+		score float64
+	}
+	candidates := make([]candidate, 0, len(semanticScores))
+	for i, score := range semanticScores {
+		if score > 0.3 { // Minimum similarity threshold
+			candidates = append(candidates, candidate{idx: i, score: score})
+		}
+	}
+
+	// Sort by score descending
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].score > candidates[j].score
+	})
+
+	// Return top candidates
+	result := make(map[int]float64)
+	for i := 0; i < len(candidates) && i < limit; i++ {
+		result[candidates[i].idx] = candidates[i].score
+	}
+
+	return result
 }

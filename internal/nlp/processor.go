@@ -489,3 +489,12 @@ func removeDuplicates(slice []string) []string {
 
 	return result
 }
+
+// GetSynonyms returns synonyms for a given word from the processor's synonym map
+func (qp *QueryProcessor) GetSynonyms(word string) []string {
+	word = strings.ToLower(word)
+	if synonyms, found := qp.synonyms[word]; found {
+		return synonyms
+	}
+	return nil
+}

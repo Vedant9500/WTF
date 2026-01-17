@@ -57,3 +57,7 @@ PKGBUILD
 .kiro/specs/*/requirements.md
 .kiro/specs/*/design.md
 .kiro/specs/*/tasks.md
+glove.6B.100d.txt 
+glove.6B.zip 
+assets/glove.bin 
+assets/cmd_embeddings.bin 

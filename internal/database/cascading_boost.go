@@ -1,0 +1,188 @@
+package database
+
+import (
+	"sort"
+	"strings"
+
+	"github.com/Vedant9500/WTF/internal/nlp"
+)
+
+// cascadingBoost applies weighted boosts based on query token types.
+// It uses NLP to classify tokens as actions/targets/keywords and boosts
+// commands that match in order of importance: action > context > target.
+func (db *Database) cascadingBoost(results []SearchResult, pq *nlp.ProcessedQuery) []SearchResult {
+	if pq == nil || len(results) == 0 {
+		return results
+	}
+
+	// Get synonyms for expansion
+	processor := nlp.NewQueryProcessor()
+
+	// Build boost maps with synonyms
+	actionTerms := expandWithSynonyms(pq.Actions, processor)
+	targetTerms := expandWithSynonyms(pq.Targets, processor)
+	keywordTerms := expandWithSynonyms(pq.Keywords, processor)
+
+	// Boost weights (action matches are most important)
+	const actionBoost = 3.0
+	const targetBoost = 2.0
+	const keywordBoost = 1.5
+	const contextBoost = 2.5 // For known command contexts (git, docker, etc.)
+
+	// Extract context from query (known tool names)
+	contexts := extractContexts(pq.Keywords)
+
+	for i, r := range results {
+		boost := 1.0
+		cmd := r.Command
+
+		// Combine searchable text
+		searchText := strings.ToLower(cmd.Command + " " + cmd.Description + " " + strings.Join(cmd.Keywords, " "))
+
+		// Check action matches (highest priority)
+		for _, action := range actionTerms {
+			if containsWord(searchText, action) {
+				boost += actionBoost
+				break // Only count once per category
+			}
+		}
+
+		// Check context matches (known tools like git, docker)
+		for _, ctx := range contexts {
+			if containsWord(cmd.Command, ctx) || containsWord(searchText, ctx) {
+				boost += contextBoost
+				break
+			}
+		}
+
+		// Check target matches
+		for _, target := range targetTerms {
+			if containsWord(searchText, target) {
+				boost += targetBoost
+				break
+			}
+		}
+
+		// Check keyword matches
+		for _, kw := range keywordTerms {
+			if containsWord(searchText, kw) {
+				boost += keywordBoost
+				break
+			}
+		}
+
+		// Apply intent-specific boosts
+		boost += getIntentBoost(pq.Intent, searchText)
+
+		results[i].Score *= boost
+	}
+
+	// Re-sort by boosted scores
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Score > results[j].Score
+	})
+
+	return results
+}
+
+// expandWithSynonyms adds synonyms for each term if available
+func expandWithSynonyms(terms []string, processor *nlp.QueryProcessor) []string {
+	expanded := make([]string, 0, len(terms)*2)
+	seen := make(map[string]bool)
+
+	for _, term := range terms {
+		term = strings.ToLower(term)
+		if !seen[term] {
+			expanded = append(expanded, term)
+			seen[term] = true
+		}
+
+		// Get synonyms from the processor
+		synonyms := processor.GetSynonyms(term)
+		for _, syn := range synonyms {
+			syn = strings.ToLower(syn)
+			if !seen[syn] {
+				expanded = append(expanded, syn)
+				seen[syn] = true
+			}
+		}
+	}
+
+	return expanded
+}
+
+// extractContexts finds known tool/command names in keywords
+func extractContexts(keywords []string) []string {
+	knownContexts := map[string]bool{
+		"git": true, "docker": true, "npm": true, "pip": true,
+		"apt": true, "yum": true, "pacman": true, "brew": true,
+		"kubectl": true, "terraform": true, "ansible": true,
+		"ssh": true, "rsync": true, "tar": true, "grep": true,
+		"sed": true, "awk": true, "find": true, "chmod": true,
+		"chown": true, "curl": true, "wget": true, "systemctl": true,
+		"journalctl": true, "nginx": true, "apache": true,
+		"mysql": true, "postgres": true, "redis": true, "mongo": true,
+		"python": true, "node": true, "go": true, "rust": true,
+		"cargo": true, "yarn": true, "composer": true, "gem": true,
+		"arch": true, "ubuntu": true, "debian": true, "centos": true,
+		"windows": true, "macos": true, "linux": true,
+		"ipconfig": true, "ifconfig": true, "netstat": true, "ip": true,
+	}
+
+	var contexts []string
+	for _, kw := range keywords {
+		kwLower := strings.ToLower(kw)
+		if knownContexts[kwLower] {
+			contexts = append(contexts, kwLower)
+		}
+	}
+	return contexts
+}
+
+// getIntentBoost returns additional boost based on detected intent
+func getIntentBoost(intent nlp.QueryIntent, searchText string) float64 {
+	switch intent {
+	case nlp.IntentView:
+		// Boost viewing commands
+		if containsWord(searchText, "show") || containsWord(searchText, "display") ||
+			containsWord(searchText, "list") || containsWord(searchText, "view") ||
+			containsWord(searchText, "cat") || containsWord(searchText, "less") {
+			return 1.5
+		}
+	case nlp.IntentDelete:
+		// Boost deletion commands
+		if containsWord(searchText, "delete") || containsWord(searchText, "remove") ||
+			containsWord(searchText, "rm") || containsWord(searchText, "uninstall") {
+			return 1.5
+		}
+	case nlp.IntentCreate:
+		// Boost creation commands
+		if containsWord(searchText, "create") || containsWord(searchText, "make") ||
+			containsWord(searchText, "new") || containsWord(searchText, "mkdir") ||
+			containsWord(searchText, "touch") {
+			return 1.5
+		}
+	case nlp.IntentInstall:
+		// Boost installation commands
+		if containsWord(searchText, "install") || containsWord(searchText, "setup") ||
+			containsWord(searchText, "add") {
+			return 1.5
+		}
+	case nlp.IntentModify:
+		// Boost modification commands, including undo/revert
+		if containsWord(searchText, "modify") || containsWord(searchText, "change") ||
+			containsWord(searchText, "edit") || containsWord(searchText, "update") ||
+			containsWord(searchText, "undo") || containsWord(searchText, "revert") ||
+			containsWord(searchText, "reset") {
+			return 1.5
+		}
+	}
+	return 0.0
+}
+
+// containsWord checks if text contains a whole word (not substring)
+func containsWord(text, word string) bool {
+	text = " " + text + " "
+	word = " " + word + " "
+	return strings.Contains(text, word)
+}

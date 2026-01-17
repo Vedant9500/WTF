@@ -148,10 +148,13 @@ Examples:
 
 		// Use original search with smart NLP enhancement
 		searchOptions := database.SearchOptions{
-			Limit:          cfg.MaxResults,
-			UseFuzzy:       true,
-			FuzzyThreshold: -30,
-			UseNLP:         true, // Enable smart NLP enhancement
+			Limit:           cfg.MaxResults,
+			UseFuzzy:        true,
+			FuzzyThreshold:  -30,
+			UseNLP:          true, // Enable smart NLP enhancement
+			AllPlatforms:    flags.allPlatforms,
+			Platforms:       flags.platforms,
+			NoCrossPlatform: flags.noCrossPlatform,
 		}
 		if projectContext != nil {
 			searchOptions.ContextBoosts = projectContext.GetContextBoosts()

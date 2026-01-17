@@ -12,6 +12,7 @@
 package database
 
 import (
+	"github.com/Vedant9500/WTF/internal/embedding"
 	"github.com/Vedant9500/WTF/internal/nlp"
 )
 
@@ -83,6 +84,8 @@ type Database struct {
 	tfidf *nlp.TFIDFSearcher `yaml:"-"`
 	// cmdIndex maps command pointers to their indices for fast lookups
 	cmdIndex map[*Command]int `yaml:"-"`
+	// embeddingIndex holds word vectors and command embeddings for semantic search
+	embeddingIndex *embedding.EmbeddingIndex `yaml:"-"`
 }
 
 // (imports are declared at the top)
