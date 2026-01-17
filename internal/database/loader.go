@@ -58,8 +58,6 @@ func LoadDatabase(filename string) (*Database, error) {
 	db.BuildUniversalIndex()
 	// Build TF-IDF searcher and command index for hybrid NLP reranking
 	db.buildTFIDFSearcher()
-	// Load semantic search embeddings (optional, gracefully handles missing files)
-	_ = db.LoadEmbeddings()
 	return db, nil
 }
 
@@ -122,8 +120,6 @@ func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, err
 	db.BuildUniversalIndex()
 	// Build TF-IDF searcher and command index for hybrid NLP reranking
 	db.buildTFIDFSearcher()
-	// Load semantic search embeddings (optional, gracefully handles missing files)
-	_ = db.LoadEmbeddings()
 	return db, nil
 }
 
