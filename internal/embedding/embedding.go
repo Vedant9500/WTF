@@ -12,8 +12,8 @@ import (
 	"unicode"
 )
 
-// EmbeddingIndex holds word vectors and pre-computed command embeddings.
-type EmbeddingIndex struct {
+// Index holds word vectors and pre-computed command embeddings.
+type Index struct {
 	Dimension     int
 	WordVectors   map[string][]float32 // word -> 100d vector
 	CmdEmbeddings [][]float32          // command index -> 100d vector
@@ -21,7 +21,7 @@ type EmbeddingIndex struct {
 
 // LoadWordVectors loads word vectors from binary file.
 // Format: [vocab_size:u32] then per word: [word_len:u16][word:bytes][vector:dim*f32]
-func LoadWordVectors(filepath string) (*EmbeddingIndex, error) {
+func LoadWordVectors(filepath string) (*Index, error) {
 	f, err := os.Open(filepath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open word vectors: %w", err)
@@ -36,7 +36,7 @@ func LoadWordVectors(filepath string) (*EmbeddingIndex, error) {
 		return nil, fmt.Errorf("failed to read vocab size: %w", err)
 	}
 
-	idx := &EmbeddingIndex{
+	idx := &Index{
 		Dimension:   100, // GloVe 100d
 		WordVectors: make(map[string][]float32, vocabSize),
 	}
@@ -70,7 +70,7 @@ func LoadWordVectors(filepath string) (*EmbeddingIndex, error) {
 
 // LoadCommandEmbeddings loads pre-computed command embeddings from binary file.
 // Format: [num_commands:u32][dimension:u32] then per command: [embedding:dim*f32]
-func (idx *EmbeddingIndex) LoadCommandEmbeddings(filepath string) error {
+func (idx *Index) LoadCommandEmbeddings(filepath string) error {
 	f, err := os.Open(filepath)
 	if err != nil {
 		return fmt.Errorf("failed to open command embeddings: %w", err)
@@ -106,7 +106,7 @@ func (idx *EmbeddingIndex) LoadCommandEmbeddings(filepath string) error {
 }
 
 // EmbedQuery computes an embedding for a query by averaging word vectors.
-func (idx *EmbeddingIndex) EmbedQuery(query string) []float32 {
+func (idx *Index) EmbedQuery(query string) []float32 {
 	tokens := tokenize(query)
 	if len(tokens) == 0 {
 		return nil
@@ -159,7 +159,7 @@ func CosineSimilarity(a, b []float32) float64 {
 
 // SemanticScores computes cosine similarity between query and all commands.
 // Returns scores in same order as CmdEmbeddings.
-func (idx *EmbeddingIndex) SemanticScores(queryEmbedding []float32) []float64 {
+func (idx *Index) SemanticScores(queryEmbedding []float32) []float64 {
 	if queryEmbedding == nil || len(idx.CmdEmbeddings) == 0 {
 		return nil
 	}
@@ -193,17 +193,17 @@ func tokenize(text string) []string {
 }
 
 // VocabSize returns the number of words in the vocabulary.
-func (idx *EmbeddingIndex) VocabSize() int {
+func (idx *Index) VocabSize() int {
 	return len(idx.WordVectors)
 }
 
 // NumCommands returns the number of command embeddings.
-func (idx *EmbeddingIndex) NumCommands() int {
+func (idx *Index) NumCommands() int {
 	return len(idx.CmdEmbeddings)
 }
 
 // HasWord checks if a word exists in the vocabulary.
-func (idx *EmbeddingIndex) HasWord(word string) bool {
+func (idx *Index) HasWord(word string) bool {
 	_, ok := idx.WordVectors[strings.ToLower(word)]
 	return ok
 }

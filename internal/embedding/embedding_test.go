@@ -101,7 +101,7 @@ func TestCosineSimilarity(t *testing.T) {
 
 func TestEmbeddingIndex_EmbedQuery(t *testing.T) {
 	// Create a mock embedding index with some test vectors
-	idx := &EmbeddingIndex{
+	idx := &Index{
 		Dimension: 3,
 		WordVectors: map[string][]float32{
 			"compress": {1.0, 0.0, 0.0},
@@ -154,7 +154,7 @@ func TestEmbeddingIndex_EmbedQuery(t *testing.T) {
 }
 
 func TestEmbeddingIndex_SemanticScores(t *testing.T) {
-	idx := &EmbeddingIndex{
+	idx := &Index{
 		Dimension: 3,
 		WordVectors: map[string][]float32{
 			"compress": {1.0, 0.0, 0.0},

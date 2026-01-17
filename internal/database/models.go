@@ -85,7 +85,7 @@ type Database struct {
 	// cmdIndex maps command pointers to their indices for fast lookups
 	cmdIndex map[*Command]int `yaml:"-"`
 	// embeddingIndex holds word vectors and command embeddings for semantic search
-	embeddingIndex *embedding.EmbeddingIndex `yaml:"-"`
+	embeddingIndex *embedding.Index `yaml:"-"`
 }
 
 // (imports are declared at the top)

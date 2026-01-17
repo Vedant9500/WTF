@@ -139,41 +139,23 @@ func extractContexts(keywords []string) []string {
 	return contexts
 }
 
+// intentKeywords maps each intent to its associated keywords for boosting
+var intentKeywords = map[nlp.QueryIntent][]string{
+	nlp.IntentView:    {"show", "display", "list", "view", "cat", "less"},
+	nlp.IntentDelete:  {"delete", "remove", "rm", "uninstall"},
+	nlp.IntentCreate:  {"create", "make", "new", "mkdir", "touch"},
+	nlp.IntentInstall: {"install", "setup", "add"},
+	nlp.IntentModify:  {"modify", "change", "edit", "update", "undo", "revert", "reset"},
+}
+
 // getIntentBoost returns additional boost based on detected intent
 func getIntentBoost(intent nlp.QueryIntent, searchText string) float64 {
-	switch intent {
-	case nlp.IntentView:
-		// Boost viewing commands
-		if containsWord(searchText, "show") || containsWord(searchText, "display") ||
-			containsWord(searchText, "list") || containsWord(searchText, "view") ||
-			containsWord(searchText, "cat") || containsWord(searchText, "less") {
-			return 1.5
-		}
-	case nlp.IntentDelete:
-		// Boost deletion commands
-		if containsWord(searchText, "delete") || containsWord(searchText, "remove") ||
-			containsWord(searchText, "rm") || containsWord(searchText, "uninstall") {
-			return 1.5
-		}
-	case nlp.IntentCreate:
-		// Boost creation commands
-		if containsWord(searchText, "create") || containsWord(searchText, "make") ||
-			containsWord(searchText, "new") || containsWord(searchText, "mkdir") ||
-			containsWord(searchText, "touch") {
-			return 1.5
-		}
-	case nlp.IntentInstall:
-		// Boost installation commands
-		if containsWord(searchText, "install") || containsWord(searchText, "setup") ||
-			containsWord(searchText, "add") {
-			return 1.5
-		}
-	case nlp.IntentModify:
-		// Boost modification commands, including undo/revert
-		if containsWord(searchText, "modify") || containsWord(searchText, "change") ||
-			containsWord(searchText, "edit") || containsWord(searchText, "update") ||
-			containsWord(searchText, "undo") || containsWord(searchText, "revert") ||
-			containsWord(searchText, "reset") {
+	keywords, ok := intentKeywords[intent]
+	if !ok {
+		return 0.0
+	}
+	for _, kw := range keywords {
+		if containsWord(searchText, kw) {
 			return 1.5
 		}
 	}
