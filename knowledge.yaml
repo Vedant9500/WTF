@@ -10,7 +10,8 @@ meta:
   go_version: "1.25.5"
   version: "1.2.0"
   repository: "github.com/Vedant9500/WTF"
-  command_count: 3850
+  command_count: 6619
+  database_source: "TLDR Pages (https://github.com/tldr-pages/tldr)"
   entry_point: "cmd/wtf/main.go"
 
 # ============================================================================
@@ -368,7 +369,8 @@ data_layer:
     format: "YAML"
     primary_path: "assets/commands.yml"
     personal_path: "~/.config/cmd-finder/personal.yml"
-    command_count: 3850
+    command_count: 6619
+    source: "TLDR Pages (auto-downloaded via update_database.py)"
     
     schema:
       command:
@@ -598,12 +600,25 @@ build_system:
     clean:
       command: "rm -rf build/"
 
-  ldflags:
-    - "-X github.com/Vedant9500/WTF/internal/version.Version=$(VERSION)"
-    - "-X github.com/Vedant9500/WTF/internal/version.GitHash=$(GIT_HASH)"
-    - "-X github.com/Vedant9500/WTF/internal/version.Build=$(BUILD_TIME)"
-
-  windows_build: "build.bat build"
+  windows_build_targets:
+    build: "build.bat build"
+    update-database: "build.bat update-database"
+    generate-embeddings: "build.bat generate-embeddings"
+    
+  scripts:
+    update_database:
+      path: "scripts/update_database.py"
+      description: "Downloads TLDR archive and generates commands.yml"
+      output: "assets/commands.yml"
+      requires: ["pyyaml", "requests", "tqdm"]
+    prepare_glove:
+      path: "scripts/prepare_glove.py"
+      description: "Downloads GloVe vectors and converts to binary"
+      output: "assets/glove.bin"
+    embed_commands:
+      path: "scripts/embed_commands.py"
+      description: "Generates command embeddings from commands.yml"
+      output: "assets/cmd_embeddings.bin"
 
 # ============================================================================
 # PLATFORM BEHAVIOR

@@ -62,7 +62,8 @@ WTF/
 ├── configs/              # Configuration files
 ├── build/                # Build artifacts (generated)
 ├── scripts/              # Build and utility scripts
-│   ├── fetch_cheatsheets.go # Database update script
+│   ├── fetch_cheatsheets.go # Database update script (legacy)
+│   ├── update_database.py # Download and parse TLDR pages
 │   ├── prepare_glove.py  # GloVe word vector preparation (optional)
 │   └── embed_commands.py # Command embedding generation (optional)
 ├── .editorconfig         # Editor configuration
@@ -102,7 +103,7 @@ Reserved for public library code that could be imported by other projects. Curre
 
 #### `/assets`
 Static files and data:
-- `commands.yml`: Main curated command database (3,845+ commands from TLDR Pages and Cheat/Cheatsheets)
+- `commands.yml`: Main curated command database (6,600+ commands from TLDR Pages)
 
 #### `/docs`
 Project documentation:

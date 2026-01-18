@@ -17,7 +17,7 @@
 
 🔍 **Advanced Natural Language Search** - Find commands by describing what you want to do in plain English  
 🧠 **Intent Detection** - Understands your intent (create, search, compress, install, etc.) for better results  
-📚 **Massive Command Database** - 3,846+ commands sourced from TLDR pages and community contributions  
+📚 **Massive Command Database** - 6,600+ commands sourced directly from TLDR pages  
 🎯 **Context-Aware Suggestions** - Smart recommendations based on your current directory and project type  
 ⚡ **Fuzzy Search & Typo Tolerance** - Finds commands even with spelling mistakes  
 🖥️ **Platform Filtering** - Filter commands by platform (Linux, macOS, Windows, cross-platform)  
@@ -87,11 +87,11 @@ WTF leverages excellent community-driven projects as its command database source
 - **[Cheat/Cheatsheets](https://github.com/cheat/cheatsheets)** - Community-maintained cheatsheets for various tools and technologies
 
 **Database Features:**
-- **3,845+ Commands**: Comprehensive coverage of common CLI tools
-- **Community Curated**: Maintained by developers worldwide
+- **6,600+ Commands**: Comprehensive coverage of CLI tools across all platforms
+- **Direct from TLDR**: Downloaded from official TLDR GitHub repository
+- **Auto-Update**: Run `build.bat update-database` to fetch latest commands
 - **Example-Focused**: Practical usage patterns, not just syntax
-- **Always Updated**: Fresh content from both communities
-- **Multi-Source**: Best commands from multiple trusted sources
+- **Multi-Platform**: Linux, macOS, Windows, Android commands included
 
 ---
 
@@ -440,24 +440,27 @@ echo "alias hey='wtf'" >> ~/.bashrc
 
 ### Database Configuration
 
-WTF comes with 3,845+ curated commands sourced from TLDR pages and supports custom databases:
+WTF comes with 6,600+ curated commands and supports custom databases:
 
 ```bash
+# Update database from TLDR (also regenerates embeddings)
+build.bat update-database
+
 # Use custom database
 wtf --database /path/to/custom.yml
 
 # Database locations:
-# Default: assets/commands.yml (3,845+ commands from TLDR)
+# Default: assets/commands.yml (6,600+ commands from TLDR)
 # Personal: ~/.config/wtf/personal.yml (auto-created)
 # Custom: any YAML file following the schema
 
 # Database stats
 wtf stats
 # 📊 Database Statistics:
-# Total commands: 3,845
+# Total commands: 6,600+
 # Categories: 12 (compression, system, networking, etc.)
-# Platforms: Linux, macOS, Windows
-# Average keywords per command: 4.2
+# Platforms: Linux, macOS, Windows, Android
+# Average keywords per command: 8
 ```
 
 ---
@@ -520,7 +523,7 @@ WTF is optimized for speed with advanced algorithms:
 
 - **Search Performance**: ~50ms average response time
 - **NLP Processing**: < 20ms for intent detection and query analysis  
-- **Database Size**: 3,846+ commands, ~2.8MB total
+- **Database Size**: 6,600+ commands, ~2.4MB total
 - **Memory Usage**: < 20MB RAM
 - **Binary Size**: < 25MB (statically linked with all features)
 - **Cold Start**: < 150ms first run
@@ -538,7 +541,7 @@ WTF is optimized for speed with advanced algorithms:
 ## 🗄️ Database
 
 ### Built-in Database
-- **3,846+ curated commands** from [TLDR Pages](https://github.com/tldr-pages/tldr) and community contributions
+- **6,600+ curated commands** from [TLDR Pages](https://github.com/tldr-pages/tldr) (downloaded directly)
 - **Categories**: compression, system, networking, development, version-control, text-processing, and more
 - **Multi-Platform**: Commands for Linux, macOS, Windows, and cross-platform tools
 - **Platform Filtering**: Use --all-platforms (-a) to show all platforms, --platform to filter specific ones
@@ -595,7 +598,7 @@ We welcome contributions! Here's how to get started:
 
 ## 🙏 Acknowledgments
 
-- **[TLDR Pages](https://github.com/tldr-pages/tldr)** - Primary command database source (3,846+ commands)
+- **[TLDR Pages](https://github.com/tldr-pages/tldr)** - Primary command database source (6,600+ commands)
 - **[Cheat/Cheatsheets](https://github.com/cheat/cheatsheets)** - Additional curated command examples and usage patterns
 - **[Cobra](https://github.com/spf13/cobra)** - Excellent CLI framework
 - **Go Community** - Amazing ecosystem and tools
