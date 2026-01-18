@@ -281,7 +281,12 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 	if options.UseNLP {
 		pq, terms = db.enhanceQueryWithNLP(query, terms)
 	}
+
+	// If no terms after processing, try fuzzy search as fallback
 	if len(terms) == 0 {
+		if options.UseFuzzy {
+			return db.performFuzzySearch(query, options)
+		}
 		return nil
 	}
 	// Reduce noise for long queries by keeping top-IDF terms
@@ -294,7 +299,11 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 	// Calculate initial scores using BM25F
 	scores := db.calculateInitialScores(terms, pq, options)
 
+	// If no BM25F results, try fuzzy search as fallback for typos
 	if len(scores) == 0 {
+		if options.UseFuzzy {
+			return db.performFuzzySearch(query, options)
+		}
 		return nil
 	}
 
@@ -313,6 +322,11 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 	// This replaces word vector semantic search with more targeted boosting
 	if options.UseNLP && pq != nil && len(results) > 0 {
 		results = db.cascadingBoost(results, pq)
+	}
+
+	// Semantic boost: blend embedding similarity into scores if embeddings are loaded
+	if db.HasEmbeddings() && len(results) > 0 {
+		results = db.applySemanticBoost(results, query)
 	}
 
 	// Limit
@@ -501,10 +515,15 @@ func (db *Database) collectResults(scores map[int]float64, pq *nlp.ProcessedQuer
 }
 
 func (db *Database) rerankWithNLP(results []SearchResult, query string, options SearchOptions) []SearchResult {
-	// Take a top slice for reranking to keep it fast
+	// Take a larger top slice for reranking to ensure good candidates aren't missed
+	// Minimum 10 to ensure NLP hints can boost commands that rank lower in pure BM25F
 	topK := results
-	if len(topK) > options.Limit*2 {
-		topK = topK[:options.Limit*2]
+	candidateLimit := options.Limit * 5
+	if candidateLimit < 10 {
+		candidateLimit = 10
+	}
+	if len(topK) > candidateLimit {
+		topK = topK[:candidateLimit]
 	}
 	// Run TF-IDF search to get semantic similarity
 	tfidfRes := db.tfidf.Search(query, len(topK))
@@ -608,4 +627,55 @@ func containsAnyLocal(s string, words []string) bool {
 		}
 	}
 	return false
+}
+
+// applySemanticBoost blends embedding similarity into BM25F scores.
+// This uses pre-computed command embeddings and GloVe word vectors to add
+// semantic understanding to purely lexical search results.
+func (db *Database) applySemanticBoost(results []SearchResult, query string) []SearchResult {
+	// Compute query embedding
+	queryEmbed := db.EmbedQuery(query)
+	if queryEmbed == nil {
+		return results // No valid embedding for query
+	}
+
+	// Get semantic similarity for all commands
+	semanticScores := db.SemanticScores(queryEmbed)
+	if semanticScores == nil {
+		return results
+	}
+
+	// Build lookup from result's Command to its index in db.Commands
+	// We need this to find the right semantic score for each result
+	cmdToIdx := db.cmdIndex
+	if cmdToIdx == nil {
+		// Rebuild if not available (shouldn't happen if BuildUniversalIndex was called)
+		cmdToIdx = make(map[*Command]int, len(db.Commands))
+		for i := range db.Commands {
+			cmdToIdx[&db.Commands[i]] = i
+		}
+	}
+
+	// Apply semantic boost to each result
+	for i := range results {
+		idx, ok := cmdToIdx[results[i].Command]
+		if !ok || idx >= len(semanticScores) {
+			continue
+		}
+
+		similarity := semanticScores[idx]
+
+		// Only apply boost if similarity exceeds minimum threshold
+		if similarity >= constants.SemanticMinScore {
+			// Blend: score *= (1 + alpha * similarity)
+			results[i].Score *= (1.0 + constants.SemanticAlpha*similarity)
+		}
+	}
+
+	// Re-sort after applying semantic boost
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Score > results[j].Score
+	})
+
+	return results
 }

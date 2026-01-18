@@ -100,6 +100,12 @@ const (
 	StopWordThreshold  = 2 // Minimum word length to avoid stop word filtering
 )
 
+// Semantic search constants
+const (
+	SemanticAlpha    = 0.3 // Weight for semantic boost blending: final = bm25f * (1 + alpha * similarity)
+	SemanticMinScore = 0.1 // Minimum cosine similarity to apply semantic boost
+)
+
 // Platform constants
 const (
 	PlatformWindows = "windows"

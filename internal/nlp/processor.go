@@ -236,7 +236,11 @@ func (pq *ProcessedQuery) GetEnhancedKeywords() []string {
 	// Add original keywords first
 	enhanced = append(enhanced, pq.Keywords...)
 
-	// Add ipconfig for IP-related queries
+	// Add command hints based on intent + target combinations
+	// This is crucial for mapping natural language to actual command names
+	enhanced = append(enhanced, pq.getCommandHints()...)
+
+	// Add ipconfig for IP-related queries (legacy)
 	hasIP := false
 	hasManage := false
 	hasWindows := false
@@ -270,7 +274,211 @@ func (pq *ProcessedQuery) GetEnhancedKeywords() []string {
 	}
 
 	return removeDuplicates(enhanced)
-} // buildStopWords creates a map of common English stop words
+}
+
+// getCommandHints returns actual command names based on detected actions and targets
+// This bridges the gap between natural language and command names
+func (pq *ProcessedQuery) getCommandHints() []string {
+	var hints []string
+
+	// Check for specific action+target combinations
+	hasAction := func(action string) bool {
+		for _, a := range pq.Actions {
+			if a == action {
+				return true
+			}
+		}
+		// Also check keywords for action words
+		for _, k := range pq.Keywords {
+			if k == action {
+				return true
+			}
+		}
+		return false
+	}
+
+	hasTarget := func(targets ...string) bool {
+		for _, t := range pq.Targets {
+			for _, target := range targets {
+				if t == target {
+					return true
+				}
+			}
+		}
+		for _, k := range pq.Keywords {
+			for _, target := range targets {
+				if k == target {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	hasKeyword := func(keywords ...string) bool {
+		for _, k := range pq.Keywords {
+			for _, keyword := range keywords {
+				if k == keyword {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	// Directory/Folder operations - check for any "create" intent with folder/directory words
+	if hasTarget("directory", "folder", "directories", "folders", "dir") ||
+		hasKeyword("directory", "folder", "directories", "folders", "dir") {
+		if hasAction("create") || hasAction("make") || hasAction("new") ||
+			hasKeyword("create", "make", "new") || pq.Intent == IntentCreate {
+			hints = append(hints, "mkdir")
+		}
+		if hasAction("delete") || hasAction("remove") || pq.Intent == IntentDelete {
+			hints = append(hints, "rmdir", "rm")
+		}
+		if hasAction("list") || hasAction("show") || pq.Intent == IntentFind {
+			hints = append(hints, "ls", "dir")
+		}
+	}
+
+	// File operations
+	if hasTarget("file", "files") || hasKeyword("file", "files") {
+		if hasAction("copy") {
+			hints = append(hints, "cp")
+		}
+		if hasAction("move") || hasAction("rename") {
+			hints = append(hints, "mv")
+		}
+		if hasAction("delete") || hasAction("remove") {
+			hints = append(hints, "rm")
+		}
+		if hasAction("find") || hasAction("search") || hasAction("locate") {
+			hints = append(hints, "find", "grep")
+		}
+		if hasAction("view") || hasAction("show") || hasAction("read") || hasAction("see") {
+			hints = append(hints, "cat", "less", "more")
+		}
+		if hasAction("edit") || hasKeyword("edit") {
+			hints = append(hints, "vim", "nano", "vi")
+		}
+		if hasAction("compress") || hasAction("archive") || hasAction("zip") {
+			hints = append(hints, "tar", "zip", "gzip")
+		}
+		if hasAction("extract") || hasAction("unzip") || hasAction("decompress") {
+			hints = append(hints, "tar", "unzip", "gunzip")
+		}
+		if hasAction("download") {
+			hints = append(hints, "wget", "curl")
+		}
+	}
+
+	// Compression (without specific target)
+	if hasAction("compress") || hasKeyword("compress") {
+		hints = append(hints, "tar", "zip", "gzip")
+	}
+
+	// Archive operations
+	if hasTarget("archive", "archives") || hasKeyword("archive", "archives") {
+		if hasAction("extract") || hasKeyword("extract", "unpack", "decompress") {
+			hints = append(hints, "tar", "unzip", "gunzip")
+		}
+		if hasAction("create") || hasAction("compress") {
+			hints = append(hints, "tar", "zip")
+		}
+		// Default: add tar for archive-related queries
+		hints = append(hints, "tar")
+	}
+
+	if hasAction("extract") || hasKeyword("extract", "unzip", "decompress", "unpack") {
+		hints = append(hints, "tar", "unzip", "gunzip")
+	}
+
+	// Download operations
+	if hasAction("download") || hasAction("fetch") || hasKeyword("download", "fetch") {
+		hints = append(hints, "wget", "curl")
+	}
+
+	// Process operations
+	if hasTarget("process", "processes", "task", "tasks") || hasKeyword("process", "processes") {
+		if hasAction("list") || hasAction("show") || pq.Intent == IntentFind {
+			hints = append(hints, "ps", "top", "htop")
+		}
+		if hasAction("kill") || hasAction("stop") || hasAction("terminate") {
+			hints = append(hints, "kill", "pkill")
+		}
+	}
+
+	// Network operations - expanded
+	if hasTarget("network", "connection", "connections", "port", "ports") ||
+		hasKeyword("network", "connections", "tools") {
+		hints = append(hints, "netstat", "ss", "ifconfig", "ip")
+	}
+
+	// Disk operations - expanded
+	if hasTarget("disk", "space", "storage") || hasKeyword("disk", "space", "storage", "usage") {
+		hints = append(hints, "df", "du")
+	}
+
+	// Text operations - expanded for "text processing", "text editor"
+	if hasTarget("text") || hasKeyword("text") {
+		if hasAction("search") || hasAction("find") || hasKeyword("search") {
+			hints = append(hints, "grep", "awk", "sed")
+		}
+		if hasAction("edit") || hasKeyword("edit", "editor") {
+			hints = append(hints, "vim", "nano", "vi")
+		}
+		if hasKeyword("processing", "process") {
+			hints = append(hints, "sed", "awk", "grep", "cut", "sort")
+		}
+	}
+
+	// Editor operations (without file target)
+	if hasKeyword("editor") || (hasAction("edit") && !hasTarget("file", "files")) {
+		hints = append(hints, "vim", "nano", "vi", "emacs")
+	}
+
+	// Log operations
+	if hasTarget("log", "logs") || hasKeyword("log", "logs") {
+		if hasKeyword("analysis", "analyze", "search", "find") {
+			hints = append(hints, "grep", "awk", "tail", "less")
+		} else {
+			hints = append(hints, "tail", "less", "grep")
+		}
+	}
+
+	// Find and replace
+	if hasKeyword("replace") || (hasAction("find") && hasKeyword("replace")) {
+		hints = append(hints, "sed", "awk")
+	}
+
+	// Search in files
+	if (hasAction("search") || hasKeyword("search")) && hasKeyword("files", "text") {
+		hints = append(hints, "grep", "find")
+	}
+
+	// Install operations
+	if hasAction("install") || hasKeyword("install") || pq.Intent == IntentInstall {
+		if hasTarget("package", "packages") || hasKeyword("package", "packages") {
+			hints = append(hints, "apt", "yum", "brew", "pip", "npm")
+		} else {
+			hints = append(hints, "apt", "pip", "npm")
+		}
+	}
+
+	// Permission operations
+	if hasTarget("permission", "permissions") || hasAction("chmod") || hasKeyword("permissions") {
+		hints = append(hints, "chmod", "chown")
+	}
+
+	// SSH/Remote operations
+	if hasTarget("server", "remote") || hasAction("ssh") || hasKeyword("remote", "server") {
+		hints = append(hints, "ssh", "scp", "rsync")
+	}
+
+	return hints
+}
+
+// buildStopWords creates a map of common English stop words
 func buildStopWords() map[string]bool {
 	words := []string{
 		"a", "an", "and", "are", "as", "at", "be", "by", "for", "from",

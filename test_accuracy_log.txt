@@ -1,0 +1,1064 @@
+============================================================ 
+WTF Search Accuracy Test - 18-01-2026 14:07:08.86 
+============================================================ 
+ 
+ 
+------------------------------------------------------------ 
+QUERY: compress files 
+EXPECTED: zip 
+------------------------------------------------------------ 
+Searching for: compress files
+
+Found 3 matching command(s):
+
+1. zip
+   Description: Package and compress (archive) files into a Zip archive. See also: `unzip`. More information: <https://manned.org/zip>.
+   Category: general
+
+2. gzip
+   Description: Compress/uncompress files with `gzip` compression (LZ77). More information: <https://www.gnu.org/software/gzip/manual/gzip.html>.
+   Category: general
+
+3. gpg-zip
+   Description: Encrypt files and directories in an archive using GPG. More information: <https://www.gnupg.org/documentation/manuals/gnupg/gpg_002dzip.html>.
+   Category: general
+
+[PASS] "compress files" - found "zip" 
+ 
+------------------------------------------------------------ 
+QUERY: find large files 
+EXPECTED: find 
+------------------------------------------------------------ 
+Searching for: find large files
+
+Found 3 matching command(s):
+
+1. find
+   Description: Find files or directories under a directory tree, recursively. See also: `fd`. More information: <https://manned.org/find>.
+   Category: general
+
+2. grep
+   Description: Find patterns in files using `regex`es. See also: `regex`. More information: <https://www.gnu.org/software/grep/manual/grep.html>.
+   Category: general
+
+3. locate
+   Description: Find filenames quickly. More information: <https://manned.org/locate>.
+   Category: general
+
+[PASS] "find large files" - found "find" 
+ 
+------------------------------------------------------------ 
+QUERY: git commit changes 
+EXPECTED: git commit 
+------------------------------------------------------------ 
+Searching for: git commit changes
+
+Found 3 matching command(s):
+
+1. git commit
+   Description: Commit files to the repository. More information: <https://git-scm.com/docs/git-commit>.
+   Category: general
+
+2. git commit-tree
+   Description: Low level utility to create commit objects. See also: `git commit`. More information: <https://git-scm.com/docs/git-commit-tree>.
+   Category: general
+
+3. git commit-graph
+   Description: Write and verify Git commit-graph files. More information: <https://git-scm.com/docs/git-commit-graph>.
+   Category: general
+
+[PASS] "git commit changes" - found "git commit" 
+ 
+------------------------------------------------------------ 
+QUERY: docker commands 
+EXPECTED: docker 
+------------------------------------------------------------ 
+Searching for: docker commands
+
+Found 3 matching command(s):
+
+1. docker image
+   Description: Manage Docker images. See also: `docker build`, `docker image pull`, `docker image rm`. More information: <https://docs.docker.com/reference/cli/docker/image/>.
+   Category: general
+
+2. docker network
+   Description: Create and manage Docker networks. More information: <https://docs.docker.com/reference/cli/docker/network/>.
+   Category: general
+
+3. docker search
+   Description: Search for Docker images on Docker Hub. More information: <https://docs.docker.com/reference/cli/docker/search/>.
+   Category: general
+
+[PASS] "docker commands" - found "docker" 
+ 
+------------------------------------------------------------ 
+QUERY: docker build 
+EXPECTED: docker 
+------------------------------------------------------------ 
+Searching for: docker build
+
+Found 3 matching command(s):
+
+1. sfdk make
+   Description: Execute make build step. More information: <https://github.com/sailfishos/sailfish-qtcreator/blob/master/share/qtcreator/sfdk/modules/20-building-mb2/doc/command.make.adoc>.
+   Category: general
+
+2. sfdk make-install
+   Description: Execute make-install build step. More information: <https://docs.sailfishos.org/Develop/Apps/Tutorials/Building_packages_-_advanced_techniques/#building-the-sample-application>.
+   Category: general
+
+3. makebuildserver
+   Description: Create an F-Droid build server virtual machine. More information: <https://f-droid.org/en/docs/Build_Server_Setup/>.
+   Category: general
+
+[PASS] "docker build" - found "docker" 
+ 
+------------------------------------------------------------ 
+QUERY: git status 
+EXPECTED: git 
+------------------------------------------------------------ 
+Searching for: git status
+
+Found 3 matching command(s):
+
+1. git alias
+   Description: Create shortcuts for Git commands. Part of `git-extras`. More information: <https://github.com/tj/git-extras/blob/main/Commands.md#git-alias>.
+   Category: general
+
+2. git info
+   Description: Display Git repository information. Part of `git-extras`. More information: <https://manned.org/git-info>.
+   Category: general
+
+3. git restore
+   Description: Restore working tree files. Requires Git version 2.23+. See also: `git checkout`, `git reset`. More information: <https://git-scm.com/docs/git-restore>.
+   Category: general
+
+[PASS] "git status" - found "git" 
+ 
+------------------------------------------------------------ 
+QUERY: create directory 
+EXPECTED: mkdir 
+------------------------------------------------------------ 
+Searching for: create directory
+
+Found 3 matching command(s):
+
+1. mkdir
+   Description: Create directories and set their permissions. More information: <https://www.gnu.org/software/coreutils/manual/html_node/mkdir-invocation.html>.
+   Category: general
+
+2. makepkg
+   Description: Create a package which can be used with `pacman`. Uses the `PKGBUILD` file in the current working directory by default. More information: <https://manned.org/makepkg>.
+   Category: general
+
+3. sfdk make
+   Description: Execute make build step. More information: <https://github.com/sailfishos/sailfish-qtcreator/blob/master/share/qtcreator/sfdk/modules/20-building-mb2/doc/command.make.adoc>.
+   Category: general
+
+[PASS] "create directory" - found "mkdir" 
+ 
+------------------------------------------------------------ 
+QUERY: download file 
+EXPECTED: wget 
+------------------------------------------------------------ 
+Searching for: download file
+
+Found 3 matching command(s):
+
+1. wget
+   Description: Download files from the Web. Supports HTTP, HTTPS, and FTP. See also: `wcurl`, `curl`. More information: <https://www.gnu.org/software/wget/manual/wget.html>.
+   Category: general
+
+2. curl
+   Description: Transfers data from or to a server. Supports most protocols, including HTTP, HTTPS, FTP, SCP, etc. See also: `wcurl`, `wget`. More information: <https://curl.se/docs/manpage.html>.
+   Category: general
+
+3. pdfseparate
+   Description: Portable Document Format (PDF) file page extractor. More information: <https://manned.org/pdfseparate>.
+   Category: general
+
+[PASS] "download file" - found "wget" 
+ 
+------------------------------------------------------------ 
+QUERY: git commands 
+EXPECTED: git 
+------------------------------------------------------------ 
+Searching for: git commands
+
+Found 3 matching command(s):
+
+1. git alias
+   Description: Create shortcuts for Git commands. Part of `git-extras`. More information: <https://github.com/tj/git-extras/blob/main/Commands.md#git-alias>.
+   Category: general
+
+2. git setup
+   Description: Create a Git repository in a directory and commit all files. Part of `git-extras`. More information: <https://github.com/tj/git-extras/blob/main/Commands.md#git-setup>.
+   Category: general
+
+3. git root
+   Description: Print the root directory of the current Git repository. Part of `git-extras`. More information: <https://github.com/tj/git-extras/blob/main/Commands.md#git-root>.
+   Category: general
+
+[PASS] "git commands" - found "git" 
+ 
+------------------------------------------------------------ 
+QUERY: docker 
+EXPECTED: docker 
+------------------------------------------------------------ 
+Searching for: docker
+
+Found 3 matching command(s):
+
+1. docker image
+   Description: Manage Docker images. See also: `docker build`, `docker image pull`, `docker image rm`. More information: <https://docs.docker.com/reference/cli/docker/image/>.
+   Category: general
+
+2. docker network
+   Description: Create and manage Docker networks. More information: <https://docs.docker.com/reference/cli/docker/network/>.
+   Category: general
+
+3. docker system
+   Description: Manage Docker data and display system-wide information. More information: <https://docs.docker.com/reference/cli/docker/system/>.
+   Category: general
+
+[PASS] "docker" - found "docker" 
+ 
+------------------------------------------------------------ 
+QUERY: process 
+EXPECTED: ps 
+------------------------------------------------------------ 
+Searching for: process
+
+Found 3 matching command(s):
+
+1. task
+   Description: To-do list manager. More information: <https://taskwarrior.org/docs/>.
+   Category: general
+
+2. mimikatz process
+   Description: Manage process privileges and tokens. More information: <https://github.com/gentilkiwi/mimikatz>.
+   Category: general
+
+3. Wait-Process
+   Description: Waits for the processes to be stopped before accepting more input. Note: This command can only be used through PowerShell. More information: <https://learn.microsoft.com/powershell/module/microsoft.powershell.management/wait-process>.
+   Category: general
+
+[PASS] "process" - found "ps" 
+ 
+------------------------------------------------------------ 
+QUERY: list files 
+EXPECTED: ls 
+------------------------------------------------------------ 
+Searching for: list files
+
+Found 3 matching command(s):
+
+1. systemctl list-unit-files
+   Description: List installed unit files and their enablement states. See also: `systemctl list-units`. More information: <https://www.freedesktop.org/software/systemd/man/latest/systemctl.html#list-unit-files%20PATTERN%E2%80%A6>.
+   Category: general
+
+2. lsof
+   Description: List open files and the corresponding processes. Note: Root privileges are required to list files opened by others. More information: <https://manned.org/lsof>.
+   Category: general
+
+3. git ls-files
+   Description: Show information about files in the index and the working tree. More information: <https://git-scm.com/docs/git-ls-files>.
+   Category: general
+
+[PASS] "list files" - found "ls" 
+ 
+------------------------------------------------------------ 
+QUERY: process management 
+EXPECTED: ps 
+------------------------------------------------------------ 
+Searching for: process management
+
+Found 3 matching command(s):
+
+1. task
+   Description: To-do list manager. More information: <https://taskwarrior.org/docs/>.
+   Category: general
+
+2. Wait-Process
+   Description: Waits for the processes to be stopped before accepting more input. Note: This command can only be used through PowerShell. More information: <https://learn.microsoft.com/powershell/module/microsoft.powershell.management/wait-process>.
+   Category: general
+
+3. mimikatz process
+   Description: Manage process privileges and tokens. More information: <https://github.com/gentilkiwi/mimikatz>.
+   Category: general
+
+[PASS] "process management" - found "ps" 
+ 
+------------------------------------------------------------ 
+QUERY: system tools 
+EXPECTED: system 
+------------------------------------------------------------ 
+Searching for: system tools
+
+Found 3 matching command(s):
+
+1. ifconfig
+   Description: Network Interface Configurator. More information: <https://net-tools.sourceforge.io/man/ifconfig.8.html>.
+   Category: general
+
+2. ss
+   Description: Utility to investigate sockets. More information: <https://manned.org/ss>.
+   Category: general
+
+3. netstat
+   Description: Display network-related information such as open connections, open socket ports, etc. See also: `ss`. More information: <https://manned.org/netstat>.
+   Category: general
+
+[PASS] "system tools" - found "system" 
+ 
+------------------------------------------------------------ 
+QUERY: comprss files 
+EXPECTED: zip 
+------------------------------------------------------------ 
+Searching for: comprss files
+
+Found 3 matching command(s):
+
+1. po4a
+   Description: Update both PO files and translated documents. More information: <https://www.po4a.org/man/man1/po4a.1.php>.
+   Category: general
+
+2. wkhtmltopdf
+   Description: Convert HTML documents or web pages into PDF files. More information: <https://wkhtmltopdf.org/usage/wkhtmltopdf.txt>.
+   Category: general
+
+3. latexmk
+   Description: Compile LaTeX source files into finished documents. Automatically does multiple runs when needed. More information: <https://mg.readthedocs.io/latexmk.html>.
+   Category: general
+
+[FAIL] "comprss files" - expected "zip" 
+ 
+------------------------------------------------------------ 
+QUERY: mkdir direectory 
+EXPECTED: mkdir 
+------------------------------------------------------------ 
+Searching for: mkdir direectory
+
+Found 2 matching command(s):
+
+1. mkdir
+   Description: Create directories and set their permissions. More information: <https://www.gnu.org/software/coreutils/manual/html_node/mkdir-invocation.html>.
+   Category: general
+
+2. gmkdir
+   Description: This command is an alias of GNU `mkdir`.
+   Category: general
+
+[PASS] "mkdir direectory" - found "mkdir" 
+ 
+------------------------------------------------------------ 
+QUERY: gti comit changez 
+EXPECTED: git 
+------------------------------------------------------------ 
+Searching for: gti comit changez
+
+Found 3 matching command(s):
+
+1. jj absorb
+   Description: Split changes in the source revision and move each change to the closest mutable ancestor where the corresponding lines were modified last. Changes that have zero or multiple matching regions in ancestral revisions won't be moved. More information: <https://docs.jj-vcs.dev/latest/cli-reference/#jj-absorb>.
+   Category: general
+
+2. zapier
+   Description: Create, automate, and manage zapier integrations. Some subcommands such as `build`, `init`, `scaffold`, `push`, `test`, etc. have their own usage documentation. More information: <https://github.com/zapier/zapier-platform/blob/main/packages/cli/docs/cli.md>.
+   Category: general
+
+3. zypper
+   Description: SUSE & openSUSE package management utility. For equivalent commands in other package managers, see <https://wiki.archlinux.org/title/Pacman/Rosetta>. More information: <https://en.opensuse.org/SDB:Zypper_manual>.
+   Category: general
+
+[PASS] "gti comit changez" - found "git" 
+ 
+------------------------------------------------------------ 
+QUERY: I want to compress some files into an archive 
+EXPECTED: zip 
+------------------------------------------------------------ 
+Searching for: I want to compress some files into an archive
+
+Found 3 matching command(s):
+
+1. zip
+   Description: Package and compress (archive) files into a Zip archive. See also: `unzip`. More information: <https://manned.org/zip>.
+   Category: general
+
+2. gzip
+   Description: Compress/uncompress files with `gzip` compression (LZ77). More information: <https://www.gnu.org/software/gzip/manual/gzip.html>.
+   Category: general
+
+3. gpg-zip
+   Description: Encrypt files and directories in an archive using GPG. More information: <https://www.gnupg.org/documentation/manuals/gnupg/gpg_002dzip.html>.
+   Category: general
+
+[PASS] "I want to compress some files into an archive" - found "zip" 
+ 
+------------------------------------------------------------ 
+QUERY: help me create a new directory please 
+EXPECTED: mkdir 
+------------------------------------------------------------ 
+Searching for: help me create a new directory please
+
+Found 3 matching command(s):
+
+1. mkdir
+   Description: Create directories and set their permissions. More information: <https://www.gnu.org/software/coreutils/manual/html_node/mkdir-invocation.html>.
+   Category: general
+
+2. makepkg
+   Description: Create a package which can be used with `pacman`. Uses the `PKGBUILD` file in the current working directory by default. More information: <https://manned.org/makepkg>.
+   Category: general
+
+3. make
+   Description: Task runner for targets described in Makefile. Mostly used to control the compilation of an executable from source code. More information: <https://www.gnu.org/software/make/manual/make.html>.
+   Category: general
+
+[PASS] "help me create a new directory please" - found "mkdir" 
+ 
+------------------------------------------------------------ 
+QUERY: commit 
+EXPECTED: git 
+------------------------------------------------------------ 
+Searching for: commit
+
+Found 3 matching command(s):
+
+1. git commit
+   Description: Commit files to the repository. More information: <https://git-scm.com/docs/git-commit>.
+   Category: general
+
+2. docker commit
+   Description: This command is an alias of `docker container commit`.
+   Category: general
+
+3. hg commit
+   Description: Commit all staged or specified files to the repository. More information: <https://www.mercurial-scm.org/help/commands/commit>.
+   Category: general
+
+[PASS] "commit" - found "git" 
+ 
+------------------------------------------------------------ 
+QUERY: build 
+EXPECTED: make 
+------------------------------------------------------------ 
+Searching for: build
+
+Found 3 matching command(s):
+
+1. sfdk make
+   Description: Execute make build step. More information: <https://github.com/sailfishos/sailfish-qtcreator/blob/master/share/qtcreator/sfdk/modules/20-building-mb2/doc/command.make.adoc>.
+   Category: general
+
+2. sfdk make-install
+   Description: Execute make-install build step. More information: <https://docs.sailfishos.org/Develop/Apps/Tutorials/Building_packages_-_advanced_techniques/#building-the-sample-application>.
+   Category: general
+
+3. makebuildserver
+   Description: Create an F-Droid build server virtual machine. More information: <https://f-droid.org/en/docs/Build_Server_Setup/>.
+   Category: general
+
+[PASS] "build" - found "make" 
+ 
+------------------------------------------------------------ 
+QUERY: install 
+EXPECTED: install 
+------------------------------------------------------------ 
+Searching for: install
+
+Found 3 matching command(s):
+
+1. pip install
+   Description: Install Python packages. More information: <https://pip.pypa.io/en/stable/cli/pip_install/>.
+   Category: general
+
+2. apt install
+   Description: Install packages for Debian-based distributions. More information: <https://manned.org/apt.8>.
+   Category: general
+
+3. npm install
+   Description: Install Node packages. More information: <https://docs.npmjs.com/cli/npm-install/>.
+   Category: general
+
+[PASS] "install" - found "install" 
+ 
+------------------------------------------------------------ 
+QUERY: text processing 
+EXPECTED: sed 
+------------------------------------------------------------ 
+Searching for: text processing
+
+Found 3 matching command(s):
+
+1. sort
+   Description: Sort lines of text files. More information: <https://www.gnu.org/software/coreutils/manual/html_node/sort-invocation.html>.
+   Category: general
+
+2. sed
+   Description: Edit text in a scriptable manner. See also: `awk`, `ed`. More information: <https://manned.org/sed.1posix>.
+   Category: general
+
+3. awk
+   Description: A versatile programming language for working on files. Note: Different implementations of AWK often make this a symlink of their binary. See also: `gawk`. More information: <https://github.com/onetrueawk/awk>.
+   Category: general
+
+[PASS] "text processing" - found "sed" 
+ 
+------------------------------------------------------------ 
+QUERY: network tools 
+EXPECTED: netstat 
+------------------------------------------------------------ 
+Searching for: network tools
+
+Found 3 matching command(s):
+
+1. ip stats
+   Description: Manage and show interface statistics. More information: <https://manned.org/ip-stats>.
+   Category: general
+
+2. ifconfig
+   Description: Network Interface Configurator. More information: <https://net-tools.sourceforge.io/man/ifconfig.8.html>.
+   Category: general
+
+3. ip tuntap
+   Description: Manage TUN/TAP virtual network interfaces. More information: <https://baturin.org/docs/iproute2/#ip-tuntap>.
+   Category: general
+
+[FAIL] "network tools" - expected "netstat" 
+ 
+------------------------------------------------------------ 
+QUERY: text processing 
+EXPECTED: awk 
+------------------------------------------------------------ 
+Searching for: text processing
+
+Found 3 matching command(s):
+
+1. sort
+   Description: Sort lines of text files. More information: <https://www.gnu.org/software/coreutils/manual/html_node/sort-invocation.html>.
+   Category: general
+
+2. sed
+   Description: Edit text in a scriptable manner. See also: `awk`, `ed`. More information: <https://manned.org/sed.1posix>.
+   Category: general
+
+3. awk
+   Description: A versatile programming language for working on files. Note: Different implementations of AWK often make this a symlink of their binary. See also: `gawk`. More information: <https://github.com/onetrueawk/awk>.
+   Category: general
+
+[PASS] "text processing" - found "awk" 
+ 
+------------------------------------------------------------ 
+QUERY: log analysis 
+EXPECTED: grep 
+------------------------------------------------------------ 
+Searching for: log analysis
+
+Found 3 matching command(s):
+
+1. tail -f /var/log/app.log | grep ERROR | awk '{print $1, $2, $3}'
+   Description: log-analysis - 3-step pipeline
+   Category: troubleshooting
+
+2. log
+   Description: View, export, and configure logging systems. More information: <https://keith.github.io/xcode-man-pages/log.1.html>.
+   Category: general
+
+3. awk
+   Description: A versatile programming language for working on files. Note: Different implementations of AWK often make this a symlink of their binary. See also: `gawk`. More information: <https://github.com/onetrueawk/awk>.
+   Category: general
+
+[PASS] "log analysis" - found "grep" 
+ 
+------------------------------------------------------------ 
+QUERY: find and replace 
+EXPECTED: sed 
+------------------------------------------------------------ 
+Searching for: find and replace
+
+Found 3 matching command(s):
+
+1. locate
+   Description: Find filenames quickly. More information: <https://manned.org/locate>.
+   Category: general
+
+2. find
+   Description: Find files or directories under a directory tree, recursively. See also: `fd`. More information: <https://manned.org/find>.
+   Category: general
+
+3. debuginfod-find
+   Description: Request debuginfo-related data. More information: <https://manned.org/debuginfod-find>.
+   Category: general
+
+[FAIL] "find and replace" - expected "sed" 
+ 
+------------------------------------------------------------ 
+QUERY: create folder 
+EXPECTED: mkdir 
+------------------------------------------------------------ 
+Searching for: create folder
+
+Found 3 matching command(s):
+
+1. mkdir
+   Description: Create directories and set their permissions. More information: <https://www.gnu.org/software/coreutils/manual/html_node/mkdir-invocation.html>.
+   Category: general
+
+2. makepkg
+   Description: Create a package which can be used with `pacman`. Uses the `PKGBUILD` file in the current working directory by default. More information: <https://manned.org/makepkg>.
+   Category: general
+
+3. sfdk make
+   Description: Execute make build step. More information: <https://github.com/sailfishos/sailfish-qtcreator/blob/master/share/qtcreator/sfdk/modules/20-building-mb2/doc/command.make.adoc>.
+   Category: general
+
+[PASS] "create folder" - found "mkdir" 
+ 
+------------------------------------------------------------ 
+QUERY: create new folder 
+EXPECTED: mkdir 
+------------------------------------------------------------ 
+Searching for: create new folder
+
+Found 3 matching command(s):
+
+1. mkdir
+   Description: Create directories and set their permissions. More information: <https://www.gnu.org/software/coreutils/manual/html_node/mkdir-invocation.html>.
+   Category: general
+
+2. makepkg
+   Description: Create a package which can be used with `pacman`. Uses the `PKGBUILD` file in the current working directory by default. More information: <https://manned.org/makepkg>.
+   Category: general
+
+3. sfdk make
+   Description: Execute make build step. More information: <https://github.com/sailfishos/sailfish-qtcreator/blob/master/share/qtcreator/sfdk/modules/20-building-mb2/doc/command.make.adoc>.
+   Category: general
+
+[PASS] "create new folder" - found "mkdir" 
+ 
+------------------------------------------------------------ 
+QUERY: remove folder 
+EXPECTED: rm 
+------------------------------------------------------------ 
+Searching for: remove folder
+
+Found 3 matching command(s):
+
+1. aa-remove-unknown
+   Description: Remove AppArmor profiles that are no longer present in the configuration directory. More information: <https://gitlab.com/apparmor/apparmor/-/wikis/manpage_aa-remove-unknown.8>.
+   Category: general
+
+2. Remove-Item
+   Description: Delete files, folders, as well as registry keys and subkeys. This command can only be run through PowerShell. More information: <https://learn.microsoft.com/powershell/module/microsoft.powershell.management/remove-item>.
+   Category: general
+
+3. tlmgr remove
+   Description: Uninstall TeX Live packages. By default, removed packages will be backed up to `./tlpkg/backups` under the TL installation directory. More information: <https://www.tug.org/texlive/doc/tlmgr.html#remove-option...-pkg>.
+   Category: general
+
+[PASS] "remove folder" - found "rm" 
+ 
+------------------------------------------------------------ 
+QUERY: delete directory 
+EXPECTED: rm 
+------------------------------------------------------------ 
+Searching for: delete directory
+
+Found 3 matching command(s):
+
+1. aa-remove-unknown
+   Description: Remove AppArmor profiles that are no longer present in the configuration directory. More information: <https://gitlab.com/apparmor/apparmor/-/wikis/manpage_aa-remove-unknown.8>.
+   Category: general
+
+2. Remove-Item
+   Description: Delete files, folders, as well as registry keys and subkeys. This command can only be run through PowerShell. More information: <https://learn.microsoft.com/powershell/module/microsoft.powershell.management/remove-item>.
+   Category: general
+
+3. tlmgr remove
+   Description: Uninstall TeX Live packages. By default, removed packages will be backed up to `./tlpkg/backups` under the TL installation directory. More information: <https://www.tug.org/texlive/doc/tlmgr.html#remove-option...-pkg>.
+   Category: general
+
+[PASS] "delete directory" - found "rm" 
+ 
+------------------------------------------------------------ 
+QUERY: text editor 
+EXPECTED: vim 
+------------------------------------------------------------ 
+Searching for: text editor
+
+Found 3 matching command(s):
+
+1. emacs
+   Description: The extensible, customizable, self-documenting, real-time display editor. See also: `emacsclient`. More information: <https://www.gnu.org/software/emacs>.
+   Category: general
+
+2. nano
+   Description: Text editor. An enhanced `pico` clone. See also: `pico`, `rnano`. More information: <https://nano-editor.org/dist/latest/nano.html>.
+   Category: general
+
+3. vim
+   Description: Vim (Vi IMproved), a command-line text editor, provides several modes for different kinds of text manipulation. Pressing `<i>` in normal mode enters insert mode. Pressing `<Esc>` goes back to normal mode, which enables the use of Vim commands. See also: `vimdiff`, `vimtutor`, `nvim`, `gvim`. More information: <https://www.vim.org/>.
+   Category: general
+
+[FAIL] "text editor" - expected "vim" 
+ 
+------------------------------------------------------------ 
+QUERY: network connections 
+EXPECTED: netstat 
+------------------------------------------------------------ 
+Searching for: network connections
+
+Found 3 matching command(s):
+
+1. ip stats
+   Description: Manage and show interface statistics. More information: <https://manned.org/ip-stats>.
+   Category: general
+
+2. ip tuntap
+   Description: Manage TUN/TAP virtual network interfaces. More information: <https://baturin.org/docs/iproute2/#ip-tuntap>.
+   Category: general
+
+3. netstat
+   Description: Display network-related information such as open connections, open socket ports, etc. See also: `ss`. More information: <https://manned.org/netstat>.
+   Category: general
+
+[FAIL] "network connections" - expected "netstat" 
+ 
+------------------------------------------------------------ 
+QUERY: disk space 
+EXPECTED: df 
+------------------------------------------------------------ 
+Searching for: disk space
+
+Found 3 matching command(s):
+
+1. df
+   Description: Display an overview of the filesystem disk space usage. More information: <https://manned.org/df.1posix>.
+   Category: general
+
+2. du
+   Description: Disk usage: estimate and summarize file and directory space usage. More information: <https://www.gnu.org/software/coreutils/manual/html_node/du-invocation.html>.
+   Category: general
+
+3. snmpdf
+   Description: Fetch disk space usage information. More information: <https://manned.org/snmpdf>.
+   Category: general
+
+[PASS] "disk space" - found "df" 
+ 
+------------------------------------------------------------ 
+QUERY: search text in files 
+EXPECTED: grep 
+------------------------------------------------------------ 
+Searching for: search text in files
+
+Found 3 matching command(s):
+
+1. find
+   Description: Find files or directories under a directory tree, recursively. See also: `fd`. More information: <https://manned.org/find>.
+   Category: general
+
+2. grep
+   Description: Find patterns in files using `regex`es. See also: `regex`. More information: <https://www.gnu.org/software/grep/manual/grep.html>.
+   Category: general
+
+3. mate-search-tool
+   Description: Search files in MATE desktop environment. More information: <https://manned.org/mate-search-tool>.
+   Category: general
+
+[FAIL] "search text in files" - expected "grep" 
+ 
+------------------------------------------------------------ 
+QUERY: copy files 
+EXPECTED: cp 
+------------------------------------------------------------ 
+Searching for: copy files
+
+Found 3 matching command(s):
+
+1. cp
+   Description: Copy files and directories. More information: <https://www.gnu.org/software/coreutils/manual/html_node/cp-invocation.html>.
+   Category: general
+
+2. kubectl cp
+   Description: Copy files and directories between a local filesystem and a container in a pod. More information: <https://kubernetes.io/docs/reference/kubectl/generated/kubectl_cp/>.
+   Category: general
+
+3. aws s3 cp
+   Description: Copy local files or S3 objects to another location locally or in S3. More information: <https://docs.aws.amazon.com/cli/latest/reference/s3/cp.html>.
+   Category: general
+
+[PASS] "copy files" - found "cp" 
+ 
+------------------------------------------------------------ 
+QUERY: move files 
+EXPECTED: mv 
+------------------------------------------------------------ 
+Searching for: move files
+
+Found 3 matching command(s):
+
+1. mv
+   Description: Move or rename files and directories. More information: <https://www.gnu.org/software/coreutils/manual/html_node/mv-invocation.html>.
+   Category: general
+
+2. git mv
+   Description: Move or rename files and update the Git index. More information: <https://git-scm.com/docs/git-mv>.
+   Category: general
+
+3. move
+   Description: Move or rename files and directories. In PowerShell, this command is an alias of `Move-Item`. This documentation is based on the Command Prompt (`cmd`) version of `move`. More information: <https://learn.microsoft.com/windows-server/administration/windows-commands/move>.
+   Category: general
+
+[PASS] "move files" - found "mv" 
+ 
+------------------------------------------------------------ 
+QUERY: install package 
+EXPECTED: apt 
+------------------------------------------------------------ 
+Searching for: install package
+
+Found 3 matching command(s):
+
+1. pip install
+   Description: Install Python packages. More information: <https://pip.pypa.io/en/stable/cli/pip_install/>.
+   Category: general
+
+2. brew install
+   Description: Install a Homebrew formula or cask. More information: <https://docs.brew.sh/Manpage#install-options-formulacask->.
+   Category: general
+
+3. npm install
+   Description: Install Node packages. More information: <https://docs.npmjs.com/cli/npm-install/>.
+   Category: general
+
+[FAIL] "install package" - expected "apt" 
+ 
+------------------------------------------------------------ 
+QUERY: extract archive 
+EXPECTED: tar 
+------------------------------------------------------------ 
+Searching for: extract archive
+
+Found 3 matching command(s):
+
+1. unzip
+   Description: Extract files/directories from Zip archives. See also: `zip`. More information: <https://manned.org/unzip>.
+   Category: general
+
+2. zip
+   Description: Package and compress (archive) files into a Zip archive. See also: `unzip`. More information: <https://manned.org/zip>.
+   Category: general
+
+3. gunzip
+   Description: This command is an alias of `gzip --decompress`.
+   Category: general
+
+[FAIL] "extract archive" - expected "tar" 
+ 
+------------------------------------------------------------ 
+QUERY: unzip files 
+EXPECTED: unzip 
+------------------------------------------------------------ 
+Searching for: unzip files
+
+Found 3 matching command(s):
+
+1. unzip
+   Description: Extract files/directories from Zip archives. See also: `zip`. More information: <https://manned.org/unzip>.
+   Category: general
+
+2. wkhtmltopdf
+   Description: Convert HTML documents or web pages into PDF files. More information: <https://wkhtmltopdf.org/usage/wkhtmltopdf.txt>.
+   Category: general
+
+3. po4a
+   Description: Update both PO files and translated documents. More information: <https://www.po4a.org/man/man1/po4a.1.php>.
+   Category: general
+
+[PASS] "unzip files" - found "unzip" 
+ 
+------------------------------------------------------------ 
+QUERY: show file contents 
+EXPECTED: cat 
+------------------------------------------------------------ 
+Searching for: show file contents
+
+Found 3 matching command(s):
+
+1. systemctl cat
+   Description: Show the full contents of unit files as systemd sees them. More information: <https://www.freedesktop.org/software/systemd/man/latest/systemctl.html#cat%20PATTERN%E2%80%A6>.
+   Category: general
+
+2. more
+   Description: Interactively display a file, allowing scrolling and searching. See also: `less`. More information: <https://manned.org/more.1p>.
+   Category: general
+
+3. hexdump
+   Description: Display file contents in hexadecimal, decimal, octal, or ASCII. Useful for inspecting dump file, binary data, or debug output. See also: `hexyl`, `od`, `xxd`. More information: <https://manned.org/man/freebsd/hexdump.1>.
+   Category: general
+
+[PASS] "show file contents" - found "cat" 
+ 
+------------------------------------------------------------ 
+QUERY: edit file 
+EXPECTED: vim 
+------------------------------------------------------------ 
+Searching for: edit file
+
+Found 3 matching command(s):
+
+1. xml edit
+   Description: Edit an XML document. More information: <https://xmlstar.sourceforge.net/doc/UG/xmlstarlet-ug.html#idm47077139594320>.
+   Category: general
+
+2. edit
+   Description: An alias to a `run-mailcap`'s action edit. Originally `run-mailcap` is used to process/edit mime-type/file. More information: <https://www.computerhope.com/unix/uedit.htm>.
+   Category: general
+
+3. transmission-edit
+   Description: Modify announce URLs from torrent files. See also: `transmission`. More information: <https://manned.org/transmission-edit>.
+   Category: general
+
+[FAIL] "edit file" - expected "vim" 
+ 
+------------------------------------------------------------ 
+QUERY: kill process 
+EXPECTED: kill 
+------------------------------------------------------------ 
+Searching for: kill process
+
+Found 3 matching command(s):
+
+1. kill
+   Description: Send a signal to a process, usually related to stopping the process. All signals except for SIGKILL and SIGSTOP can be intercepted by the process to perform a clean exit. More information: <https://manned.org/kill.1posix>.
+   Category: general
+
+2. taskkill
+   Description: Terminate a process by its process ID or name. More information: <https://learn.microsoft.com/windows-server/administration/windows-commands/taskkill>.
+   Category: general
+
+3. pkill
+   Description: Signal process by name. Mostly used for stopping processes. More information: <https://manned.org/pkill>.
+   Category: general
+
+[PASS] "kill process" - found "kill" 
+ 
+------------------------------------------------------------ 
+QUERY: check disk usage 
+EXPECTED: du 
+------------------------------------------------------------ 
+Searching for: check disk usage
+
+Found 3 matching command(s):
+
+1. df
+   Description: Display an overview of the filesystem disk space usage. More information: <https://manned.org/df.1posix>.
+   Category: general
+
+2. view
+   Description: A read-only version of `vim`. This is equivalent to `vim -R`. More information: <https://www.vim.org/>.
+   Category: general
+
+3. systemctl show-environment
+   Description: Display systemd environment blocks. More information: <https://www.freedesktop.org/software/systemd/man/latest/systemctl.html#show-environment>.
+   Category: general
+
+[FAIL] "check disk usage" - expected "du" 
+ 
+------------------------------------------------------------ 
+QUERY: list running processes 
+EXPECTED: ps 
+------------------------------------------------------------ 
+Searching for: list running processes
+
+Found 3 matching command(s):
+
+1. ps
+   Description: Information about running processes. More information: <https://manned.org/ps>.
+   Category: general
+
+2. pstree
+   Description: A convenient tool to show running processes as a tree. More information: <https://manned.org/pstree>.
+   Category: general
+
+3. htop
+   Description: Display dynamic real-time information about running processes. An enhanced version of `top`. See also: `top`, `atop`, `glances`, `btop`, `btm`. More information: <https://manned.org/htop>.
+   Category: general
+
+[PASS] "list running processes" - found "ps" 
+ 
+------------------------------------------------------------ 
+QUERY: change permissions 
+EXPECTED: chmod 
+------------------------------------------------------------ 
+Searching for: change permissions
+
+Found 3 matching command(s):
+
+1. chmod
+   Description: Change the access permissions of a file or directory. More information: <https://www.gnu.org/software/coreutils/manual/html_node/chmod-invocation.html>.
+   Category: general
+
+2. chown
+   Description: Change user and group ownership of files and directories. See also: `chgrp`. More information: <https://www.gnu.org/software/coreutils/manual/html_node/chown-invocation.html>.
+   Category: general
+
+3. VBoxManage modifyvm
+   Description: Change settings for a virtual machine that is stopped. More information: <https://www.virtualbox.org/manual/ch08.html#vboxmanage-modifyvm>.
+   Category: general
+
+[PASS] "change permissions" - found "chmod" 
+ 
+------------------------------------------------------------ 
+QUERY: ssh remote server 
+EXPECTED: ssh 
+------------------------------------------------------------ 
+Searching for: ssh remote server
+
+Found 3 matching command(s):
+
+1. host
+   Description: Lookup Domain Name Server. More information: <https://manned.org/host>.
+   Category: general
+
+2. rsync
+   Description: Transfer files either to or from a remote host (but not between two remote hosts), by default using SSH. To specify a remote path, use `user@host:path/to/file_or_directory`. More information: <https://download.samba.org/pub/rsync/rsync.1>.
+   Category: general
+
+3. tskill
+   Description: Ends a process running in a session on a Remote Desktop Session Host. More information: <https://learn.microsoft.com/windows-server/administration/windows-commands/tskill>.
+   Category: general
+
+[PASS] "ssh remote server" - found "ssh" 
+ 
+------------------------------------------------------------ 
+QUERY: download webpage 
+EXPECTED: wget 
+------------------------------------------------------------ 
+Searching for: download webpage
+
+Found 3 matching command(s):
+
+1. wget
+   Description: Download files from the Web. Supports HTTP, HTTPS, and FTP. See also: `wcurl`, `curl`. More information: <https://www.gnu.org/software/wget/manual/wget.html>.
+   Category: general
+
+2. curl
+   Description: Transfers data from or to a server. Supports most protocols, including HTTP, HTTPS, FTP, SCP, etc. See also: `wcurl`, `wget`. More information: <https://curl.se/docs/manpage.html>.
+   Category: general
+
+3. git fetch
+   Description: Download objects and refs from a remote repository. More information: <https://git-scm.com/docs/git-fetch>.
+   Category: general
+
+[PASS] "download webpage" - found "wget" 
+ 
+============================================================ 
+SUMMARY 
+============================================================ 
+PASSED: 38 
+FAILED: 10 
+TOTAL: 48 
+============================================================ 

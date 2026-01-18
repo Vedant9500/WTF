@@ -23,11 +23,15 @@ func (db *Database) cascadingBoost(results []SearchResult, pq *nlp.ProcessedQuer
 	targetTerms := expandWithSynonyms(pq.Targets, processor)
 	keywordTerms := expandWithSynonyms(pq.Keywords, processor)
 
+	// Get command hints from NLP (e.g., "create folder" → ["mkdir"])
+	commandHints := pq.GetEnhancedKeywords()
+
 	// Boost weights (action matches are most important)
 	const actionBoost = 3.0
 	const targetBoost = 2.0
 	const keywordBoost = 1.5
 	const contextBoost = 2.5 // For known command contexts (git, docker, etc.)
+	const cmdHintBoost = 6.0 // Strong boost for commands matching NLP hints
 
 	// Extract context from query (known tool names)
 	contexts := extractContexts(pq.Keywords)
@@ -39,7 +43,18 @@ func (db *Database) cascadingBoost(results []SearchResult, pq *nlp.ProcessedQuer
 		// Combine searchable text
 		searchText := strings.ToLower(cmd.Command + " " + cmd.Description + " " + strings.Join(cmd.Keywords, " "))
 
-		// Check action matches (highest priority)
+		// Check if command name matches any NLP command hints (highest priority)
+		cmdLower := strings.ToLower(cmd.Command)
+		cmdBase := getCommandBase(cmdLower) // Extract base command (e.g., "mkdir" from "mkdir -p")
+		for _, hint := range commandHints {
+			hintLower := strings.ToLower(hint)
+			if cmdBase == hintLower || cmdLower == hintLower {
+				boost += cmdHintBoost
+				break
+			}
+		}
+
+		// Check action matches (high priority)
 		for _, action := range actionTerms {
 			if containsWord(searchText, action) {
 				boost += actionBoost
@@ -83,6 +98,16 @@ func (db *Database) cascadingBoost(results []SearchResult, pq *nlp.ProcessedQuer
 	})
 
 	return results
+}
+
+// getCommandBase extracts the base command from a command string
+// e.g., "mkdir -p" → "mkdir", "git commit" → "git"
+func getCommandBase(cmd string) string {
+	parts := strings.Fields(cmd)
+	if len(parts) > 0 {
+		return parts[0]
+	}
+	return cmd
 }
 
 // expandWithSynonyms adds synonyms for each term if available
