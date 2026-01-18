@@ -38,6 +38,7 @@ find-cmd
 # Personal database files
 personal.yml
 custom.yml
+/.agent/rules
 
 # Logs
 *.log

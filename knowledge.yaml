@@ -1,0 +1,743 @@
+# WTF (What's The Function) - AI Knowledge Base
+# Format: YAML Knowledge Graph optimized for LLM consumption
+# Version: 1.2.0
+# Generated: 2026-01-18
+
+meta:
+  project_name: "WTF (What's The Function)"
+  description: "CLI tool for natural language command discovery using BM25F search"
+  language: "Go"
+  go_version: "1.25.5"
+  version: "1.2.0"
+  repository: "github.com/Vedant9500/WTF"
+  command_count: 3850
+  entry_point: "cmd/wtf/main.go"
+
+# ============================================================================
+# ARCHITECTURE
+# ============================================================================
+
+architecture:
+  entry_point:
+    file: "cmd/wtf/main.go"
+    function: "main()"
+    calls: "cli.Execute()"
+    
+  execution_flow:
+    - step: 1
+      action: "CLI parsing"
+      package: "cli"
+      file: "root.go"
+      
+    - step: 2
+      action: "Input validation"
+      package: "validation"
+      function: "ValidateQuery()"
+      
+    - step: 3
+      action: "Context detection"
+      package: "context"
+      function: "Analyzer.AnalyzeCurrentDirectory()"
+      
+    - step: 4
+      action: "Database loading"
+      package: "database"
+      function: "LoadDatabaseWithPersonal()"
+      
+    - step: 5
+      action: "Index building"
+      package: "database"
+      function: "BuildUniversalIndex()"
+      
+    - step: 6
+      action: "Search execution"
+      package: "database"
+      function: "SearchUniversal()"
+      
+    - step: 7
+      action: "Output formatting"
+      package: "cli"
+      formats: ["list", "table", "json"]
+
+# ============================================================================
+# PACKAGES
+# ============================================================================
+
+packages:
+  cli:
+    path: "internal/cli"
+    responsibility: "Cobra CLI commands and search orchestration"
+    key_files:
+      - file: "root.go"
+        exports: ["Execute()", "rootCmd"]
+      - file: "search.go"
+        exports: ["searchCmd"]
+      - file: "wizard.go"
+        exports: ["wizardCmd"]
+      - file: "alias.go"
+        exports: ["aliasCmd"]
+      - file: "save.go"
+        exports: ["saveCmd"]
+      - file: "history.go"
+        exports: ["historyCmd"]
+      - file: "pipeline.go"
+        exports: ["pipelineCmd"]
+    depends_on: ["config", "context", "database", "errors", "history", "recovery", "validation"]
+
+  database:
+    path: "internal/database"
+    responsibility: "Command storage, BM25F search engine, TF-IDF reranker"
+    key_files:
+      - file: "models.go"
+        exports: ["Database", "Command", "SearchResult", "SearchOptions"]
+      - file: "loader.go"
+        exports: ["LoadDatabase()", "LoadDatabaseWithPersonal()"]
+      - file: "search_universal.go"
+        exports: ["SearchUniversal()", "BuildUniversalIndex()"]
+      - file: "cascading_boost.go"
+        exports: ["cascadingBoost()"]
+      - file: "search.go"
+        exports: ["Search()", "SearchWithOptions()"]
+        deprecated: true
+    depends_on: ["constants", "embedding", "nlp", "utils"]
+
+  nlp:
+    path: "internal/nlp"
+    responsibility: "Query processing, intent detection, synonym expansion, TF-IDF"
+    key_files:
+      - file: "processor.go"
+        exports: ["QueryProcessor", "ProcessedQuery", "ProcessQuery()"]
+      - file: "tfidf.go"
+        exports: ["TFIDFSearcher", "NewTFIDFSearcher()"]
+    depends_on: ["utils"]
+
+  context:
+    path: "internal/context"
+    responsibility: "Project type detection and context-based search boosting"
+    key_files:
+      - file: "analyzer.go"
+        exports: ["Analyzer", "Context", "ProjectType", "AnalyzeDirectory()"]
+    depends_on: []
+
+  config:
+    path: "internal/config"
+    responsibility: "Application configuration and path resolution"
+    key_files:
+      - file: "config.go"
+        exports: ["Config", "DefaultConfig()", "GetDatabasePath()"]
+    depends_on: []
+
+  errors:
+    path: "internal/errors"
+    responsibility: "Structured errors with user-friendly messages"
+    key_files:
+      - file: "errors.go"
+        exports: ["AppError", "DatabaseError", "SearchError"]
+    depends_on: ["utils"]
+
+  recovery:
+    path: "internal/recovery"
+    responsibility: "Database and search fallback strategies"
+    key_files:
+      - file: "recovery.go"
+        exports: ["DatabaseRecovery", "SearchRecovery", "LoadDatabaseWithFallback()"]
+    depends_on: ["database", "errors"]
+
+  validation:
+    path: "internal/validation"
+    responsibility: "Input sanitization and validation"
+    key_files:
+      - file: "validation.go"
+        exports: ["ValidateQuery()", "ValidateLimit()"]
+    depends_on: ["constants", "errors"]
+
+  cache:
+    path: "internal/cache"
+    responsibility: "TTL-based in-memory caching with LRU eviction"
+    key_files:
+      - file: "cache.go"
+        exports: ["Cache", "NewCache()"]
+      - file: "lru_cache.go"
+        exports: ["LRUCache", "NewLRUCache()"]
+    depends_on: []
+
+  history:
+    path: "internal/history"
+    responsibility: "Search history persistence in JSON format"
+    key_files:
+      - file: "history.go"
+        exports: ["SearchHistory", "SearchEntry"]
+    depends_on: []
+
+  embedding:
+    path: "internal/embedding"
+    responsibility: "GloVe word vectors for optional semantic search"
+    key_files:
+      - file: "embedding.go"
+        exports: ["Index", "LoadWordVectors()"]
+    depends_on: []
+
+  constants:
+    path: "internal/constants"
+    responsibility: "All scoring weights, thresholds, and limits"
+    key_files:
+      - file: "constants.go"
+        exports: ["Score constants", "Limit constants", "TTL constants"]
+    depends_on: []
+
+  metrics:
+    path: "internal/metrics"
+    responsibility: "Performance monitoring with counters, gauges, histograms"
+    key_files:
+      - file: "metrics.go"
+        exports: ["Counter", "Gauge", "Histogram", "Timer", "Collector"]
+    depends_on: []
+
+  utils:
+    path: "internal/utils"
+    responsibility: "Shared utility functions"
+    key_files:
+      - file: "utils.go"
+        exports: ["Min()", "Max()"]
+    depends_on: []
+
+  version:
+    path: "internal/version"
+    responsibility: "Build-time version information via ldflags"
+    key_files:
+      - file: "version.go"
+        exports: ["Version", "GitHash", "Build"]
+    depends_on: []
+
+# ============================================================================
+# SEARCH ENGINE
+# ============================================================================
+
+search_engine:
+  algorithm: "BM25F"
+  description: "Field-weighted Best Match 25 with inverted index"
+  
+  pipeline:
+    - stage: 1
+      name: "NLP Enhancement"
+      function: "nlp.QueryProcessor.ProcessQuery()"
+      actions:
+        - "Clean query (remove special chars)"
+        - "Extract actions (verbs)"
+        - "Extract targets (nouns)"
+        - "Detect intent"
+        - "Expand synonyms (max 1 per word)"
+        - "Generate enhanced keywords"
+        
+    - stage: 2
+      name: "BM25F Inverted Index Search"
+      function: "database.SearchUniversal()"
+      formula: "Score = Σ(IDF × boost × termBM25F)"
+      
+    - stage: 3
+      name: "Cascading Boost"
+      function: "database.cascadingBoost()"
+      description: "Token-type weighted boosting"
+      
+    - stage: 4
+      name: "TF-IDF Reranking"
+      function: "database.rerankWithNLP()"
+      description: "Cosine similarity refinement for top results"
+
+  bm25f_parameters:
+    k1: 1.2
+    fields:
+      command:
+        weight: 3.5
+        b: 0.75
+      description:
+        weight: 1.0
+        b: 0.75
+      keywords:
+        weight: 2.0
+        b: 0.70
+      tags:
+        weight: 1.2
+        b: 0.70
+    idf_formula: "log((N - df + 0.5) / (df + 0.5) + 1)"
+
+  cascading_boost_weights:
+    action_terms: 3.0
+    context_terms: 2.5
+    target_terms: 2.0
+    keyword_terms: 1.5
+
+  tfidf_reranking:
+    alpha: 0.35
+    top_k_multiplier: 2
+    blend_formula: "score += similarity × alpha × 100"
+
+# ============================================================================
+# NLP SYSTEM
+# ============================================================================
+
+nlp_system:
+  intent_types:
+    IntentFind:
+      triggers: ["find", "search", "locate", "list"]
+    IntentView:
+      triggers: ["show", "display", "view", "see", "read", "cat"]
+    IntentCreate:
+      triggers: ["create", "make", "build", "generate", "new"]
+    IntentDelete:
+      triggers: ["delete", "remove", "destroy", "clean", "clear"]
+    IntentModify:
+      triggers: ["modify", "change", "edit", "update", "alter"]
+    IntentInstall:
+      triggers: ["install", "add", "download"]
+    IntentRun:
+      triggers: ["run", "execute", "start", "launch"]
+    IntentConfigure:
+      triggers: ["configure", "config", "setup", "set"]
+    IntentGeneral:
+      triggers: []
+      default: true
+
+  detection_method: "keyword_matching"
+  detection_note: "NOT ML-based, uses hardcoded keyword maps"
+
+  synonym_expansion:
+    max_per_word: 1
+    location: "nlp/processor.go → buildSynonyms()"
+    examples:
+      folder: ["directory", "dir", "path"]
+      compress: ["zip", "archive", "pack", "bundle", "tar"]
+      find: ["search", "locate", "discover", "lookup"]
+
+  stop_words:
+    location: "nlp/processor.go → buildStopWords()"
+    count: ~50
+    examples: ["a", "an", "the", "is", "are", "for", "with"]
+
+# ============================================================================
+# CONTEXT DETECTION
+# ============================================================================
+
+context_detection:
+  location: "internal/context/analyzer.go"
+  
+  project_types:
+    git:
+      markers: [".git/"]
+      boosts: {git: 2.0, commit: 1.5, branch: 1.5, merge: 1.5, pull: 1.5, push: 1.5}
+    docker:
+      markers: ["Dockerfile", "docker-compose.yml", "docker-compose.yaml"]
+      boosts: {docker: 2.0, container: 1.8, image: 1.5, build: 1.3, compose: 1.5}
+    node:
+      markers: ["package.json", "node_modules/", "yarn.lock", "pnpm-lock.yaml"]
+      boosts: {npm: 2.0, yarn: 2.0, node: 1.8, javascript: 1.5, package: 1.3}
+    python:
+      markers: ["requirements.txt", "setup.py", "pyproject.toml", "Pipfile"]
+      boosts: {python: 2.0, pip: 2.0, venv: 1.5, conda: 1.5}
+    go:
+      markers: ["go.mod", "go.sum"]
+      boosts: {go: 2.0, mod: 1.8, build: 1.5, test: 1.5}
+    rust:
+      markers: ["Cargo.toml", "Cargo.lock"]
+      boosts: {cargo: 2.0, rust: 1.8, build: 1.5, test: 1.5}
+    java:
+      markers: ["pom.xml", "build.gradle", "build.gradle.kts"]
+      boosts: {java: 2.0, maven: 1.8, gradle: 1.8, build: 1.5}
+    dotnet:
+      markers: ["*.csproj", "*.vbproj", "*.fsproj", "global.json"]
+      boosts: {dotnet: 2.0, nuget: 1.8, build: 1.5, restore: 1.5}
+    ruby:
+      markers: ["Gemfile", "Rakefile"]
+      boosts: {ruby: 2.0, gem: 1.8, bundle: 1.5, rake: 1.5}
+    php:
+      markers: ["composer.json", "composer.lock"]
+      boosts: {php: 2.0, composer: 1.8, artisan: 1.5}
+    kubernetes:
+      markers: ["*k8s*.yaml", "kustomization.yaml"]
+      boosts: {kubectl: 2.0, kubernetes: 1.8, k8s: 1.8, pod: 1.5}
+    terraform:
+      markers: ["*.tf", "*.tfvars"]
+      boosts: {terraform: 2.0, plan: 1.8, apply: 1.8, destroy: 1.5}
+
+# ============================================================================
+# DATA LAYER
+# ============================================================================
+
+data_layer:
+  database:
+    format: "YAML"
+    primary_path: "assets/commands.yml"
+    personal_path: "~/.config/cmd-finder/personal.yml"
+    command_count: 3850
+    
+    schema:
+      command:
+        type: "string"
+        required: true
+        description: "The shell command"
+      description:
+        type: "string"
+        required: true
+        description: "Human-readable explanation"
+      keywords:
+        type: "[]string"
+        required: true
+        description: "Searchable terms"
+      tags:
+        type: "[]string"
+        required: false
+        description: "Additional categorization"
+      niche:
+        type: "string"
+        required: false
+        description: "Domain/category (git, docker, system)"
+      platform:
+        type: "[]string"
+        required: false
+        values: ["linux", "macos", "windows", "cross-platform"]
+      pipeline:
+        type: "bool"
+        required: false
+        description: "True if commonly piped"
+        
+    cache_fields:
+      note: "Populated at load time for O(1) case-insensitive matching"
+      fields: ["CommandLower", "DescriptionLower", "KeywordsLower", "TagsLower"]
+
+  history:
+    format: "JSON"
+    path: "~/.config/wtf/search_history.json"
+    max_entries: 100
+    schema:
+      query: "string"
+      timestamp: "RFC3339"
+      results_count: "int"
+      context: "string"
+      duration: "int64 (milliseconds)"
+
+  config:
+    directory: "~/.config/cmd-finder/"
+    defaults:
+      DatabasePath: "assets/commands.yml"
+      MaxResults: 5
+      CacheEnabled: true
+
+# ============================================================================
+# ERROR HANDLING
+# ============================================================================
+
+error_handling:
+  pattern: "Fluent Builder with AppError"
+  location: "internal/errors/errors.go"
+  
+  error_types:
+    - ErrorTypeDatabase
+    - ErrorTypeValidation
+    - ErrorTypeSearch
+    - ErrorTypeConfig
+    - ErrorTypeNetwork
+    - ErrorTypeFileSystem
+    - ErrorTypePermission
+
+  appError_structure:
+    Type: "ErrorType"
+    Message: "string (technical)"
+    UserMessage: "string (user-friendly)"
+    Cause: "error"
+    Context: "map[string]interface{}"
+    Suggestions: "[]string"
+
+  builder_pattern: |
+    errors.NewAppError(ErrorType, "technical message", cause).
+        WithUserMessage("User-friendly explanation").
+        WithContext("key", value).
+        WithSuggestions("suggestion1", "suggestion2")
+
+  pre_built_constructors:
+    - name: "NewDatabaseNotFoundError"
+      params: ["path", "cause"]
+    - name: "NewDatabaseParseError"
+      params: ["path", "cause"]
+    - name: "NewDatabasePermissionError"
+      params: ["path", "cause"]
+    - name: "NewQueryEmptyError"
+      params: []
+    - name: "NewQueryTooLongError"
+      params: ["length", "maxLength"]
+    - name: "NewQueryInvalidCharsError"
+      params: ["chars"]
+    - name: "NewLimitInvalidError"
+      params: ["limit", "maxLimit"]
+    - name: "NewSearchFailedError"
+      params: ["query", "cause"]
+    - name: "NewNoResultsError"
+      params: ["query", "suggestions"]
+
+  extraction_functions:
+    - "GetUserFriendlyMessage(err) → string"
+    - "GetErrorSuggestions(err) → []string"
+    - "IsUserFriendlyError(err) → bool"
+
+# ============================================================================
+# CONCURRENCY PATTERNS
+# ============================================================================
+
+concurrency_patterns:
+  rwmutex_for_cache:
+    use_case: "Read-heavy caches"
+    pattern: |
+      type Cache struct {
+          items map[string]*Item
+          mutex sync.RWMutex
+      }
+      // Get: c.mutex.RLock() / c.mutex.RUnlock()
+      // Set: c.mutex.Lock() / c.mutex.Unlock()
+
+  atomic_for_counters:
+    use_case: "Thread-safe counters"
+    pattern: |
+      type Counter struct { value int64 }
+      func (c *Counter) Inc() { atomic.AddInt64(&c.value, 1) }
+      func (c *Counter) Value() int64 { return atomic.LoadInt64(&c.value) }
+
+  waitgroup_channel_shutdown:
+    use_case: "Graceful goroutine shutdown"
+    pattern: |
+      type Worker struct {
+          stop chan struct{}
+          wg   sync.WaitGroup
+      }
+      // Start: wg.Add(1); go task()
+      // Stop: close(stop); wg.Wait()
+
+  note: "No channels used for main data flow - all search is synchronous"
+
+# ============================================================================
+# RECOVERY STRATEGIES
+# ============================================================================
+
+recovery_strategies:
+  database_loading:
+    location: "internal/recovery/recovery.go"
+    function: "LoadDatabaseWithFallback()"
+    strategies:
+      - order: 1
+        name: "Retry with exponential backoff"
+        config:
+          max_attempts: 3
+          base_delay: "100ms"
+          max_delay: "5s"
+          backoff_factor: 2.0
+      - order: 2
+        name: "Embedded minimal database"
+        commands: ["ls", "dir", "cd", "pwd", "cat", "echo"]
+      - order: 3
+        name: "Backup database"
+        path: "{primary_path}.bak"
+      - order: 4
+        name: "Create minimal database"
+        description: "Essential commands only"
+
+    retry_skip_conditions:
+      - "os.IsNotExist(err)"
+      - "os.IsPermission(err)"
+      - "ErrorTypePermission"
+      - "ErrorTypeValidation"
+
+# ============================================================================
+# CONSTANTS
+# ============================================================================
+
+constants:
+  location: "internal/constants/constants.go"
+  
+  scoring:
+    ScoreDirectCommandMatch: 15.0
+    ScoreCommandMatch: 10.0
+    ScoreDescriptionMatch: 6.0
+    ScoreKeywordExactMatch: 4.0
+    ScoreKeywordPartialMatch: 1.0
+    ScoreDomainSpecificMatch: 12.0
+    ExactCommandMatchMultiplier: 2.0
+    PrefixCommandMatchMultiplier: 1.5
+    ContainsMatchMultiplier: 0.7
+    KeywordExactMatchMultiplier: 1.5
+    PartialMatchScoreMultiplier: 0.6
+    DirectCommandMatchBonus: 1.8
+    CommandMatchBonus: 1.4
+    FallbackResultPriority: 0.8
+    CrossPlatformPenalty: 0.9
+
+  limits:
+    DefaultSearchLimit: 5
+    MaxQueryLength: 1000
+    DefaultHistorySize: 100
+    DefaultCacheCapacity: 1000
+    MinWordLength: 2
+    MaxSynonymsPerWord: 1
+
+  timeouts:
+    DefaultCacheTTL: "5m"
+
+# ============================================================================
+# BUILD SYSTEM
+# ============================================================================
+
+build_system:
+  makefile_targets:
+    build:
+      command: "go build -trimpath $(LDFLAGS) -o build/wtf ./cmd/wtf"
+    build-release:
+      command: "go build -trimpath -ldflags \"-s -w ...\" -o build/wtf ./cmd/wtf"
+    build-all:
+      platforms: ["linux/amd64", "linux/arm64", "darwin/amd64", "darwin/arm64", "windows/amd64"]
+    test:
+      command: "go test ./..."
+    quality:
+      command: "go vet ./... && staticcheck ./..."
+    clean:
+      command: "rm -rf build/"
+
+  ldflags:
+    - "-X github.com/Vedant9500/WTF/internal/version.Version=$(VERSION)"
+    - "-X github.com/Vedant9500/WTF/internal/version.GitHash=$(GIT_HASH)"
+    - "-X github.com/Vedant9500/WTF/internal/version.Build=$(BUILD_TIME)"
+
+  windows_build: "build.bat build"
+
+# ============================================================================
+# PLATFORM BEHAVIOR
+# ============================================================================
+
+platform_behavior:
+  detection:
+    function: "getCurrentPlatform()"
+    mapping:
+      "windows": "constants.PlatformWindows"
+      "darwin": "constants.PlatformMacOS"
+      default: "constants.PlatformLinux"
+
+  platform_variants:
+    windows: ["cmd", "powershell", "windows-cmd", "windows-powershell"]
+    macos: ["darwin", "macos"]
+    linux: ["unix", "bash", "zsh", "linux"]
+
+  alias_creation:
+    windows:
+      type: ".bat file"
+      template: "@echo off\n\"%s\" %%*\n"
+    unix:
+      type: "shell script"
+      template: "#!/bin/bash\nexec \"%s\" \"$@\"\n"
+
+# ============================================================================
+# TESTING
+# ============================================================================
+
+testing:
+  utilities:
+    location: "internal/testutil/"
+    exports:
+      - "CommandBuilder (fluent API for test commands)"
+      - "fixtures.go (pre-built test fixtures)"
+      - "generators.go (random data generators)"
+      - "helpers.go (common assertions)"
+
+  integration_tests:
+    - "cli/integration_test.go"
+    - "cli/search_integration_test.go"
+
+  benchmarks:
+    - "database/benchmark_search_test.go"
+    - "database/benchmark_test.go"
+
+# ============================================================================
+# EXTENSION GUIDE
+# ============================================================================
+
+extension_guide:
+  add_cli_command:
+    steps:
+      - create: "internal/cli/mycommand.go"
+      - register: "rootCmd.AddCommand(myCmd) in root.go init()"
+    template: |
+      var myCmd = &cobra.Command{
+          Use:   "mycommand",
+          Short: "Description",
+          Run: func(cmd *cobra.Command, args []string) { /* impl */ },
+      }
+
+  add_project_context:
+    steps:
+      - add_constant: "ProjectTypeMyTool ProjectType = \"mytool\""
+      - add_boosts: "ProjectTypeMyTool: {\"mytool\": 2.0, \"keyword\": 1.5}"
+      - add_detection: "checkMyTool() in analyzeFile()"
+
+  add_intent_type:
+    steps:
+      - add_constant: "IntentMyIntent QueryIntent = \"myintent\""
+      - add_detection: "case \"trigger\": return IntentMyIntent"
+
+  add_synonym:
+    location: "nlp/processor.go → buildSynonyms()"
+    format: "\"word\": [\"synonym1\", \"synonym2\"]"
+
+  add_command_source:
+    steps:
+      - "Add commands to assets/commands.yml following schema"
+      - "Run go build (indices built at load time)"
+      - "(Optional) Run scripts/embed_commands.py for semantic search"
+
+# ============================================================================
+# PERFORMANCE
+# ============================================================================
+
+performance:
+  typical_times:
+    database_load: "~50ms"
+    index_build: "~20ms"
+    bm25f_search: "~5-10ms"
+    tfidf_rerank: "~2-5ms"
+    total_search: "~200ms"
+
+  optimizations:
+    - "Lowercased cache fields (avoid repeated ToLower())"
+    - "Inverted index (avoid full scan)"
+    - "Top-K limiting before TF-IDF"
+    - "Term selection by IDF (reduce noise)"
+    - "LRU cache for repeated queries"
+
+# ============================================================================
+# QUICK REFERENCE
+# ============================================================================
+
+quick_reference:
+  file_lookup:
+    add_cli_command: "internal/cli/ + register in root.go"
+    modify_search_scoring: "internal/database/search_universal.go, cascading_boost.go"
+    add_nlp_synonyms: "internal/nlp/processor.go → buildSynonyms()"
+    add_intent_type: "internal/nlp/processor.go → QueryIntent"
+    detect_project_type: "internal/context/analyzer.go"
+    change_defaults: "internal/config/config.go, internal/constants/constants.go"
+    add_error_type: "internal/errors/errors.go"
+    modify_validation: "internal/validation/validation.go"
+
+  deprecated_functions:
+    - function: "database.Search()"
+      use_instead: "database.SearchUniversal()"
+    - function: "database.SearchWithOptions()"
+      use_instead: "database.SearchUniversal()"
+    - function: "database.SearchWithPipelineOptions()"
+      use_instead: "database.SearchUniversal() with PipelineOnly=true"
+
+  anti_patterns:
+    - wrong: "fmt.Errorf() for user-facing errors"
+      correct: "errors.NewAppError() with user message"
+    - wrong: "Hardcode scoring weights"
+      correct: "Use constants from constants/constants.go"
+    - wrong: "Compare strings case-sensitively"
+      correct: "Use lowercase cache fields"
+    - wrong: "Trust raw user input"
+      correct: "Validate via validation.ValidateQuery()"
+    - wrong: "Fail hard on optional file absence"
+      correct: "Return nil, nil for optional missing files"
