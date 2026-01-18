@@ -7,6 +7,16 @@ import (
 	"github.com/Vedant9500/WTF/internal/nlp"
 )
 
+// boostContext holds all data needed for boost calculations
+type boostContext struct {
+	actionTerms  []string
+	targetTerms  []string
+	keywordTerms []string
+	commandHints []string
+	contexts     []string
+	intent       nlp.QueryIntent
+}
+
 // cascadingBoost applies weighted boosts based on query token types.
 // It uses NLP to classify tokens as actions/targets/keywords and boosts
 // commands that match in order of importance: action > context > target.
@@ -15,80 +25,10 @@ func (db *Database) cascadingBoost(results []SearchResult, pq *nlp.ProcessedQuer
 		return results
 	}
 
-	// Get synonyms for expansion
-	processor := nlp.NewQueryProcessor()
-
-	// Build boost maps with synonyms
-	actionTerms := expandWithSynonyms(pq.Actions, processor)
-	targetTerms := expandWithSynonyms(pq.Targets, processor)
-	keywordTerms := expandWithSynonyms(pq.Keywords, processor)
-
-	// Get command hints from NLP (e.g., "create folder" → ["mkdir"])
-	commandHints := pq.GetEnhancedKeywords()
-
-	// Boost weights (action matches are most important)
-	const actionBoost = 3.0
-	const targetBoost = 2.0
-	const keywordBoost = 1.5
-	const contextBoost = 2.5 // For known command contexts (git, docker, etc.)
-	const cmdHintBoost = 6.0 // Strong boost for commands matching NLP hints
-
-	// Extract context from query (known tool names)
-	contexts := extractContexts(pq.Keywords)
+	ctx := db.buildBoostContext(pq)
 
 	for i, r := range results {
-		boost := 1.0
-		cmd := r.Command
-
-		// Combine searchable text
-		searchText := strings.ToLower(cmd.Command + " " + cmd.Description + " " + strings.Join(cmd.Keywords, " "))
-
-		// Check if command name matches any NLP command hints (highest priority)
-		cmdLower := strings.ToLower(cmd.Command)
-		cmdBase := getCommandBase(cmdLower) // Extract base command (e.g., "mkdir" from "mkdir -p")
-		for _, hint := range commandHints {
-			hintLower := strings.ToLower(hint)
-			if cmdBase == hintLower || cmdLower == hintLower {
-				boost += cmdHintBoost
-				break
-			}
-		}
-
-		// Check action matches (high priority)
-		for _, action := range actionTerms {
-			if containsWord(searchText, action) {
-				boost += actionBoost
-				break // Only count once per category
-			}
-		}
-
-		// Check context matches (known tools like git, docker)
-		for _, ctx := range contexts {
-			if containsWord(cmd.Command, ctx) || containsWord(searchText, ctx) {
-				boost += contextBoost
-				break
-			}
-		}
-
-		// Check target matches
-		for _, target := range targetTerms {
-			if containsWord(searchText, target) {
-				boost += targetBoost
-				break
-			}
-		}
-
-		// Check keyword matches
-		for _, kw := range keywordTerms {
-			if containsWord(searchText, kw) {
-				boost += keywordBoost
-				break
-			}
-		}
-
-		// Apply intent-specific boosts
-		boost += getIntentBoost(pq.Intent, searchText)
-
+		boost := db.calculateBoostForCommand(r.Command, ctx)
 		results[i].Score *= boost
 	}
 
@@ -98,6 +38,75 @@ func (db *Database) cascadingBoost(results []SearchResult, pq *nlp.ProcessedQuer
 	})
 
 	return results
+}
+
+// buildBoostContext creates the context needed for boost calculations
+func (db *Database) buildBoostContext(pq *nlp.ProcessedQuery) boostContext {
+	processor := nlp.NewQueryProcessor()
+	return boostContext{
+		actionTerms:  expandWithSynonyms(pq.Actions, processor),
+		targetTerms:  expandWithSynonyms(pq.Targets, processor),
+		keywordTerms: expandWithSynonyms(pq.Keywords, processor),
+		commandHints: pq.GetEnhancedKeywords(),
+		contexts:     extractContexts(pq.Keywords),
+		intent:       pq.Intent,
+	}
+}
+
+// calculateBoostForCommand calculates the total boost for a single command
+func (db *Database) calculateBoostForCommand(cmd *Command, ctx boostContext) float64 {
+	const (
+		actionBoost  = 3.0
+		targetBoost  = 2.0
+		keywordBoost = 1.5
+		contextBoost = 2.5
+		cmdHintBoost = 6.0
+	)
+
+	boost := 1.0
+	searchText := strings.ToLower(cmd.Command + " " + cmd.Description + " " + strings.Join(cmd.Keywords, " "))
+
+	boost += calcHintBoost(cmd.Command, ctx.commandHints, cmdHintBoost)
+	boost += calcTermBoost(searchText, ctx.actionTerms, actionBoost)
+	boost += calcContextBoost(cmd.Command, searchText, ctx.contexts, contextBoost)
+	boost += calcTermBoost(searchText, ctx.targetTerms, targetBoost)
+	boost += calcTermBoost(searchText, ctx.keywordTerms, keywordBoost)
+	boost += getIntentBoost(ctx.intent, searchText)
+
+	return boost
+}
+
+// calcHintBoost returns boost if command matches any hint
+func calcHintBoost(command string, hints []string, boostVal float64) float64 {
+	cmdLower := strings.ToLower(command)
+	cmdBase := getCommandBase(cmdLower)
+	for _, hint := range hints {
+		hintLower := strings.ToLower(hint)
+		if cmdBase == hintLower || cmdLower == hintLower {
+			return boostVal
+		}
+	}
+	return 0
+}
+
+// calcTermBoost returns boost if any term is found in searchText
+func calcTermBoost(searchText string, terms []string, boostVal float64) float64 {
+	for _, term := range terms {
+		if containsWord(searchText, term) {
+			return boostVal
+		}
+	}
+	return 0
+}
+
+// calcContextBoost returns boost if any context is found in command or searchText
+func calcContextBoost(command, searchText string, contexts []string, boostVal float64) float64 {
+	for _, ctx := range contexts {
+		if containsWord(command, ctx) || containsWord(searchText, ctx) {
+			return boostVal
+		}
+	}
+	return 0
 }
 
 // getCommandBase extracts the base command from a command string

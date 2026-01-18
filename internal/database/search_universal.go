@@ -289,6 +289,7 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 		}
 		return nil
 	}
+
 	// Reduce noise for long queries by keeping top-IDF terms
 	termsCap := options.TopTermsCap
 	if termsCap <= 0 {
@@ -313,21 +314,8 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 	// Sort preliminarily
 	sort.Slice(results, func(i, j int) bool { return results[i].Score > results[j].Score })
 
-	// Optional NLP-based reranking
-	if options.UseNLP && db.tfidf != nil {
-		results = db.rerankWithNLP(results, query, options)
-	}
-
-	// Cascading boost: apply weighted boosts based on query token types
-	// This replaces word vector semantic search with more targeted boosting
-	if options.UseNLP && pq != nil && len(results) > 0 {
-		results = db.cascadingBoost(results, pq)
-	}
-
-	// Semantic boost: blend embedding similarity into scores if embeddings are loaded
-	if db.HasEmbeddings() && len(results) > 0 {
-		results = db.applySemanticBoost(results, query)
-	}
+	// Apply all post-scoring boosts (NLP reranking, cascading, semantic)
+	results = db.applyPostScoringBoosts(results, pq, query, options)
 
 	// Limit
 	if len(results) > options.Limit {
@@ -667,7 +655,6 @@ func (db *Database) applySemanticBoost(results []SearchResult, query string) []S
 
 		// Only apply boost if similarity exceeds minimum threshold
 		if similarity >= constants.SemanticMinScore {
-			// Blend: score *= (1 + alpha * similarity)
 			results[i].Score *= (1.0 + constants.SemanticAlpha*similarity)
 		}
 	}
