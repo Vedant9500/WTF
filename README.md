@@ -1,4 +1,4 @@
-# 🔍 WTF (What's The Function)
+# WTF (What's The Function)
 
 <div align="center">
 
@@ -9,30 +9,30 @@
 
 *A powerful CLI tool to discover shell commands using natural language*
 
-**When you can't remember a command, you think "What's The Function I need?" - that's WTF! 😄**
+**When you can't remember a command, you think "What's The Function I need?" — that's WTF!**
 
 </div>
 
-## ✨ Features
+## Features
 
-🔍 **Advanced Natural Language Search** - Find commands by describing what you want to do in plain English  
-🧠 **Intent Detection** - Understands your intent (create, search, compress, install, etc.) for better results  
-📚 **Massive Command Database** - 6,600+ commands sourced directly from TLDR pages  
-🎯 **Context-Aware Suggestions** - Smart recommendations based on your current directory and project type  
-⚡ **Fuzzy Search & Typo Tolerance** - Finds commands even with spelling mistakes  
-🖥️ **Platform Filtering** - Filter commands by platform (Linux, macOS, Windows, cross-platform)  
-📈 **Search History & Analytics** - Tracks your searches to improve recommendations  
-📝 **Personal Command Notebook** - Save and organize your custom commands  
-🎯 **Interactive Command Builder** - Step-by-step wizards for complex commands  
-🔗 **Pipeline Search** - Specialized search for multi-command workflows  
-⚡ **Lightning Fast** - ~200ms search performance with advanced scoring and caching  
-�  **Cross-Platform** - Works on Windows, macOS, and Linux  
-🎨 **Beautiful Output** - Clean results with relevance scores; list/table/json formats; optional colors
-🧩 **Scriptable Output** - JSON output for easy integration with other tools
+- **Advanced Natural Language Search** — Find commands by describing what you want to do in plain English  
+- **Intent Detection** — Understands your intent (create, search, compress, install, etc.) for better results  
+- **Massive Command Database** — 6,600+ commands sourced directly from TLDR pages  
+- **Context-Aware Suggestions** — Smart recommendations based on your current directory and project type  
+- **Fuzzy Search & Typo Tolerance** — Finds commands even with spelling mistakes  
+- **Platform Filtering** — Filter commands by platform (Linux, macOS, Windows, cross-platform)  
+- **Search History & Analytics** — Tracks your searches to improve recommendations  
+- **Personal Command Notebook** — Save and organize your custom commands  
+- **Interactive Command Builder** — Step-by-step wizards for complex commands  
+- **Pipeline Search** — Specialized search for multi-command workflows  
+- **Lightning Fast** — ~200ms search performance with advanced scoring and caching  
+- **Cross-Platform** — Works on Windows, macOS, and Linux  
+- **Beautiful Output** — Clean results with relevance scores; list/table/json formats; optional colors
+- **Scriptable Output** — JSON output for easy integration with other tools
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -78,13 +78,13 @@ wtf --no-color "compress files"
 # or set NO_COLOR=1
 ```
 
-### 📚 Database Source
+### Database Source
 
 WTF leverages excellent community-driven projects as its command database sources:
 
 **Primary Sources:**
-- **[TLDR Pages](https://github.com/tldr-pages/tldr)** - Simplified, example-focused help pages for command-line tools
-- **[Cheat/Cheatsheets](https://github.com/cheat/cheatsheets)** - Community-maintained cheatsheets for various tools and technologies
+- **[TLDR Pages](https://github.com/tldr-pages/tldr)** — Simplified, example-focused help pages for command-line tools
+- **[Cheat/Cheatsheets](https://github.com/cheat/cheatsheets)** — Community-maintained cheatsheets for various tools and technologies
 
 **Database Features:**
 - **6,600+ Commands**: Comprehensive coverage of CLI tools across all platforms
@@ -95,9 +95,9 @@ WTF leverages excellent community-driven projects as its command database source
 
 ---
 
-## 📚 Complete Feature Guide
+## Complete Feature Guide
 
-### 🔍 Core Search
+### Core Search
 
 ```bash
 # Natural language search with advanced NLP
@@ -123,19 +123,19 @@ wtf "mkdir direectory"               # Still finds directory commands
 wtf "gti comit changez"              # Finds git commit commands
 ```
 
-#### 🧩 How search works (BM25F + Cascading Boost + NLP)
+#### How Search Works (BM25F + Cascading Boost + NLP)
 
 WTF uses a multi-stage search pipeline:
-1. **BM25F Inverted Index** - Field-weighted Best Match 25 scoring across command, keywords, and descriptions
-2. **NLP Enhancement** - Intent detection, synonym expansion, and action/target recognition
-3. **Cascading Boost** - Token-based weighted boosting (action 3x, context 2.5x, target 2x, keyword 1.5x)
-4. **TF-IDF Reranking** - Cosine similarity refinement for top results
+1. **BM25F Inverted Index** — Field-weighted Best Match 25 scoring across command, keywords, and descriptions
+2. **NLP Enhancement** — Intent detection, synonym expansion, and action/target recognition
+3. **Cascading Boost** — Token-based weighted boosting (action 3x, context 2.5x, target 2x, keyword 1.5x)
+4. **TF-IDF Reranking** — Cosine similarity refinement for top results
 
 You can tune behavior via search options (limit, NLP on/off, platform filtering).
 
-### 🧠 Advanced Natural Language Processing
+### Advanced Natural Language Processing
 
-WTF now includes sophisticated NLP features for better command understanding:
+WTF includes sophisticated NLP features for better command understanding:
 
 **Intent Detection**:
 - `create` → Prioritizes mkdir, touch, make commands
@@ -162,7 +162,7 @@ wtf "help me create a new directory please"
 
 ```
 
-### 🧠 Context-Aware Search
+### Context-Aware Search
 
 WTF automatically detects your environment and prioritizes relevant commands:
 
@@ -189,9 +189,9 @@ wtf "install"         # Prioritizes pip commands
 - **Smart Boosts**: Gives relevant commands higher priority scores
 - **Multi-Context Support**: Handles projects with multiple technologies
 
-### 🖥️ Platform-Specific Search
+### Platform-Specific Search
 
-WTF now supports filtering commands by platform, perfect for developers working across multiple operating systems:
+WTF supports filtering commands by platform, perfect for developers working across multiple operating systems:
 
 ```bash
 # Filter by specific platform
@@ -228,7 +228,7 @@ wtf "compression" --platform linux --verbose
 - **Migration**: Compare commands across different systems
 - **Development**: Work with multi-platform deployment scripts
 
-### 🎯 Interactive Command Wizards
+### Interactive Command Wizards
 
 Build complex commands step-by-step with interactive wizards:
 
@@ -253,7 +253,7 @@ wtf wizard ffmpeg
 → Result: ffmpeg -i video.mp4 output.mp3
 ```
 
-### 🔗 Pipeline Search
+### Pipeline Search
 
 Find and visualize multi-step command workflows:
 
@@ -263,16 +263,16 @@ wtf pipeline "log analysis"
 wtf pipeline "find and replace"
 
 # Example output:
-📋 Found pipeline command:
+Found pipeline command:
 find . -name "*.txt" │ xargs grep "error" │ head -10
-📝 find text files and show first 10 errors
-🔗 Pipeline steps:
+Description: find text files and show first 10 errors
+Pipeline steps:
    1. find . -name "*.txt"
    2. xargs grep "error" 
    3. head -10
 ```
 
-### � Search History & Analytics
+### Search History & Analytics
 
 WTF tracks your search patterns to provide better recommendations:
 
@@ -288,7 +288,7 @@ wtf history
 # Search analytics
 wtf history --stats
 
-# 📊 Search Statistics:
+# Search Statistics:
 # Total searches: 47
 # Most searched: "git commands" (8 times)
 # Success rate: 94% (commands found vs not found)
@@ -301,7 +301,7 @@ wtf history --stats
 - **Success Tracking**: See which searches work best
 - **Auto-Cleanup**: Old history automatically managed
 
-### 📝 Personal Command Notebook
+### Personal Command Notebook
 
 Save and organize your custom commands:
 
@@ -324,45 +324,45 @@ wtf save-pipeline
 wtf "docker containers"  # Shows both official and your custom commands
 ```
 
-### 🎨 Beautiful Output
+### Output Formatting
 
 WTF provides clean, formatted output with advanced relevance scoring:
 
 ```
-🔍 Searching for: compress files
+Searching for: compress files
 
-📋 Found 5 matching command(s):
+Found 5 matching command(s):
 
 1. tar -czf archive.tar.gz folder/
-   📝 compress a folder into a tar.gz archive
-   📂 Category: compression
-   🏷️  Keywords: tar, compress, archive
-   📊 Relevance Score: 127.3
+   Description: compress a folder into a tar.gz archive
+   Category: compression
+   Keywords: tar, compress, archive
+   Relevance Score: 127.3
 
 2. zip -r archive.zip folder/
-   📝 compress folder into a zip file  
-   📂 Category: compression
-   🏷️  Keywords: zip, compress, archive
-   📊 Relevance Score: 98.7
+   Description: compress folder into a zip file  
+   Category: compression
+   Keywords: zip, compress, archive
+   Relevance Score: 98.7
 
 3. gzip file.txt
-   📝 compress a single file with gzip
-   📂 Category: compression  
-   🏷️  Keywords: gzip, compress, file
-   📊 Relevance Score: 85.2
+   Description: compress a single file with gzip
+   Category: compression  
+   Keywords: gzip, compress, file
+   Relevance Score: 85.2
 ```
 
 **Verbose Mode** shows NLP analysis:
 ```bash
 wtf search "compress files" --verbose
 
-🧠 NLP Analysis:
+NLP Analysis:
    Intent: compress
    Actions: [compress]  
    Targets: [files]
    Enhanced Keywords: [compress, archive, files, tar, zip]
    
-📊 Scoring Details:
+Scoring Details:
    Command Match: +15.0 (exact match bonus)
    Domain Specific: +12.0 (compression domain)
    Intent Boost: ×2.5 (compression intent)
@@ -374,17 +374,17 @@ wtf search "compress files" --verbose
 ```bash
 wtf "system tools" --platform linux --verbose
 
-🖥️ Platform Analysis:
+Platform Analysis:
    Filter: [linux] + cross-platform
    Excluded: windows, macos (platform-specific)
    Included: 1,247 commands (38% of database)
    
-📊 Results by Platform:
+Results by Platform:
    Linux-specific: 3 commands
    Cross-platform: 2 commands
 ```
 
-#### Output formats and color
+#### Output Formats and Color
 
 WTF supports multiple output formats and color controls to fit your workflow:
 
@@ -414,7 +414,7 @@ wtf --no-color "find files by name"
 
 ---
 
-## ⚙️ Setup & Configuration
+## Setup & Configuration
 
 ### Custom Command Names
 
@@ -456,7 +456,7 @@ wtf --database /path/to/custom.yml
 
 # Database stats
 wtf stats
-# 📊 Database Statistics:
+# Database Statistics:
 # Total commands: 6,600+
 # Categories: 12 (compression, system, networking, etc.)
 # Platforms: Linux, macOS, Windows, Android
@@ -465,7 +465,7 @@ wtf stats
 
 ---
 
-## 🏗️ Development & Building
+## Development & Building
 
 ### Building from Source
 
@@ -517,7 +517,7 @@ make benchmark
 
 ---
 
-## 📊 Performance
+## Performance
 
 WTF is optimized for speed with advanced algorithms:
 
@@ -538,7 +538,7 @@ WTF is optimized for speed with advanced algorithms:
 
 ---
 
-## 🗄️ Database
+## Database
 
 ### Built-in Database
 - **6,600+ curated commands** from [TLDR Pages](https://github.com/tldr-pages/tldr) (downloaded directly)
@@ -574,7 +574,7 @@ commands:
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Here's how to get started:
 
@@ -587,20 +587,20 @@ We welcome contributions! Here's how to get started:
 7. **Open** a Pull Request
 
 ### Areas for Contribution
-- 🗄️ **Database**: Add more commands and categories
-- 🌐 **Localization**: Support for multiple languages  
-- 🎨 **Themes**: Custom color schemes and output formats
-- 🔌 **Integrations**: IDE plugins, shell integrations
-- 📱 **Platforms**: Mobile apps, web interface
+- **Database**: Add more commands and categories
+- **Localization**: Support for multiple languages  
+- **Themes**: Custom color schemes and output formats
+- **Integrations**: IDE plugins, shell integrations
+- **Platforms**: Mobile apps, web interface
 
 ---
 
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- **[TLDR Pages](https://github.com/tldr-pages/tldr)** - Primary command database source (6,600+ commands)
-- **[Cheat/Cheatsheets](https://github.com/cheat/cheatsheets)** - Additional curated command examples and usage patterns
-- **[Cobra](https://github.com/spf13/cobra)** - Excellent CLI framework
-- **Go Community** - Amazing ecosystem and tools
+- **[TLDR Pages](https://github.com/tldr-pages/tldr)** — Primary command database source (6,600+ commands)
+- **[Cheat/Cheatsheets](https://github.com/cheat/cheatsheets)** — Additional curated command examples and usage patterns
+- **[Cobra](https://github.com/spf13/cobra)** — Excellent CLI framework
+- **Go Community** — Amazing ecosystem and tools
 
 ---
