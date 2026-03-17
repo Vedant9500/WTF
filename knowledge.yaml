@@ -7,7 +7,7 @@ meta:
   project_name: "WTF (What's The Function)"
   description: "CLI tool for natural language command discovery using BM25F search"
   language: "Go"
-  go_version: "1.25.5"
+  go_version: "1.25.8"
   version: "1.2.0"
   repository: "github.com/Vedant9500/WTF"
   command_count: 6619
