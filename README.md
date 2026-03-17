@@ -587,6 +587,7 @@ We welcome contributions! Here's how to get started:
 7. **Open** a Pull Request
 
 ### Areas for Contribution
+- **Accuracy**: Currently the model has some limitations and struggles with most of the commands
 - **Database**: Add more commands and categories
 - **Localization**: Support for multiple languages  
 - **Themes**: Custom color schemes and output formats
