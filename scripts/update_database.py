@@ -23,6 +23,13 @@ PLATFORM_MAP = {
     "openbsd": ["linux"] # Approximate
 }
 
+STOP_WORDS = {
+    "the", "a", "an", "and", "or", "to", "for", "of", "in", "on", "with",
+    "from", "into", "by", "at", "is", "are", "be", "this", "that", "as",
+    "using", "use", "via", "over", "under", "all", "any", "more", "information",
+    "see", "also", "about", "through", "without", "across"
+}
+
 def download_tldr_zip():
     print(f"Downloading TLDR archive from {TLDR_ZIP_URL}...")
     response = requests.get(TLDR_ZIP_URL, stream=True)
@@ -36,11 +43,99 @@ def download_tldr_zip():
     
     return zipfile.ZipFile(buffer)
 
+
+def normalize_token(token: str) -> str:
+    token = re.sub(r"[^a-zA-Z0-9_-]", "", token).lower()
+    return token.strip("-_")
+
+
+def extract_words(text: str, min_len: int = 3):
+    words = set()
+    for word in re.split(r"[^a-zA-Z0-9_-]+", text.lower()):
+        clean = normalize_token(word)
+        if len(clean) >= min_len and clean not in STOP_WORDS:
+            words.add(clean)
+    return words
+
+
+def command_family(command_name: str) -> str:
+    if not command_name:
+        return "general"
+    # TLDR command names are usually command identifiers like "git commit" or "docker image rm".
+    first = command_name.split()[0]
+    first = normalize_token(first.split("/")[-1])
+    return first or "general"
+
+
+def extract_aliases(description: str, command_name: str):
+    aliases = set()
+    cmd_family = command_family(command_name)
+    for alias in re.findall(r"`([^`]+)`", description):
+        alias = alias.strip()
+        if not alias:
+            continue
+        base = command_family(alias)
+        # Keep close aliases/tool names, avoid long inline examples.
+        if base and base != cmd_family and len(alias.split()) <= 3:
+            aliases.add(base)
+    return aliases
+
+
+def parse_examples(lines):
+    examples = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith("- "):
+            example_desc = line[2:].strip()
+            example_cmd = ""
+            j = i + 1
+            while j < len(lines):
+                candidate = lines[j].strip()
+                if candidate.startswith("-"):
+                    break
+                if "`" in candidate:
+                    first = candidate.find("`")
+                    last = candidate.rfind("`")
+                    if last > first:
+                        example_cmd = candidate[first + 1:last].strip()
+                        break
+                j += 1
+            examples.append((example_desc, example_cmd))
+            i = j
+            continue
+        i += 1
+    return examples
+
+
+def extract_example_metadata(examples):
+    verbs = set()
+    objects = set()
+    cmd_tokens = set()
+
+    for desc, cmd in examples:
+        desc_words = [w for w in re.split(r"[^a-zA-Z0-9_-]+", desc.lower()) if w]
+        if desc_words:
+            v = normalize_token(desc_words[0])
+            if len(v) >= 3 and v not in STOP_WORDS:
+                verbs.add(v)
+            for w in desc_words[1:]:
+                obj = normalize_token(w)
+                if len(obj) >= 3 and obj not in STOP_WORDS:
+                    objects.add(obj)
+
+        if cmd:
+            for t in re.split(r"[^a-zA-Z0-9_-]+", cmd.lower()):
+                clean = normalize_token(t)
+                if len(clean) >= 2 and clean not in STOP_WORDS:
+                    cmd_tokens.add(clean)
+
+    return verbs, objects, cmd_tokens
+
 def parse_tldr_page(content):
     lines = content.splitlines()
     command_name = ""
     description = ""
-    examples = []
     
     # Simple parser for TLDR format
     # > Command Name
@@ -63,21 +158,43 @@ def parse_tldr_page(content):
             
     description = " ".join(desc_lines)
     
-    # We only need metadata for the main entry, but extracting keywords from examples helps
+    examples = parse_examples(lines)
+
+    # Build searchable metadata: keywords + richer tags (aliases, family, TLDR example verbs/objects).
     keywords = set()
-    keywords.add(command_name)
+    tags = set()
+
+    keywords.add(command_name.lower())
     keywords.update(re.split(r'[-\s_.]+', command_name))
+
+    fam = command_family(command_name)
+    tags.add(f"family:{fam}")
+    keywords.add(fam)
     
-    # Add words from description (simple stop word filtering could be added here)
-    for word in description.split():
-        clean_word = re.sub(r'[^\w]', '', word).lower()
-        if len(clean_word) > 2:
-            keywords.add(clean_word)
+    keywords.update(extract_words(description))
+
+    aliases = extract_aliases(description, command_name)
+    for alias in aliases:
+        keywords.add(alias)
+        tags.add(f"alias:{alias}")
+
+    verbs, objects, cmd_tokens = extract_example_metadata(examples)
+    keywords.update(verbs)
+    keywords.update(objects)
+    keywords.update(cmd_tokens)
+    for v in verbs:
+        tags.add(f"verb:{v}")
+    # keep object tag fan-out bounded
+    for obj in sorted(objects)[:8]:
+        tags.add(f"object:{obj}")
 
     return {
         "command": command_name,
         "description": description,
-        "keywords": list(keywords)
+        "keywords": list(keywords),
+        "tags": list(tags),
+        "family": fam,
+        "aliases": list(aliases),
     }
 
 def main():
@@ -126,7 +243,8 @@ def main():
                         "command": cmd_name,
                         "description": data["description"],
                         "keywords": data["keywords"],
-                        "niche": "general", # Default niche
+                        "tags": data.get("tags", []),
+                        "niche": data.get("family", "general"),
                         "platform": set(),
                         "pipeline": False
                     }
@@ -139,6 +257,10 @@ def main():
                 existing_keywords = set(commands_db[cmd_name]["keywords"])
                 existing_keywords.update(data["keywords"])
                 commands_db[cmd_name]["keywords"] = list(existing_keywords)
+
+                existing_tags = set(commands_db[cmd_name].get("tags", []))
+                existing_tags.update(data.get("tags", []))
+                commands_db[cmd_name]["tags"] = list(existing_tags)
                 
         except Exception as e:
             # print(f"Error parsing {file_info.filename}: {e}")
@@ -151,6 +273,7 @@ def main():
         entry = commands_db[cmd_name]
         entry["platform"] = sorted(list(entry["platform"]))
         entry["keywords"] = sorted(list(entry["keywords"]))
+        entry["tags"] = sorted(list(entry.get("tags", [])))
         final_list.append(entry)
 
     print(f"Found {len(final_list)} unique commands.")
@@ -177,8 +300,12 @@ def main():
             f.write(f'  description: "{desc_escaped}"\n')
             
             # Keywords as inline list
-            kw_list = ", ".join(f'"{k}"' for k in entry["keywords"][:8])  # Limit to 8 keywords
+            kw_list = ", ".join(f'"{k}"' for k in entry["keywords"])
             f.write(f'  keywords: [{kw_list}]\n')
+
+            if entry.get("tags"):
+                tag_list = ", ".join(f'"{t}"' for t in entry["tags"])
+                f.write(f'  tags: [{tag_list}]\n')
             
             f.write(f'  niche: "{entry["niche"]}"\n')
             

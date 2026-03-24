@@ -1,0 +1,64 @@
+queries:
+  - query: "how can i recursively search every text file in this project for error or timeout and print matching lines"
+    slice: "recursive-text-search"
+    relevant:
+      - "grep"
+      - "find"
+      - "ripgrep"
+
+  - query: "show me how to download a file from a url and save it with a custom name in current directory"
+    slice: "download"
+    relevant:
+      - "wget"
+      - "curl"
+
+  - query: "how do i check disk usage for each folder under the current directory sorted by size"
+    slice: "disk"
+    relevant:
+      - "du"
+      - "df"
+
+  - query: "what command should i use to find which process is listening on port 8080 on windows"
+    slice: "process-on-port"
+    relevant:
+      - "netstat"
+      - "ss"
+      - "lsof"
+
+  - query: "i need to replace text recursively in all files under this directory"
+    slice: "recursive-text-search"
+    relevant:
+      - "sed"
+      - "perl"
+      - "awk"
+
+  - query: "what is the safest way to undo the last git commit but keep my file changes"
+    slice: "git-undo"
+    relevant:
+      - "git reset"
+      - "git revert"
+
+  - query: "how can i compress this folder into a tar gz archive with maximum compatibility"
+    slice: "archive"
+    relevant:
+      - "tar"
+      - "gzip"
+
+  - query: "please show me a command to copy a big file while showing progress"
+    slice: "file-copy-progress"
+    relevant:
+      - "cp"
+      - "rsync"
+
+  - query: "find every json file and then search for the word timeout inside them"
+    slice: "recursive-text-search"
+    relevant:
+      - "find"
+      - "grep"
+      - "ripgrep"
+
+  - query: "download a file over https and save it to a specific output filename"
+    slice: "download"
+    relevant:
+      - "wget"
+      - "curl"

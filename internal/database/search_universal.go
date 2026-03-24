@@ -115,10 +115,15 @@ func (db *Database) selectTopTerms(terms []string, maxTerms int) []string {
 		return terms
 	}
 
-	// Conservative approach: preserve the first few terms which are likely from the original query
-	preserveCount := utils.Min(4, len(terms)) // Preserve at least first 4 terms
+	longQuery := len(terms) >= constants.LongQueryTermThreshold
 
-	list := db.scoreTerms(terms, preserveCount)
+	// Conservative for short queries, stricter for verbose queries.
+	preserveCount := utils.Min(4, len(terms))
+	if longQuery {
+		preserveCount = utils.Min(constants.LongQueryPreserveOriginalTerms, len(terms))
+	}
+
+	list := db.scoreTerms(terms, preserveCount, longQuery)
 
 	if len(list) <= maxTerms {
 		return flattenTermList(list)
@@ -133,10 +138,11 @@ type termWithScore struct {
 	isOriginal bool
 }
 
-func (db *Database) scoreTerms(terms []string, preserveCount int) []termWithScore {
+func (db *Database) scoreTerms(terms []string, preserveCount int, longQuery bool) []termWithScore {
 	idx := db.uIndex
 	seen := map[string]bool{}
 	list := make([]termWithScore, 0, len(terms))
+	preserved := 0
 
 	for i, t := range terms {
 		if seen[t] {
@@ -145,16 +151,71 @@ func (db *Database) scoreTerms(terms []string, preserveCount int) []termWithScor
 		seen[t] = true
 		df, ok := idx.df[t]
 		if !ok || df == 0 {
-			// If term not in index, still preserve it if it's from original query
-			if i < preserveCount {
+			// Unknown terms are often noise in long conversational prompts.
+			if i < preserveCount && (!longQuery || looksLikeStructuredEntity(t)) {
 				list = append(list, termWithScore{term: t, idf: 1.0, isOriginal: true})
+				if longQuery {
+					preserved++
+				}
 			}
 			continue
 		}
-		isOriginal := i < preserveCount
-		list = append(list, termWithScore{term: t, idf: bm25IDF(idx.N, df), isOriginal: isOriginal})
+		idf := bm25IDF(idx.N, df)
+		if longQuery {
+			idf *= longQueryTermImportance(t)
+		}
+
+		isOriginal := false
+		if longQuery {
+			if preserved < preserveCount && isLongQueryPreserveCandidate(t) {
+				isOriginal = true
+				preserved++
+			}
+		} else {
+			isOriginal = i < preserveCount
+		}
+
+		list = append(list, termWithScore{term: t, idf: idf, isOriginal: isOriginal})
 	}
 	return list
+}
+
+func longQueryTermImportance(term string) float64 {
+	importance := 1.0
+
+	if isGenericQueryVerb(term) {
+		importance *= 0.35
+	}
+	if isLowSignalLongQueryTerm(term) {
+		importance *= 0.45
+	}
+	if looksLikeStructuredEntity(term) {
+		importance *= 1.35
+	}
+	if isLongQueryAnchorLexeme(term) {
+		importance *= 1.20
+	}
+
+	return importance
+}
+
+func isLongQueryPreserveCandidate(term string) bool {
+	if looksLikeStructuredEntity(term) || isLongQueryAnchorLexeme(term) {
+		return true
+	}
+	if isGenericQueryVerb(term) || isLowSignalLongQueryTerm(term) {
+		return false
+	}
+	return len(term) >= 3
+}
+
+func isLowSignalLongQueryTerm(term string) bool {
+	switch term {
+	case "me", "current", "project", "every", "each", "custom", "name", "under", "sorted", "should", "which", "matching", "lines":
+		return true
+	default:
+		return false
+	}
 }
 
 func flattenTermList(list []termWithScore) []string {
@@ -327,6 +388,10 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 		pq, terms = db.enhanceQueryWithNLP(query, terms)
 	}
 
+	// Dual-path query handling: preserve short-query behavior and normalize
+	// verbose long queries into compact intent-bearing terms before BM25F.
+	terms = normalizeLongQueryTermsForScoring(terms, pq)
+
 	// If no terms after processing, try fuzzy search as fallback
 	if len(terms) == 0 {
 		if options.UseFuzzy {
@@ -474,6 +539,10 @@ func matchesPlatformOptions(cmd *Command, options SearchOptions, currentPlatform
 }
 
 func isPlatformCompatibleWithoutCross(platforms []string, requested string) bool {
+	if len(platforms) == 0 {
+		return true
+	}
+
 	for _, p := range platforms {
 		if strings.EqualFold(p, "cross-platform") {
 			continue
@@ -488,11 +557,16 @@ func isPlatformCompatibleWithoutCross(platforms []string, requested string) bool
 func (db *Database) enhanceQueryWithNLP(query string, terms []string) (pq *nlp.ProcessedQuery, enhancedTerms []string) {
 	processor := nlp.NewQueryProcessor()
 	pq = processor.ProcessQuery(query)
+	longQuery := len(terms) >= constants.LongQueryTermThreshold
+
 	enh := pq.GetEnhancedKeywords()
 
 	// Add relevant enhanced terms that aren't already present
 	if len(enh) > 0 {
 		for _, enhTerm := range enh {
+			if longQuery && !isLongQueryExpansionTerm(enhTerm) {
+				continue
+			}
 			found := false
 			for _, origTerm := range terms {
 				if origTerm == enhTerm {
@@ -500,12 +574,127 @@ func (db *Database) enhanceQueryWithNLP(query string, terms []string) (pq *nlp.P
 					break
 				}
 			}
-			if !found && len(terms) < 8 {
+			limit := 8
+			if longQuery {
+				limit = 10
+			}
+			if !found && len(terms) < limit {
 				terms = append(terms, enhTerm)
 			}
 		}
 	}
 	return pq, terms
+}
+
+func normalizeLongQueryTermsForScoring(terms []string, pq *nlp.ProcessedQuery) []string {
+	if len(terms) < constants.LongQueryNormalizationThreshold {
+		return terms
+	}
+
+	if pq != nil {
+		if core := buildLongQueryCoreTerms(terms, pq); len(core) >= 3 {
+			return core
+		}
+	}
+
+	seen := make(map[string]bool)
+	filtered := make([]string, 0, len(terms))
+	for _, t := range terms {
+		if t == "" || seen[t] {
+			continue
+		}
+		seen[t] = true
+		if isGenericQueryVerb(t) || isLowSignalLongQueryTerm(t) {
+			continue
+		}
+		filtered = append(filtered, t)
+	}
+
+	if len(filtered) >= 3 {
+		return filtered
+	}
+
+	return terms
+}
+
+func buildLongQueryCoreTerms(originalTerms []string, pq *nlp.ProcessedQuery) []string {
+	seen := make(map[string]bool)
+	out := make([]string, 0, 10)
+	add := func(term string) {
+		if term == "" || seen[term] {
+			return
+		}
+		seen[term] = true
+		out = append(out, term)
+	}
+
+	for _, t := range originalTerms {
+		if looksLikeStructuredEntity(t) || isLongQueryAnchorLexeme(t) {
+			add(t)
+		}
+	}
+
+	if pq != nil {
+		for _, t := range pq.Keywords {
+			if looksLikeStructuredEntity(t) || isLongQueryAnchorLexeme(t) {
+				add(t)
+			}
+		}
+		for _, t := range pq.Actions {
+			if !isGenericQueryVerb(t) && isLongQueryExpansionTerm(t) {
+				add(t)
+			}
+		}
+		for _, t := range pq.Targets {
+			if isLowSignalTargetTerm(t) {
+				continue
+			}
+			if isLongQueryExpansionTerm(t) {
+				add(t)
+			}
+		}
+		for _, t := range pq.Keywords {
+			if isLongQueryExpansionTerm(t) {
+				add(t)
+			}
+		}
+	}
+
+	for _, t := range originalTerms {
+		if isLongQueryExpansionTerm(t) {
+			add(t)
+		}
+		if len(out) >= 10 {
+			break
+		}
+	}
+
+	if len(out) > 10 {
+		return out[:10]
+	}
+	return out
+}
+
+func isLowSignalTargetTerm(term string) bool {
+	switch term {
+	case "directory", "directories", "folder", "folders", "path", "location", "content", "contents":
+		return true
+	default:
+		return false
+	}
+}
+
+func isLongQueryExpansionTerm(term string) bool {
+	if term == "" {
+		return false
+	}
+	if looksLikeStructuredEntity(term) || isLongQueryAnchorLexeme(term) {
+		return true
+	}
+	if isGenericQueryVerb(term) || isLowSignalLongQueryTerm(term) {
+		return false
+	}
+	return len(term) >= 4
 }
 
 func indexCommand(cmd *Command) (uniqueLens docLens, termFreqs map[string]fieldTF) {
@@ -577,11 +766,15 @@ func (db *Database) collectResults(scores map[int]float64, terms []string, pq *n
 
 		// Apply IDF-weighted query coverage so commands matching more query intent terms
 		// are favored over commands that only match one dominant token.
-		score *= db.calculateQueryCoverageBoost(cmd, terms)
+		score *= db.calculateQueryCoverageBoost(cmd, terms, pq)
 
 		// Apply data-driven family prior learned from command corpus and weighted
 		// by query entities/targets instead of fixed command maps.
 		score *= db.calculateLearnedFamilyBoost(docID, terms, pq)
+
+		// Additional universal feature weighting for verbose queries where
+		// users express concrete intent like download or disk usage.
+		score *= db.calculateLongQueryIntentFeatureBoost(cmd, terms, pq)
 
 		// Apply intent-based boost if NLP is active
 		if pq != nil {
@@ -600,14 +793,152 @@ func (db *Database) collectResults(scores map[int]float64, terms []string, pq *n
 	return results
 }
 
+func (db *Database) calculateLongQueryIntentFeatureBoost(cmd *Command, terms []string, pq *nlp.ProcessedQuery) float64 {
+	if len(terms) < constants.LongQueryNormalizationThreshold {
+		return 1.0
+	}
+
+	downloadCues := []string{"download", "fetch", "url", "http", "https", "file", "save", "wget", "curl"}
+	diskCues := []string{"disk", "usage", "folder", "directory", "size", "sorted", "space", "du", "df"}
+	recursiveTextCues := []string{"recursive", "recursively", "text", "files", "file", "timeout", "error", "grep", "search", "find", "replace", "json"}
+	processPortCues := []string{"process", "port", "listening", "listen", "socket", "windows", "8080", "netstat", "lsof", "ss"}
+
+	downloadCueCount := countLongQueryIntentCues(terms, pq, downloadCues)
+	diskCueCount := countLongQueryIntentCues(terms, pq, diskCues)
+	recursiveTextCueCount := countLongQueryIntentCues(terms, pq, recursiveTextCues)
+	processPortCueCount := countLongQueryIntentCues(terms, pq, processPortCues)
+
+	downloadIntent := downloadCueCount >= 2
+	diskIntent := diskCueCount >= 2
+	recursiveTextIntent := recursiveTextCueCount >= 2
+	processPortIntent := processPortCueCount >= 2
+
+	if !downloadIntent && !diskIntent && !recursiveTextIntent && !processPortIntent {
+		return 1.0
+	}
+
+	cmdText := cmd.CommandLower
+	if cmdText == "" {
+		cmdText = strings.ToLower(cmd.Command)
+	}
+	descText := cmd.DescriptionLower
+	if descText == "" {
+		descText = strings.ToLower(cmd.Description)
+	}
+	keysText := strings.Join(cmd.KeywordsLower, " ")
+	if keysText == "" && len(cmd.Keywords) > 0 {
+		keysText = strings.ToLower(strings.Join(cmd.Keywords, " "))
+	}
+	tagsText := strings.Join(cmd.TagsLower, " ")
+	if tagsText == "" && len(cmd.Tags) > 0 {
+		tagsText = strings.ToLower(strings.Join(cmd.Tags, " "))
+	}
+	text := cmdText + " " + descText + " " + keysText + " " + tagsText
+
+	positive := 0
+	negative := 0
+
+	if downloadIntent {
+		positive += countWordMatches(text, []string{"download", "fetch", "url", "http", "https", "wget", "curl", "save", "output"})
+		negative += countWordMatches(text, []string{"tree", "set-location", "cd", "realpath", "path", "directory"})
+	}
+
+	if diskIntent {
+		positive += countWordMatches(text, []string{"disk", "usage", "du", "df", "size", "space", "folder", "directory", "sort", "sorted"})
+		negative += countWordMatches(text, []string{"tree", "set-location", "cd", "realpath", "path", "root"})
+	}
+
+	if recursiveTextIntent {
+		positive += countWordMatches(text, []string{"grep", "ripgrep", "rg", "find", "recursive", "recursively", "pattern", "regex", "search", "replace", "sed", "awk", "perl"})
+		negative += countWordMatches(text, []string{"conda", "npm", "gh", "pdf", "tree", "repo", "project"})
+	}
+
+	if processPortIntent {
+		positive += countWordMatches(text, []string{"netstat", "ss", "lsof", "port", "socket", "listening", "process", "pid", "taskkill"})
+		negative += countWordMatches(text, []string{"find", "tree", "package", "manager", "macports"})
+	}
+
+	raw := 1.0 + constants.LongQueryIntentBoostAlpha*(float64(positive)-constants.LongQueryIntentNegativeWeight*float64(negative))
+	if raw < constants.LongQueryIntentMinBoost {
+		return constants.LongQueryIntentMinBoost
+	}
+	if raw > constants.LongQueryIntentMaxBoost {
+		return constants.LongQueryIntentMaxBoost
+	}
+	return raw
+}
+
+func hasLongQueryIntent(terms []string, pq *nlp.ProcessedQuery, cues []string) bool {
+	return countLongQueryIntentCues(terms, pq, cues) > 0
+}
+
+func countLongQueryIntentCues(terms []string, pq *nlp.ProcessedQuery, cues []string) int {
+	set := make(map[string]bool, len(cues))
+	for _, cue := range cues {
+		set[cue] = true
+	}
+
+	seen := make(map[string]bool)
+	count := 0
+
+	for _, t := range terms {
+		if set[t] && !seen[t] {
+			seen[t] = true
+			count++
+		}
+	}
+
+	if pq == nil {
+		return count
+	}
+
+	for _, t := range pq.Actions {
+		if set[t] && !seen[t] {
+			seen[t] = true
+			count++
+		}
+	}
+	for _, t := range pq.Targets {
+		if set[t] && !seen[t] {
+			seen[t] = true
+			count++
+		}
+	}
+	for _, t := range pq.Keywords {
+		if set[t] && !seen[t] {
+			seen[t] = true
+			count++
+		}
+	}
+
+	return count
+}
+
+func countWordMatches(text string, terms []string) int {
+	count := 0
+	for _, t := range terms {
+		if containsWord(text, t) {
+			count++
+		}
+	}
+	return count
+}
+
 func (db *Database) calculateLearnedFamilyBoost(docID int, terms []string, pq *nlp.ProcessedQuery) float64 {
 	if db.familyPriorIndex == nil || docID < 0 || docID >= len(db.familyPriorIndex.cmdBaseByDoc) {
 		return 1.0
 	}
 
+	longQuery := len(terms) >= constants.LongQueryTermThreshold
 	baseScores := db.estimateQueryFamilyScores(terms, pq)
 	if len(baseScores) == 0 {
 		return 1.0
+	}
+	if longQuery {
+		topScore, margin := familyConfidence(baseScores)
+		if topScore < constants.LongQueryLearnedFamilyMinConfidence || margin < constants.LongQueryLearnedFamilyMinMargin {
+			return 1.0
+		}
 	}
 
 	base := db.familyPriorIndex.cmdBaseByDoc[docID]
@@ -616,13 +947,41 @@ func (db *Database) calculateLearnedFamilyBoost(docID int, terms []string, pq *n
 		return 1.0
 	}
 
-	return 1.0 + constants.LearnedFamilyPriorAlpha*score
+	alpha := constants.LearnedFamilyPriorAlpha
+	if longQuery {
+		alpha *= constants.LongQueryLearnedFamilyAlphaScale
+	}
+
+	return 1.0 + alpha*score
+}
+
+func familyConfidence(scores map[string]float64) (top, margin float64) {
+	if len(scores) == 0 {
+		return 0.0, 0.0
+	}
+
+	top = 0.0
+	second := 0.0
+	for _, s := range scores {
+		if s > top {
+			second = top
+			top = s
+			continue
+		}
+		if s > second {
+			second = s
+		}
+	}
+
+	margin = top - second
+	return top, margin
 }
 
 func (db *Database) estimateQueryFamilyScores(terms []string, pq *nlp.ProcessedQuery) map[string]float64 {
 	if db.familyPriorIndex == nil || len(terms) == 0 {
 		return nil
 	}
+	longQuery := len(terms) >= constants.LongQueryTermThreshold
 
 	scores := make(map[string]float64)
 	seen := make(map[string]bool)
@@ -637,7 +996,7 @@ func (db *Database) estimateQueryFamilyScores(terms []string, pq *nlp.ProcessedQ
 			continue
 		}
 
-		termWeight := db.queryTermWeight(term) * queryEntityWeight(term, pq)
+		termWeight := db.queryTermWeight(term) * queryEntityWeight(term, pq, longQuery)
 
 		total := 0
 		for _, c := range bases {
@@ -685,15 +1044,23 @@ func normalizeTopFamilyScores(scores map[string]float64) map[string]float64 {
 	return out
 }
 
-func queryEntityWeight(term string, pq *nlp.ProcessedQuery) float64 {
+func queryEntityWeight(term string, pq *nlp.ProcessedQuery, longQuery bool) float64 {
 	weight := 1.0
 
 	if isGenericQueryVerb(term) {
-		weight *= 0.7
+		if longQuery {
+			weight *= constants.LongQueryGenericVerbWeight
+		} else {
+			weight *= 0.7
+		}
 	}
 
 	if looksLikeStructuredEntity(term) {
-		weight *= 1.25
+		if longQuery {
+			weight *= constants.LongQueryStructuredEntityWeight
+		} else {
+			weight *= 1.25
+		}
 	}
 
 	if pq != nil {
@@ -748,10 +1115,11 @@ func looksLikeStructuredEntity(term string) bool {
 	}
 }
 
-func (db *Database) calculateQueryCoverageBoost(cmd *Command, terms []string) float64 {
+func (db *Database) calculateQueryCoverageBoost(cmd *Command, terms []string, pq *nlp.ProcessedQuery) float64 {
 	if len(terms) == 0 {
 		return 1.0
 	}
+	longQuery := len(terms) >= constants.LongQueryTermThreshold
 
 	cmdText := cmd.CommandLower
 	if cmdText == "" {
@@ -770,16 +1138,31 @@ func (db *Database) calculateQueryCoverageBoost(cmd *Command, terms []string) fl
 	matchedWeight := 0.0
 	maxTermWeight := 0.0
 	hasMaxTermMatch := false
+	matchedTermCount := 0
+	strongFieldMatchCount := 0
+	hasAnchorTerm := false
+	hasAnchorMatch := false
 	for _, term := range terms {
 		w := db.queryTermWeight(term)
 		matchStrength := queryTermFieldMatchStrength(term, cmdText, keysText, descText)
 		matched := matchStrength > 0
+		isAnchor := isLongQueryAnchorTerm(term, pq)
+		if isAnchor {
+			hasAnchorTerm = true
+		}
 		if w > maxTermWeight {
 			maxTermWeight = w
 			hasMaxTermMatch = matched
 		}
 		totalWeight += w
 		if matched {
+			matchedTermCount++
+			if matchStrength >= 0.9 {
+				strongFieldMatchCount++
+			}
+			if isAnchor {
+				hasAnchorMatch = true
+			}
 			matchedWeight += w * matchStrength
 		}
 		if matched && w == maxTermWeight {
@@ -807,7 +1190,39 @@ func (db *Database) calculateQueryCoverageBoost(cmd *Command, terms []string) fl
 		boost *= 0.7
 	}
 
+	if longQuery {
+		if matchedTermCount < constants.LongQueryMinMatchedTerms {
+			boost *= constants.LongQueryLowEvidencePenalty
+		}
+		if strongFieldMatchCount < constants.LongQueryMinStrongFieldMatches {
+			boost *= constants.LongQueryWeakFieldPenalty
+		}
+		if hasAnchorTerm && !hasAnchorMatch {
+			boost *= constants.LongQueryNoAnchorPenalty
+		}
+	}
+
 	return boost
+}
+
+func isLongQueryAnchorTerm(term string, pq *nlp.ProcessedQuery) bool {
+	if looksLikeStructuredEntity(term) {
+		return true
+	}
+	if pq != nil && containsToken(pq.Targets, term) {
+		return true
+	}
+
+	return isLongQueryAnchorLexeme(term)
+}
+
+func isLongQueryAnchorLexeme(term string) bool {
+	switch term {
+	case "download", "upload", "url", "http", "https", "port", "process", "disk", "usage", "replace", "archive", "compress", "extract", "revert", "undo", "windows", "linux", "macos", "grep", "search":
+		return true
+	default:
+		return false
+	}
 }
 
 func queryTermFieldMatchStrength(term, cmdText, keysText, descText string) float64 {
@@ -902,6 +1317,10 @@ func bm25IDF(n, df int) float64 {
 }
 
 func isPlatformCompatible(platforms []string, current string) bool {
+	if len(platforms) == 0 {
+		return true
+	}
+
 	for _, p := range platforms {
 		if strings.EqualFold(p, "cross-platform") || strings.EqualFold(p, current) {
 			return true

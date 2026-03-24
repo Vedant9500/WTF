@@ -73,6 +73,25 @@ jobs:
           fi
           echo "✅ go.mod and go.sum are tidy"
 
+      - name: Baseline search quality regression check
+        shell: bash
+        run: |
+          echo "📈 Running baseline search quality guardrail..."
+          go run scripts/evaluate_search.go \
+            -db assets/commands.yml \
+            -eval assets/eval_queries.yaml \
+            -k 3 \
+            -limit 5 \
+            -nlp=true \
+            -fuzzy=true \
+            -all-platforms=true \
+            -verbose=false \
+            -min-top1=0.60 \
+            -min-hitk=0.90 \
+            -min-mrr=0.75 \
+            -min-ndcg=0.60
+          echo "✅ Baseline search quality is within thresholds"
+
   # Comprehensive testing across platforms
   test:
     runs-on: ${{ matrix.os }}

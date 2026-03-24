@@ -20,16 +20,26 @@ type evalDataset struct {
 type evalQuery struct {
 	Query    string   `yaml:"query"`
 	Relevant []string `yaml:"relevant"`
+	Slice    string   `yaml:"slice,omitempty"`
 }
 
 type perQueryResult struct {
 	Query       string
+	Slice       string
 	Top1Hit     bool
 	TopKHit     bool
 	RR          float64
 	NDCG        float64
 	BestRank    int
 	TopCommands []string
+}
+
+type metricsSummary struct {
+	Count float64
+	Top1  float64
+	HitK  float64
+	MRR   float64
+	NDCG  float64
 }
 
 func main() {
@@ -42,6 +52,10 @@ func main() {
 		useFuzzy     = flag.Bool("fuzzy", true, "Enable fuzzy fallback")
 		allPlatforms = flag.Bool("all-platforms", true, "Search across all platforms")
 		verbose      = flag.Bool("verbose", true, "Print per-query details")
+		minTop1      = flag.Float64("min-top1", -1, "Fail if Top1 is below this value (0-1); disabled when < 0")
+		minHitK      = flag.Float64("min-hitk", -1, "Fail if Hit@K is below this value (0-1); disabled when < 0")
+		minMRR       = flag.Float64("min-mrr", -1, "Fail if MRR is below this value (0-1); disabled when < 0")
+		minNDCG      = flag.Float64("min-ndcg", -1, "Fail if NDCG@K is below this value (0-1); disabled when < 0")
 	)
 	flag.Parse()
 
@@ -66,7 +80,16 @@ func main() {
 	}
 
 	results := runEvaluation(db, dataset.Queries, *limit, *k, *useNLP, *useFuzzy, *allPlatforms)
-	printSummary(results, *k, *verbose)
+	summary := printSummary(results, *k, *verbose)
+
+	failures := checkThresholdFailures(summary, *k, *minTop1, *minHitK, *minMRR, *minNDCG)
+	if len(failures) > 0 {
+		fmt.Println("\nThreshold check failed:")
+		for _, f := range failures {
+			fmt.Printf("- %s\n", f)
+		}
+		os.Exit(2)
+	}
 }
 
 func loadEvalDataset(path string) (*evalDataset, error) {
@@ -125,6 +148,7 @@ func runEvaluation(db *database.Database, queries []evalQuery, limit, k int, use
 
 		out = append(out, perQueryResult{
 			Query:       q.Query,
+			Slice:       normalizeSlice(q.Slice),
 			Top1Hit:     top1Hit,
 			TopKHit:     topKHit,
 			RR:          rr,
@@ -135,6 +159,14 @@ func runEvaluation(db *database.Database, queries []evalQuery, limit, k int, use
 	}
 
 	return out
+}
+
+func normalizeSlice(slice string) string {
+	s := strings.TrimSpace(strings.ToLower(slice))
+	if s == "" {
+		return "unspecified"
+	}
+	return s
 }
 
 func firstRelevantRank(pred, relevant []string) int {
@@ -195,11 +227,11 @@ func ndcgAtK(pred, relevant []string, k int) float64 {
 	return dcg / idcg
 }
 
-func printSummary(results []perQueryResult, k int, verbose bool) {
+func printSummary(results []perQueryResult, k int, verbose bool) metricsSummary {
 	total := float64(len(results))
 	if total == 0 {
 		fmt.Println("No evaluation results")
-		return
+		return metricsSummary{}
 	}
 
 	top1 := 0.0
@@ -226,7 +258,7 @@ func printSummary(results []perQueryResult, k int, verbose bool) {
 			if r.BestRank > 0 {
 				bestRank = fmt.Sprintf("%d", r.BestRank)
 			}
-			fmt.Printf("- %s\n", r.Query)
+			fmt.Printf("- [%s] %s\n", r.Slice, r.Query)
 			fmt.Printf("  best_rank=%s top1=%t hit@%d=%t rr=%.3f ndcg@%d=%.3f\n", bestRank, r.Top1Hit, k, r.TopKHit, r.RR, k, r.NDCG)
 			if len(r.TopCommands) > 0 {
 				fmt.Printf("  top_commands=%s\n", strings.Join(r.TopCommands, " | "))
@@ -234,28 +266,22 @@ func printSummary(results []perQueryResult, k int, verbose bool) {
 		}
 	}
 
-	summary := map[string]float64{
-		"Top1":  top1 / total,
-		"HitK":  topK / total,
-		"MRR":   mrr / total,
-		"NDCG":  meanNDCG / total,
-		"Count": total,
+	summary := metricsSummary{
+		Top1:  top1 / total,
+		HitK:  topK / total,
+		MRR:   mrr / total,
+		NDCG:  meanNDCG / total,
+		Count: total,
 	}
 
 	fmt.Println("\nEvaluation summary:")
-	keys := []string{"Count", "Top1", "HitK", "MRR", "NDCG"}
-	for _, key := range keys {
-		switch key {
-		case "Count":
-			fmt.Printf("- queries: %.0f\n", summary[key])
-		case "HitK":
-			fmt.Printf("- Hit@%d: %.3f\n", k, summary[key])
-		case "NDCG":
-			fmt.Printf("- NDCG@%d: %.3f\n", k, summary[key])
-		default:
-			fmt.Printf("- %s: %.3f\n", key, summary[key])
-		}
-	}
+	fmt.Printf("- queries: %.0f\n", summary.Count)
+	fmt.Printf("- Top1: %.3f\n", summary.Top1)
+	fmt.Printf("- Hit@%d: %.3f\n", k, summary.HitK)
+	fmt.Printf("- MRR: %.3f\n", summary.MRR)
+	fmt.Printf("- NDCG@%d: %.3f\n", k, summary.NDCG)
+
+	printSliceSummary(results, k)
 
 	worst := append([]perQueryResult(nil), results...)
 	sort.Slice(worst, func(i, j int) bool {
@@ -273,7 +299,79 @@ func printSummary(results []perQueryResult, k int, verbose bool) {
 		fmt.Println("\nLowest-performing queries:")
 		for i := 0; i < show; i++ {
 			r := worst[i]
-			fmt.Printf("- %s (rr=%.3f ndcg@%d=%.3f)\n", r.Query, r.RR, k, r.NDCG)
+			fmt.Printf("- [%s] %s (rr=%.3f ndcg@%d=%.3f)\n", r.Slice, r.Query, r.RR, k, r.NDCG)
 		}
 	}
+
+	return summary
+}
+
+func printSliceSummary(results []perQueryResult, k int) {
+	bySlice := make(map[string][]perQueryResult)
+	for _, r := range results {
+		bySlice[r.Slice] = append(bySlice[r.Slice], r)
+	}
+
+	if len(bySlice) == 0 {
+		return
+	}
+
+	slices := make([]string, 0, len(bySlice))
+	for s := range bySlice {
+		slices = append(slices, s)
+	}
+	sort.Strings(slices)
+
+	fmt.Println("\nPer-slice metrics:")
+	for _, sliceName := range slices {
+		metrics := summarizeMetrics(bySlice[sliceName])
+		fmt.Printf("- %s (n=%.0f): top1=%.3f hit@%d=%.3f mrr=%.3f ndcg@%d=%.3f\n", sliceName, metrics.Count, metrics.Top1, k, metrics.HitK, metrics.MRR, k, metrics.NDCG)
+	}
+}
+
+func summarizeMetrics(results []perQueryResult) metricsSummary {
+	total := float64(len(results))
+	if total == 0 {
+		return metricsSummary{}
+	}
+
+	top1 := 0.0
+	topK := 0.0
+	mrr := 0.0
+	ndcg := 0.0
+	for _, r := range results {
+		if r.Top1Hit {
+			top1++
+		}
+		if r.TopKHit {
+			topK++
+		}
+		mrr += r.RR
+		ndcg += r.NDCG
+	}
+
+	return metricsSummary{
+		Count: total,
+		Top1:  top1 / total,
+		HitK:  topK / total,
+		MRR:   mrr / total,
+		NDCG:  ndcg / total,
+	}
+}
+
+func checkThresholdFailures(summary metricsSummary, k int, minTop1, minHitK, minMRR, minNDCG float64) []string {
+	failures := make([]string, 0, 4)
+	if minTop1 >= 0 && summary.Top1 < minTop1 {
+		failures = append(failures, fmt.Sprintf("Top1 %.3f is below min-top1 %.3f", summary.Top1, minTop1))
+	}
+	if minHitK >= 0 && summary.HitK < minHitK {
+		failures = append(failures, fmt.Sprintf("Hit@%d %.3f is below min-hitk %.3f", k, summary.HitK, minHitK))
+	}
+	if minMRR >= 0 && summary.MRR < minMRR {
+		failures = append(failures, fmt.Sprintf("MRR %.3f is below min-mrr %.3f", summary.MRR, minMRR))
+	}
+	if minNDCG >= 0 && summary.NDCG < minNDCG {
+		failures = append(failures, fmt.Sprintf("NDCG@%d %.3f is below min-ndcg %.3f", k, summary.NDCG, minNDCG))
+	}
+	return failures
 }

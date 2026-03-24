@@ -110,6 +110,25 @@ const (
 const (
 	LearnedFamilyPriorAlpha = 0.35
 	LearnedFamilyTopBases   = 5
+
+	// Long-query guardrails to reduce ambiguity on verbose prompts.
+	LongQueryTermThreshold              = 7
+	LongQueryNormalizationThreshold     = 10
+	LongQueryPreserveOriginalTerms      = 2
+	LongQueryLearnedFamilyMinConfidence = 0.65
+	LongQueryLearnedFamilyMinMargin     = 0.20
+	LongQueryLearnedFamilyAlphaScale    = 0.45
+	LongQueryGenericVerbWeight          = 0.55
+	LongQueryStructuredEntityWeight     = 1.45
+	LongQueryMinMatchedTerms            = 2
+	LongQueryMinStrongFieldMatches      = 1
+	LongQueryLowEvidencePenalty         = 0.45
+	LongQueryNoAnchorPenalty            = 0.50
+	LongQueryWeakFieldPenalty           = 0.70
+	LongQueryIntentBoostAlpha           = 0.45
+	LongQueryIntentMinBoost             = 0.65
+	LongQueryIntentMaxBoost             = 1.70
+	LongQueryIntentNegativeWeight       = 0.30
 )
 
 // Cascading NLP boost constants
