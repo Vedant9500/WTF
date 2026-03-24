@@ -325,7 +325,8 @@ func printSliceSummary(results []perQueryResult, k int) {
 	fmt.Println("\nPer-slice metrics:")
 	for _, sliceName := range slices {
 		metrics := summarizeMetrics(bySlice[sliceName])
-		fmt.Printf("- %s (n=%.0f): top1=%.3f hit@%d=%.3f mrr=%.3f ndcg@%d=%.3f\n", sliceName, metrics.Count, metrics.Top1, k, metrics.HitK, metrics.MRR, k, metrics.NDCG)
+		fmt.Printf("- %s (n=%.0f): top1=%.3f hit@%d=%.3f mrr=%.3f ndcg@%d=%.3f\n",
+			sliceName, metrics.Count, metrics.Top1, k, metrics.HitK, metrics.MRR, k, metrics.NDCG)
 	}
 }
 

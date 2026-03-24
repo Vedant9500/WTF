@@ -160,3 +160,9 @@ const (
 	FormatZip = "zip"
 	FormatTar = "tar"
 )
+
+// Common string constants
+const (
+	Search  = "search"
+	Archive = "archive"
+)

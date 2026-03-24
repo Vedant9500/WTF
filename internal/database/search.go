@@ -325,14 +325,14 @@ func isDomainSpecificMatch(word string, cmd *Command) bool {
 	cmdLower := strings.ToLower(cmd.Command)
 
 	domainMappings := map[string][]string{
-		"compress":   {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", "compress", "archive"},
-		"archive":    {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", "compress", "archive", "unzip"},
+		"compress":   {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", "compress", constants.Archive},
+		constants.Archive:    {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", "compress", constants.Archive, "unzip"},
 		"extract":    {constants.FormatTar, "unzip", "gunzip", "extract", "unarchive"},
 		"directory":  {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
 		"folder":     {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
 		"create":     {"mkdir", "touch", "make", "new"},
 		"file":       {"cp", "mv", "rm", "touch", "cat", "less", "more"},
-		"search":     {"grep", "find", "locate", "ag", "rg"},
+		constants.Search:     {"grep", "find", "locate", "ag", "rg"},
 		"download":   {"wget", "curl", "fetch", "download"},
 		"git":        {"git", "clone", "commit", "push", "pull", "branch"},
 		"package":    {"apt", "yum", "dnf", "pkg", "brew", "pip", "npm"},
@@ -372,7 +372,7 @@ func getCategoryRelevanceBoost(cmd *Command, queryWords []string) float64 {
 // getCategoryBoostForWord returns the boost factor for a specific word and command
 func getCategoryBoostForWord(word, cmdLower string) float64 {
 	switch word {
-	case "compress", "archive":
+	case "compress", constants.Archive:
 		return getCompressionBoost(cmdLower)
 	case constants.FormatZip:
 		return getZipBoost(cmdLower)
@@ -384,7 +384,7 @@ func getCategoryBoostForWord(word, cmdLower string) float64 {
 		return getCreateBoost(cmdLower)
 	case "new":
 		return getNewBoost(cmdLower)
-	case "search", "find":
+	case constants.Search, "find":
 		return getSearchBoost(cmdLower)
 	case "download", "get":
 		return getDownloadBoost(cmdLower)
