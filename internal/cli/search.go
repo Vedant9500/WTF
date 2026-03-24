@@ -141,7 +141,11 @@ Examples:
 				}
 				fmt.Printf("\n")
 			} else {
-				fmt.Printf("Platform filter: None (showing all platforms)\n")
+				fmt.Printf("Platform filter: Current platform (auto-detected)")
+				if !flags.noCrossPlatform {
+					fmt.Printf(" + cross-platform")
+				}
+				fmt.Printf("\n")
 			}
 		}
 		fmt.Printf("Searching for: %s\n\n", query)

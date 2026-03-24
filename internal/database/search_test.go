@@ -176,6 +176,128 @@ func TestSearchUniversalContextBoost(t *testing.T) {
 	}
 }
 
+func TestSearchUniversalExplicitPlatformsIncludeCrossByDefault(t *testing.T) {
+	db := &Database{
+		Commands: []Command{
+			{
+				Command:          "systemctl status nginx",
+				Description:      "linux service status",
+				Keywords:         []string{"status", "service", "linux"},
+				CommandLower:     "systemctl status nginx",
+				DescriptionLower: "linux service status",
+				KeywordsLower:    []string{"status", "service", "linux"},
+				Platform:         []string{"linux"},
+			},
+			{
+				Command:          "Get-Service -Name nginx",
+				Description:      "windows service status",
+				Keywords:         []string{"status", "service", "windows"},
+				CommandLower:     "get-service -name nginx",
+				DescriptionLower: "windows service status",
+				KeywordsLower:    []string{"status", "service", "windows"},
+				Platform:         []string{"windows"},
+			},
+			{
+				Command:          "git status",
+				Description:      "show repository status",
+				Keywords:         []string{"status", "git"},
+				CommandLower:     "git status",
+				DescriptionLower: "show repository status",
+				KeywordsLower:    []string{"status", "git"},
+				Platform:         []string{"cross-platform"},
+			},
+		},
+	}
+
+	db.BuildUniversalIndex()
+	results := db.SearchUniversal("status", SearchOptions{Limit: 10, Platforms: []string{"windows"}})
+
+	if len(results) == 0 {
+		t.Fatalf("expected results for explicit windows platform")
+	}
+
+	seenWindows := false
+	seenCross := false
+	for _, result := range results {
+		switch result.Command.Command {
+		case "Get-Service -Name nginx":
+			seenWindows = true
+		case "git status":
+			seenCross = true
+		case "systemctl status nginx":
+			t.Fatalf("linux-only command should not be returned for windows platform")
+		}
+	}
+
+	if !seenWindows {
+		t.Fatalf("expected windows command in results")
+	}
+	if !seenCross {
+		t.Fatalf("expected cross-platform command in results by default")
+	}
+}
+
+func TestSearchUniversalNoCrossPlatformExcludesCrossPlatformResults(t *testing.T) {
+	db := &Database{
+		Commands: []Command{
+			{
+				Command:          "systemctl status nginx",
+				Description:      "linux service status",
+				Keywords:         []string{"status", "service", "linux"},
+				CommandLower:     "systemctl status nginx",
+				DescriptionLower: "linux service status",
+				KeywordsLower:    []string{"status", "service", "linux"},
+				Platform:         []string{"linux"},
+			},
+			{
+				Command:          "Get-Service -Name nginx",
+				Description:      "windows service status",
+				Keywords:         []string{"status", "service", "windows"},
+				CommandLower:     "get-service -name nginx",
+				DescriptionLower: "windows service status",
+				KeywordsLower:    []string{"status", "service", "windows"},
+				Platform:         []string{"windows"},
+			},
+			{
+				Command:          "git status",
+				Description:      "show repository status",
+				Keywords:         []string{"status", "git"},
+				CommandLower:     "git status",
+				DescriptionLower: "show repository status",
+				KeywordsLower:    []string{"status", "git"},
+				Platform:         []string{"cross-platform"},
+			},
+		},
+	}
+
+	db.BuildUniversalIndex()
+	results := db.SearchUniversal("status", SearchOptions{
+		Limit:           10,
+		Platforms:       []string{"windows"},
+		NoCrossPlatform: true,
+	})
+
+	if len(results) == 0 {
+		t.Fatalf("expected results for explicit windows platform")
+	}
+
+	seenWindows := false
+	for _, result := range results {
+		switch result.Command.Command {
+		case "Get-Service -Name nginx":
+			seenWindows = true
+		case "git status":
+			t.Fatalf("cross-platform command should be excluded when no-cross-platform is true")
+		case "systemctl status nginx":
+			t.Fatalf("linux-only command should not be returned for windows platform")
+		}
+	}
+
+	if !seenWindows {
+		t.Fatalf("expected windows command in results")
+	}
+}
+
 func TestCalculateScore(t *testing.T) {
 	cmd := &Command{
 		Command:     "git commit",

@@ -377,11 +377,9 @@ func (db *Database) processPostingsForTerm(
 	for _, p := range postings {
 		doc := &db.Commands[p.docID]
 
-		// Platform filtering (skip if AllPlatforms is enabled)
-		if !options.AllPlatforms && len(doc.Platform) > 0 {
-			if !isPlatformCompatible(doc.Platform, currentPlatform) && !isCrossPlatformTool(doc.Command) {
-				continue
-			}
+		// Platform filtering (skip only if command does not match requested platform behavior)
+		if !matchesPlatformOptions(doc, options, currentPlatform) {
+			continue
 		}
 
 		// Pipeline filtering
@@ -393,6 +391,53 @@ func (db *Database) processPostingsForTerm(
 		s += (idf * boost) * idx.termBM25F(p.docID, p.tf)
 		scores[p.docID] = s
 	}
+}
+
+func matchesPlatformOptions(cmd *Command, options SearchOptions, currentPlatform string) bool {
+	if options.AllPlatforms {
+		return true
+	}
+
+	selectedPlatforms := options.Platforms
+	if len(selectedPlatforms) == 0 {
+		selectedPlatforms = []string{currentPlatform}
+	}
+
+	for _, platform := range selectedPlatforms {
+		if options.NoCrossPlatform {
+			if isPlatformCompatibleWithoutCross(cmd.Platform, platform) {
+				return true
+			}
+			continue
+		}
+
+		if isPlatformCompatible(cmd.Platform, platform) {
+			return true
+		}
+	}
+
+	if options.NoCrossPlatform {
+		return false
+	}
+
+	// Fallback to cross-platform commands unless explicitly disabled.
+	if isPlatformCompatible(cmd.Platform, "cross-platform") || isCrossPlatformTool(cmd.Command) {
+		return true
+	}
+
+	return false
+}
+
+func isPlatformCompatibleWithoutCross(platforms []string, requested string) bool {
+	for _, p := range platforms {
+		if strings.EqualFold(p, "cross-platform") {
+			continue
+		}
+		if strings.EqualFold(p, requested) || checkPlatformVariant(p, requested) {
+			return true
+		}
+	}
+	return false
 }
 
 func (db *Database) enhanceQueryWithNLP(query string, terms []string) (pq *nlp.ProcessedQuery, enhancedTerms []string) {
