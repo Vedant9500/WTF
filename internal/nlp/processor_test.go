@@ -268,7 +268,7 @@ func TestBuildStopWords(t *testing.T) {
 	}
 
 	// Test some common stop words that are actually in the implementation
-	commonStopWords := []string{"the", "a", "an", "and", "but", "in", "on", "at", "to", "for", "of", "with", "by"}
+	commonStopWords := []string{"the", "a", "an", "and", "but", "in", "on", "at", "to", "for", "of", "with", "by", "command", "commands"}
 
 	for _, word := range commonStopWords {
 		if !stopWords[word] {
@@ -277,7 +277,7 @@ func TestBuildStopWords(t *testing.T) {
 	}
 
 	// Test that non-stop words are not included
-	nonStopWords := []string{"git", "file", "create", "search", "command"}
+	nonStopWords := []string{"git", "file", "create", "search"}
 
 	for _, word := range nonStopWords {
 		if stopWords[word] {

@@ -287,6 +287,7 @@ func buildStopWords() map[string]bool {
 		"would", "like", "into", "him", "time", "two", "go", "no",
 		"way", "could", "my", "than", "first", "been", "call", "who", "oil", "sit",
 		"now", "down", "day", "did", "get", "come", "made", "may", "part",
+		"command", "commands",
 	}
 
 	stopWords := make(map[string]bool)

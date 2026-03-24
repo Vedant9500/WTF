@@ -298,6 +298,70 @@ func TestSearchUniversalNoCrossPlatformExcludesCrossPlatformResults(t *testing.T
 	}
 }
 
+func TestSearchUniversalRevertIntentPrioritizesGitRevert(t *testing.T) {
+	db := &Database{
+		Commands: []Command{
+			{
+				Command:          "git commit",
+				Description:      "commit changes to repository",
+				Keywords:         []string{"git", "commit"},
+				CommandLower:     "git commit",
+				DescriptionLower: "commit changes to repository",
+				KeywordsLower:    []string{"git", "commit"},
+			},
+			{
+				Command:          "git revert",
+				Description:      "create new commit that reverses earlier commit",
+				Keywords:         []string{"git", "revert", "undo", "commit"},
+				CommandLower:     "git revert",
+				DescriptionLower: "create new commit that reverses earlier commit",
+				KeywordsLower:    []string{"git", "revert", "undo", "commit"},
+			},
+			{
+				Command:          "git commit-tree",
+				Description:      "create commit objects",
+				Keywords:         []string{"git", "commit", "tree"},
+				CommandLower:     "git commit-tree",
+				DescriptionLower: "create commit objects",
+				KeywordsLower:    []string{"git", "commit", "tree"},
+			},
+		},
+	}
+
+	db.BuildUniversalIndex()
+	db.buildTFIDFSearcher()
+
+	results := db.SearchUniversal("what is the command to revert git commit", SearchOptions{Limit: 5, UseNLP: true})
+	if len(results) == 0 {
+		t.Fatalf("expected results")
+	}
+
+	maxRank := 3
+	found := false
+	for i := 0; i < len(results) && i < maxRank; i++ {
+		if results[i].Command != nil && results[i].Command.Command == "git revert" {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected git revert in top %d results, got top results: %q, %q, %q",
+			maxRank,
+			results[0].Command.Command,
+			results[utilsMin(1, len(results)-1)].Command.Command,
+			results[utilsMin(2, len(results)-1)].Command.Command,
+		)
+	}
+}
+
+func utilsMin(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func TestCalculateScore(t *testing.T) {
 	cmd := &Command{
 		Command:     "git commit",

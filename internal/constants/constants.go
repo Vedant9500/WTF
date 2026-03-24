@@ -106,6 +106,29 @@ const (
 	SemanticMinScore = 0.1 // Minimum cosine similarity to apply semantic boost
 )
 
+// Learned family prior constants
+const (
+	LearnedFamilyPriorAlpha = 0.35
+	LearnedFamilyTopBases   = 5
+)
+
+// Cascading NLP boost constants
+const (
+	CascadingActionBoost  = 0.35
+	CascadingTargetBoost  = 0.20
+	CascadingKeywordBoost = 0.12
+	CascadingContextBoost = 0.25
+	CascadingHintBoost    = 0.50
+	CascadingIntentBoost  = 0.20
+
+	// Require stronger evidence before applying cascading boosts.
+	CascadingMinSignalCount = 2
+	// Command-hint exact matches can pass with one signal.
+	CascadingAllowSingleSignalWithHint = true
+	// Prevent additive boosts from dominating lexical relevance.
+	CascadingMaxMultiplier = 1.9
+)
+
 // Platform constants
 const (
 	PlatformWindows = "windows"

@@ -1,0 +1,77 @@
+queries:
+  - query: "what is the command to revert git commit"
+    relevant:
+      - "git revert"
+      - "git reset"
+
+  - query: "how to undo last git commit but keep changes"
+    relevant:
+      - "git reset"
+      - "git undo"
+      - "git revert"
+
+  - query: "remove docker image"
+    relevant:
+      - "docker image rm"
+      - "docker rmi"
+
+  - query: "delete all local git branches except main"
+    relevant:
+      - "git delete-merged-branches"
+      - "git branch"
+      - "git delete-branch"
+
+  - query: "find files bigger than 1gb"
+    relevant:
+      - "find"
+
+  - query: "search text recursively in files"
+    relevant:
+      - "grep"
+      - "find"
+      - "ripgrep"
+
+  - query: "compress a folder into tar.gz"
+    relevant:
+      - "tar"
+      - "gzip"
+
+  - query: "show open ports on windows"
+    relevant:
+      - "netstat"
+      - "ss"
+
+  - query: "insall python package with pip"
+    relevant:
+      - "pip install"
+
+  - query: "create a new directory"
+    relevant:
+      - "mkdir"
+
+  - query: "copy file with progress"
+    relevant:
+      - "cp"
+      - "rsync"
+
+  - query: "find process using port 8080"
+    relevant:
+      - "lsof"
+      - "netstat"
+      - "ss"
+
+  - query: "replace text in multiple files"
+    relevant:
+      - "sed"
+      - "perl"
+      - "awk"
+
+  - query: "download a file from url"
+    relevant:
+      - "wget"
+      - "curl"
+
+  - query: "check disk usage by folder"
+    relevant:
+      - "du"
+      - "df"

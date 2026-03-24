@@ -66,6 +66,13 @@ type bm25fParams struct {
 	minIDF float64  // minimum idf to count
 }
 
+type learnedFamilyIndex struct {
+	tokenToBases map[string]map[string]int
+	baseDocFreq  map[string]int
+	cmdBaseByDoc []string
+	totalDocs    int
+}
+
 // tokenizer for index/query
 func normalizeAndTokenize(s string) []string {
 	if s == "" {
@@ -239,6 +246,44 @@ func (db *Database) BuildUniversalIndex() {
 	}
 
 	db.uIndex = idx
+	db.buildLearnedFamilyIndex()
+}
+
+func (db *Database) buildLearnedFamilyIndex() {
+	idx := &learnedFamilyIndex{
+		tokenToBases: make(map[string]map[string]int),
+		baseDocFreq:  make(map[string]int),
+		cmdBaseByDoc: make([]string, len(db.Commands)),
+		totalDocs:    len(db.Commands),
+	}
+
+	for i := range db.Commands {
+		cmd := &db.Commands[i]
+		base := getCommandBase(strings.ToLower(cmd.Command))
+		idx.cmdBaseByDoc[i] = base
+		idx.baseDocFreq[base]++
+
+		tokens := make(map[string]bool)
+
+		for _, t := range normalizeAndTokenize(cmd.DescriptionLower) {
+			tokens[t] = true
+		}
+		for _, t := range normalizeAndTokenize(strings.Join(cmd.KeywordsLower, " ")) {
+			tokens[t] = true
+		}
+		for _, t := range normalizeAndTokenize(strings.Join(cmd.TagsLower, " ")) {
+			tokens[t] = true
+		}
+
+		for tok := range tokens {
+			if idx.tokenToBases[tok] == nil {
+				idx.tokenToBases[tok] = make(map[string]int)
+			}
+			idx.tokenToBases[tok][base]++
+		}
+	}
+
+	db.familyPriorIndex = idx
 }
 
 // buildTFIDFSearcher constructs a TF-IDF searcher and index map for reranking.
@@ -309,7 +354,7 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 	}
 
 	// Convert to results and apply pipeline boosts
-	results := db.collectResults(scores, pq, options)
+	results := db.collectResults(scores, terms, pq, options)
 
 	// Sort preliminarily
 	sort.Slice(results, func(i, j int) bool { return results[i].Score > results[j].Score })
@@ -525,10 +570,18 @@ func indexCommand(cmd *Command) (uniqueLens docLens, termFreqs map[string]fieldT
 	return uniqueLens, termFreqs
 }
 
-func (db *Database) collectResults(scores map[int]float64, pq *nlp.ProcessedQuery, options SearchOptions) []SearchResult {
+func (db *Database) collectResults(scores map[int]float64, terms []string, pq *nlp.ProcessedQuery, options SearchOptions) []SearchResult {
 	results := make([]SearchResult, 0, utils.Min(len(scores), options.Limit*3))
 	for docID, score := range scores {
 		cmd := &db.Commands[docID]
+
+		// Apply IDF-weighted query coverage so commands matching more query intent terms
+		// are favored over commands that only match one dominant token.
+		score *= db.calculateQueryCoverageBoost(cmd, terms)
+
+		// Apply data-driven family prior learned from command corpus and weighted
+		// by query entities/targets instead of fixed command maps.
+		score *= db.calculateLearnedFamilyBoost(docID, terms, pq)
 
 		// Apply intent-based boost if NLP is active
 		if pq != nil {
@@ -545,6 +598,240 @@ func (db *Database) collectResults(scores map[int]float64, pq *nlp.ProcessedQuer
 		results = append(results, SearchResult{Command: cmd, Score: score})
 	}
 	return results
+}
+
+func (db *Database) calculateLearnedFamilyBoost(docID int, terms []string, pq *nlp.ProcessedQuery) float64 {
+	if db.familyPriorIndex == nil || docID < 0 || docID >= len(db.familyPriorIndex.cmdBaseByDoc) {
+		return 1.0
+	}
+
+	baseScores := db.estimateQueryFamilyScores(terms, pq)
+	if len(baseScores) == 0 {
+		return 1.0
+	}
+
+	base := db.familyPriorIndex.cmdBaseByDoc[docID]
+	score, ok := baseScores[base]
+	if !ok || score <= 0 {
+		return 1.0
+	}
+
+	return 1.0 + constants.LearnedFamilyPriorAlpha*score
+}
+
+func (db *Database) estimateQueryFamilyScores(terms []string, pq *nlp.ProcessedQuery) map[string]float64 {
+	if db.familyPriorIndex == nil || len(terms) == 0 {
+		return nil
+	}
+
+	scores := make(map[string]float64)
+	seen := make(map[string]bool)
+	for _, term := range terms {
+		if seen[term] {
+			continue
+		}
+		seen[term] = true
+
+		bases, ok := db.familyPriorIndex.tokenToBases[term]
+		if !ok {
+			continue
+		}
+
+		termWeight := db.queryTermWeight(term) * queryEntityWeight(term, pq)
+
+		total := 0
+		for _, c := range bases {
+			total += c
+		}
+		if total == 0 {
+			continue
+		}
+
+		for base, c := range bases {
+			scores[base] += termWeight * (float64(c) / float64(total))
+		}
+	}
+
+	return normalizeTopFamilyScores(scores)
+}
+
+func normalizeTopFamilyScores(scores map[string]float64) map[string]float64 {
+	if len(scores) == 0 {
+		return scores
+	}
+
+	type kv struct {
+		base  string
+		score float64
+	}
+	list := make([]kv, 0, len(scores))
+	for b, s := range scores {
+		list = append(list, kv{base: b, score: s})
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].score > list[j].score })
+	if len(list) > constants.LearnedFamilyTopBases {
+		list = list[:constants.LearnedFamilyTopBases]
+	}
+
+	maxScore := list[0].score
+	if maxScore <= 0 {
+		return map[string]float64{}
+	}
+
+	out := make(map[string]float64, len(list))
+	for _, it := range list {
+		out[it.base] = it.score / maxScore
+	}
+	return out
+}
+
+func queryEntityWeight(term string, pq *nlp.ProcessedQuery) float64 {
+	weight := 1.0
+
+	if isGenericQueryVerb(term) {
+		weight *= 0.7
+	}
+
+	if looksLikeStructuredEntity(term) {
+		weight *= 1.25
+	}
+
+	if pq != nil {
+		if containsToken(pq.Targets, term) {
+			weight *= 1.35
+		}
+		if containsToken(pq.Actions, term) {
+			weight *= 0.85
+		}
+	}
+
+	return weight
+}
+
+func containsToken(tokens []string, term string) bool {
+	for _, t := range tokens {
+		if t == term {
+			return true
+		}
+	}
+	return false
+}
+
+func isGenericQueryVerb(term string) bool {
+	switch term {
+	case "find", "search", "show", "check", "list", "get":
+		return true
+	default:
+		return false
+	}
+}
+
+func looksLikeStructuredEntity(term string) bool {
+	if len(term) == 4 {
+		allDigits := true
+		for _, r := range term {
+			if r < '0' || r > '9' {
+				allDigits = false
+				break
+			}
+		}
+		if allDigits {
+			return true
+		}
+	}
+
+	switch term {
+	case "kb", "mb", "gb", "tb", "tar", "gz", "zip", "port", "process":
+		return true
+	default:
+		return false
+	}
+}
+
+func (db *Database) calculateQueryCoverageBoost(cmd *Command, terms []string) float64 {
+	if len(terms) == 0 {
+		return 1.0
+	}
+
+	cmdText := cmd.CommandLower
+	if cmdText == "" {
+		cmdText = strings.ToLower(cmd.Command)
+	}
+	descText := cmd.DescriptionLower
+	if descText == "" {
+		descText = strings.ToLower(cmd.Description)
+	}
+	keysText := strings.Join(cmd.KeywordsLower, " ")
+	if keysText == "" && len(cmd.Keywords) > 0 {
+		keysText = strings.ToLower(strings.Join(cmd.Keywords, " "))
+	}
+
+	totalWeight := 0.0
+	matchedWeight := 0.0
+	maxTermWeight := 0.0
+	hasMaxTermMatch := false
+	for _, term := range terms {
+		w := db.queryTermWeight(term)
+		matchStrength := queryTermFieldMatchStrength(term, cmdText, keysText, descText)
+		matched := matchStrength > 0
+		if w > maxTermWeight {
+			maxTermWeight = w
+			hasMaxTermMatch = matched
+		}
+		totalWeight += w
+		if matched {
+			matchedWeight += w * matchStrength
+		}
+		if matched && w == maxTermWeight {
+			hasMaxTermMatch = true
+		}
+	}
+
+	if totalWeight == 0 {
+		return 1.0
+	}
+
+	coverage := matchedWeight / totalWeight
+
+	// Stronger universal blend: penalize low coverage and reward high coverage.
+	// Range: [0.55, 1.55].
+	boost := 0.55 + coverage
+
+	// Universal intent safeguard: if a result misses the most informative query term,
+	// apply a modest penalty for multi-term queries.
+	if len(terms) >= 3 && !hasMaxTermMatch {
+		boost *= 0.45
+	}
+
+	if len(terms) >= 3 && coverage < 0.7 {
+		boost *= 0.7
+	}
+
+	return boost
+}
+
+func queryTermFieldMatchStrength(term, cmdText, keysText, descText string) float64 {
+	if containsWord(cmdText, term) {
+		return 1.0
+	}
+	if containsWord(keysText, term) {
+		return 0.9
+	}
+	if containsWord(descText, term) {
+		return 0.65
+	}
+	return 0.0
+}
+
+func (db *Database) queryTermWeight(term string) float64 {
+	if db.uIndex == nil || db.uIndex.N == 0 {
+		return 1.0
+	}
+	df, ok := db.uIndex.df[term]
+	if !ok || df <= 0 {
+		return 1.0
+	}
+	return 0.5 + bm25IDF(db.uIndex.N, df)
 }
 
 func (db *Database) rerankWithNLP(results []SearchResult, query string, options SearchOptions) []SearchResult {
