@@ -325,22 +325,22 @@ func isDomainSpecificMatch(word string, cmd *Command) bool {
 	cmdLower := strings.ToLower(cmd.Command)
 
 	domainMappings := map[string][]string{
-		"compress":   {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", "compress", constants.Archive},
-		constants.Archive:    {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", "compress", constants.Archive, "unzip"},
-		"extract":    {constants.FormatTar, "unzip", "gunzip", "extract", "unarchive"},
-		"directory":  {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
-		"folder":     {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
-		"create":     {"mkdir", "touch", "make", "new"},
-		"file":       {"cp", "mv", "rm", "touch", "cat", "less", "more"},
-		constants.Search:     {"grep", "find", "locate", "ag", "rg"},
-		"download":   {"wget", "curl", "fetch", "download"},
-		"git":        {"git", "clone", "commit", "push", "pull", "branch"},
-		"package":    {"apt", "yum", "dnf", "pkg", "brew", "pip", "npm"},
-		"process":    {"ps", "kill", "top", "htop", "jobs"},
-		"network":    {"ping", "ssh", "scp", "rsync", "nc", "nmap"},
-		"edit":       {"vim", "nano", "emacs", "edit", "sed", "awk"},
-		"permission": {"chmod", "chown", "chgrp", "sudo"},
-		"new":        {"mkdir", "touch", "create", "make"},
+		"compress":        {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", "compress", constants.Archive},
+		constants.Archive: {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", "compress", constants.Archive, "unzip"},
+		"extract":         {constants.FormatTar, "unzip", "gunzip", "extract", "unarchive"},
+		"directory":       {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
+		"folder":          {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
+		"create":          {"mkdir", "touch", "make", "new"},
+		"file":            {"cp", "mv", "rm", "touch", "cat", "less", "more"},
+		constants.Search:  {"grep", "find", "locate", "ag", "rg"},
+		"download":        {"wget", "curl", "fetch", "download"},
+		"git":             {"git", "clone", "commit", "push", "pull", "branch"},
+		"package":         {"apt", "yum", "dnf", "pkg", "brew", "pip", "npm"},
+		"process":         {"ps", "kill", "top", "htop", "jobs"},
+		"network":         {"ping", "ssh", "scp", "rsync", "nc", "nmap"},
+		"edit":            {"vim", "nano", "emacs", "edit", "sed", "awk"},
+		"permission":      {"chmod", "chown", "chgrp", "sudo"},
+		"new":             {"mkdir", "touch", "create", "make"},
 	}
 
 	// Check if the command belongs to the word's domain
