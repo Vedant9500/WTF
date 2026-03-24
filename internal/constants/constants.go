@@ -163,7 +163,6 @@ const (
 
 // Common string constants
 const (
-	Search   = "search"
-	Archive  = "archive"
-	Compress = "compress"
+	Search  = "search"
+	Archive = "archive"
 )

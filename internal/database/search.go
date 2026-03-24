@@ -325,8 +325,8 @@ func isDomainSpecificMatch(word string, cmd *Command) bool {
 	cmdLower := strings.ToLower(cmd.Command)
 
 	domainMappings := map[string][]string{
-		constants.Compress: {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", constants.Compress, constants.Archive},
-		constants.Archive:  {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", constants.Compress, constants.Archive, "unzip"},
+		"compress":        {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", "compress", constants.Archive},
+		constants.Archive: {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", "compress", constants.Archive, "unzip"},
 		"extract":         {constants.FormatTar, "unzip", "gunzip", "extract", "unarchive"},
 		"directory":       {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
 		"folder":          {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
@@ -372,7 +372,7 @@ func getCategoryRelevanceBoost(cmd *Command, queryWords []string) float64 {
 // getCategoryBoostForWord returns the boost factor for a specific word and command
 func getCategoryBoostForWord(word, cmdLower string) float64 {
 	switch word {
-	case constants.Compress, constants.Archive:
+	case "compress", constants.Archive:
 		return getCompressionBoost(cmdLower)
 	case constants.FormatZip:
 		return getZipBoost(cmdLower)

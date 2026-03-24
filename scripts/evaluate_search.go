@@ -9,9 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/Vedant9500/WTF/internal/database"
+	"gopkg.in/yaml.v3"
 )
 
 type evalDataset struct {
