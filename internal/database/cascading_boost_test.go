@@ -25,7 +25,7 @@ func TestCalculateBoostForCommand_GatesSingleWeakSignal(t *testing.T) {
 	}
 }
 
-func TestCalculateBoostForCommand_AllowsSingleHintSignal(t *testing.T) {
+func TestCalculateBoostForCommand_RequiresAtLeastTwoSignals(t *testing.T) {
 	db := &Database{}
 	cmd := &Command{
 		Command:     "mkdir -p logs",
@@ -33,13 +33,13 @@ func TestCalculateBoostForCommand_AllowsSingleHintSignal(t *testing.T) {
 		Keywords:    []string{"directory", "create"},
 	}
 	ctx := boostContext{
-		commandHints: []string{"mkdir"},
-		intent:       nlp.IntentCreate,
+		actionTerms: []string{"create"},
+		intent:      nlp.IntentGeneral,
 	}
 
 	boost := db.calculateBoostForCommand(cmd, ctx)
-	if boost <= 1.0 {
-		t.Fatalf("expected hint-based boost to apply, got %f", boost)
+	if boost != 1.0 {
+		t.Fatalf("expected single-signal boost to be gated, got %f", boost)
 	}
 }
 
@@ -54,7 +54,6 @@ func TestCalculateBoostForCommand_CapsMaxMultiplier(t *testing.T) {
 		actionTerms:  []string{"create"},
 		targetTerms:  []string{"directory"},
 		keywordTerms: []string{"logs"},
-		commandHints: []string{"mkdir"},
 		contexts:     []string{"mkdir"},
 		intent:       nlp.IntentCreate,
 	}

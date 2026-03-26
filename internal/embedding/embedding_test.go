@@ -1,6 +1,10 @@
 package embedding
 
 import (
+	"encoding/binary"
+	"math"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -116,7 +120,7 @@ func TestEmbeddingIndex_EmbedQuery(t *testing.T) {
 	}{
 		{
 			query:    "compress files",
-			expected: []float32{0.5, 0.5, 0.0}, // Average of compress and files vectors
+			expected: []float32{0.70710677, 0.70710677, 0.0}, // Weighted mean + L2 normalization
 		},
 		{
 			query:    "unknown words only",
@@ -124,6 +128,10 @@ func TestEmbeddingIndex_EmbedQuery(t *testing.T) {
 		},
 		{
 			query:    "compress",
+			expected: []float32{1.0, 0.0, 0.0},
+		},
+		{
+			query:    "compressing", // Exercises fallback to stem variant "compress"
 			expected: []float32{1.0, 0.0, 0.0},
 		},
 	}
@@ -145,7 +153,8 @@ func TestEmbeddingIndex_EmbedQuery(t *testing.T) {
 			}
 
 			for i, v := range result {
-				if v != tt.expected[i] {
+				diff := math.Abs(float64(v - tt.expected[i]))
+				if diff > 1e-4 {
 					t.Errorf("EmbedQuery(%q)[%d] = %v, want %v", tt.query, i, v, tt.expected[i])
 				}
 			}
@@ -186,5 +195,60 @@ func TestEmbeddingIndex_SemanticScores(t *testing.T) {
 	// Third command should be somewhat similar
 	if scores[2] < 0.5 || scores[2] > 0.8 {
 		t.Errorf("scores[2] = %v, want ~0.7", scores[2])
+	}
+}
+
+func TestLoadCommandEmbeddings_MetadataFormat(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "cmd_embeddings.bin")
+
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("failed to create file: %v", err)
+	}
+
+	if _, err := f.Write([]byte("WTFE")); err != nil {
+		t.Fatalf("failed to write magic: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint16(1)); err != nil {
+		t.Fatalf("failed to write version: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint16(0)); err != nil {
+		t.Fatalf("failed to write reserved: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint32(2)); err != nil {
+		t.Fatalf("failed to write count: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint32(3)); err != nil {
+		t.Fatalf("failed to write dimension: %v", err)
+	}
+	hash := "abc123"
+	if err := binary.Write(f, binary.LittleEndian, uint16(len(hash))); err != nil {
+		t.Fatalf("failed to write hash len: %v", err)
+	}
+	if _, err := f.Write([]byte(hash)); err != nil {
+		t.Fatalf("failed to write hash: %v", err)
+	}
+
+	vecs := [][]float32{{1, 0, 0}, {0, 1, 0}}
+	for _, vec := range vecs {
+		if err := binary.Write(f, binary.LittleEndian, vec); err != nil {
+			t.Fatalf("failed to write vector: %v", err)
+		}
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("failed to close file: %v", err)
+	}
+
+	idx := &Index{Dimension: 3}
+	if err := idx.LoadCommandEmbeddings(path); err != nil {
+		t.Fatalf("LoadCommandEmbeddings failed: %v", err)
+	}
+
+	if idx.CmdEmbeddingHash != hash {
+		t.Fatalf("expected hash %q, got %q", hash, idx.CmdEmbeddingHash)
+	}
+	if len(idx.CmdEmbeddings) != 2 {
+		t.Fatalf("expected 2 embeddings, got %d", len(idx.CmdEmbeddings))
 	}
 }

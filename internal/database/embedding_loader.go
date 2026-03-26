@@ -64,6 +64,8 @@ func (db *Database) LoadEmbeddings() error {
 		if err := idx.LoadCommandEmbeddings(cmdEmbedFile); err != nil {
 			log.Printf("Warning: failed to load command embeddings: %v", err)
 			// Still usable for query embedding, just no pre-computed cmd vectors
+		} else {
+			db.validateCommandEmbeddings(idx)
 		}
 	}
 
@@ -72,6 +74,33 @@ func (db *Database) LoadEmbeddings() error {
 		idx.VocabSize(), idx.NumCommands())
 
 	return nil
+}
+
+func (db *Database) validateCommandEmbeddings(idx *embedding.Index) {
+	if idx == nil || len(idx.CmdEmbeddings) == 0 {
+		return
+	}
+
+	if len(idx.CmdEmbeddings) > len(db.Commands) {
+		log.Printf("Warning: command embeddings count (%d) exceeds loaded commands (%d); semantic boost disabled",
+			len(idx.CmdEmbeddings), len(db.Commands))
+		idx.CmdEmbeddings = nil
+		return
+	}
+
+	if idx.CmdEmbeddingHash == "" {
+		// Legacy files don't carry command hashes. Keep compatibility but warn for observability.
+		log.Printf("Warning: cmd_embeddings.bin has no command hash metadata (legacy format); alignment safety checks are limited")
+		return
+	}
+
+	expectedHash := db.commandSnapshotHash(len(idx.CmdEmbeddings))
+	if expectedHash == "" || expectedHash != idx.CmdEmbeddingHash {
+		log.Printf("Warning: command embedding hash mismatch; semantic boost disabled (expected %s, got %s)",
+			expectedHash, idx.CmdEmbeddingHash)
+		idx.CmdEmbeddings = nil
+		return
+	}
 }
 
 // HasEmbeddings returns true if semantic search embeddings are loaded.

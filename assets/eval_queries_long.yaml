@@ -3,52 +3,8 @@ queries:
     slice: "recursive-text-search"
     relevant:
       - "grep"
-      - "find"
       - "ripgrep"
-
-  - query: "show me how to download a file from a url and save it with a custom name in current directory"
-    slice: "download"
-    relevant:
-      - "wget"
-      - "curl"
-
-  - query: "how do i check disk usage for each folder under the current directory sorted by size"
-    slice: "disk"
-    relevant:
-      - "du"
-      - "df"
-
-  - query: "what command should i use to find which process is listening on port 8080 on windows"
-    slice: "process-on-port"
-    relevant:
-      - "netstat"
-      - "ss"
-      - "lsof"
-
-  - query: "i need to replace text recursively in all files under this directory"
-    slice: "recursive-text-search"
-    relevant:
-      - "sed"
-      - "perl"
-      - "awk"
-
-  - query: "what is the safest way to undo the last git commit but keep my file changes"
-    slice: "git-undo"
-    relevant:
-      - "git reset"
-      - "git revert"
-
-  - query: "how can i compress this folder into a tar gz archive with maximum compatibility"
-    slice: "archive"
-    relevant:
-      - "tar"
-      - "gzip"
-
-  - query: "please show me a command to copy a big file while showing progress"
-    slice: "file-copy-progress"
-    relevant:
-      - "cp"
-      - "rsync"
+      - "find"
 
   - query: "find every json file and then search for the word timeout inside them"
     slice: "recursive-text-search"
@@ -57,8 +13,152 @@ queries:
       - "grep"
       - "ripgrep"
 
+  - query: "i need to replace a string recursively across all files in this directory and keep backups"
+    slice: "recursive-text-replace"
+    relevant:
+      - "sed"
+      - "perl"
+      - "awk"
+
+  - query: "what command can search recursively but ignore binary files and show line numbers"
+    slice: "recursive-text-search"
+    relevant:
+      - "grep"
+      - "ripgrep"
+
+  - query: "show me how to download a file from a url and save it with a custom name in current directory"
+    slice: "download"
+    relevant:
+      - "wget"
+      - "curl"
+
   - query: "download a file over https and save it to a specific output filename"
     slice: "download"
     relevant:
       - "wget"
       - "curl"
+
+  - query: "i want to resume a partially downloaded file from the same url"
+    slice: "download"
+    relevant:
+      - "wget"
+      - "curl"
+
+  - query: "what is the safest way to undo the last git commit but keep my file changes"
+    slice: "git-undo"
+    relevant:
+      - "git reset"
+      - "git revert"
+
+  - query: "how do i undo a commit that has already been pushed to remote without rewriting history"
+    slice: "git-undo"
+    relevant:
+      - "git revert"
+
+  - query: "what command should i use to remove merged branches but keep main and develop"
+    slice: "git-branch"
+    relevant:
+      - "git branch"
+
+  - query: "how can i compress this folder into a tar gz archive with maximum compatibility"
+    slice: "archive"
+    relevant:
+      - "tar"
+      - "gzip"
+
+  - query: "i need to extract a tar gz archive into a target directory preserving permissions"
+    slice: "archive"
+    relevant:
+      - "tar"
+      - "gunzip"
+
+  - query: "please suggest a command to unzip an archive into the current working folder"
+    slice: "archive"
+    relevant:
+      - "unzip"
+
+  - query: "please show me a command to copy a big file while showing progress"
+    slice: "file-copy-progress"
+    relevant:
+      - "cp"
+      - "rsync"
+
+  - query: "copy a directory tree to another disk and display progress and speed"
+    slice: "file-copy-progress"
+    relevant:
+      - "rsync"
+      - "cp"
+
+  - query: "how do i check disk usage for each folder under the current directory sorted by size"
+    slice: "disk"
+    relevant:
+      - "du"
+      - "df"
+
+  - query: "show free and used filesystem space in human readable units"
+    slice: "disk"
+    relevant:
+      - "df"
+
+  - query: "which command finds the process listening on port 8080 on windows"
+    slice: "process-on-port"
+    relevant:
+      - "netstat"
+      - "ss"
+      - "lsof"
+
+  - query: "on linux i need to find the pid that owns a tcp listening socket on a given port"
+    slice: "process-on-port"
+    relevant:
+      - "lsof"
+      - "ss"
+      - "netstat"
+
+  - query: "what can i use to list all running processes and then terminate one by pid"
+    slice: "process-management"
+    relevant:
+      - "ps"
+      - "kill"
+      - "top"
+
+  - query: "show command to create a new folder then move into it in one workflow"
+    slice: "filesystem-basic"
+    relevant:
+      - "mkdir"
+      - "cd"
+
+  - query: "find all files larger than 500mb under this project and print full paths"
+    slice: "filesystem-find"
+    relevant:
+      - "find"
+
+  - query: "list hidden files in this directory with detailed permissions and owner"
+    slice: "filesystem-basic"
+    relevant:
+      - "ls"
+
+  - query: "install a python package in the current environment with pip"
+    slice: "package"
+    relevant:
+      - "pip install"
+
+  - query: "install a package on ubuntu from apt repositories"
+    slice: "package"
+    relevant:
+      - "apt"
+
+  - query: "build a docker image from this repo and tag it for local testing"
+    slice: "docker"
+    relevant:
+      - "docker build"
+
+  - query: "list active docker containers and include stopped ones too"
+    slice: "docker"
+    relevant:
+      - "docker ps"
+
+  - query: "remove an unused docker image by name or id"
+    slice: "docker"
+    relevant:
+      - "docker image rm"
+      - "docker rmi"

@@ -1,77 +1,203 @@
 queries:
-  - query: "what is the command to revert git commit"
+  - query: "undo last git commit keep changes"
+    slice: "git-undo"
     relevant:
-      - "git revert"
       - "git reset"
+      - "git revert"
 
-  - query: "how to undo last git commit but keep changes"
+  - query: "revert a pushed commit safely"
+    slice: "git-undo"
     relevant:
-      - "git reset"
-      - "git undo"
       - "git revert"
+
+  - query: "delete merged local branches"
+    slice: "git-branch"
+    relevant:
+      - "git branch"
+
+  - query: "show git commit history"
+    slice: "git-log"
+    relevant:
+      - "git log"
 
   - query: "remove docker image"
+    slice: "docker"
     relevant:
       - "docker image rm"
       - "docker rmi"
 
-  - query: "delete all local git branches except main"
+  - query: "list running docker containers"
+    slice: "docker"
     relevant:
-      - "git delete-merged-branches"
-      - "git branch"
-      - "git delete-branch"
+      - "docker ps"
+
+  - query: "build docker image from current folder"
+    slice: "docker"
+    relevant:
+      - "docker build"
 
   - query: "find files bigger than 1gb"
+    slice: "filesystem-find"
     relevant:
       - "find"
 
-  - query: "search text recursively in files"
+  - query: "find all json files"
+    slice: "filesystem-find"
     relevant:
-      - "grep"
       - "find"
-      - "ripgrep"
-
-  - query: "compress a folder into tar.gz"
-    relevant:
-      - "tar"
-      - "gzip"
-
-  - query: "show open ports on windows"
-    relevant:
-      - "netstat"
-      - "ss"
-
-  - query: "insall python package with pip"
-    relevant:
-      - "pip install"
 
   - query: "create a new directory"
+    slice: "filesystem-basic"
     relevant:
       - "mkdir"
 
-  - query: "copy file with progress"
+  - query: "delete an empty directory"
+    slice: "filesystem-basic"
+    relevant:
+      - "rmdir"
+      - "rm"
+
+  - query: "copy directory recursively"
+    slice: "filesystem-copy"
     relevant:
       - "cp"
       - "rsync"
 
-  - query: "find process using port 8080"
+  - query: "copy file with progress"
+    slice: "filesystem-copy"
     relevant:
-      - "lsof"
-      - "netstat"
-      - "ss"
+      - "cp"
+      - "rsync"
+
+  - query: "move file to another folder"
+    slice: "filesystem-move"
+    relevant:
+      - "mv"
+
+  - query: "search text recursively in files"
+    slice: "text-search"
+    relevant:
+      - "grep"
+      - "ripgrep"
+      - "find"
 
   - query: "replace text in multiple files"
+    slice: "text-replace"
     relevant:
       - "sed"
       - "perl"
       - "awk"
 
+  - query: "find and replace pattern in file"
+    slice: "text-replace"
+    relevant:
+      - "sed"
+      - "perl"
+
+  - query: "show first 20 lines of file"
+    slice: "text-view"
+    relevant:
+      - "head"
+
+  - query: "show last 50 lines of log"
+    slice: "text-view"
+    relevant:
+      - "tail"
+
+  - query: "show open ports on windows"
+    slice: "network-ports"
+    relevant:
+      - "netstat"
+      - "ss"
+      - "lsof"
+
+  - query: "find process using port 8080"
+    slice: "network-ports"
+    relevant:
+      - "lsof"
+      - "netstat"
+      - "ss"
+
+  - query: "test if host is reachable"
+    slice: "network-basic"
+    relevant:
+      - "ping"
+
   - query: "download a file from url"
+    slice: "download"
     relevant:
       - "wget"
       - "curl"
 
+  - query: "download over https with output filename"
+    slice: "download"
+    relevant:
+      - "wget"
+      - "curl"
+
+  - query: "compress a folder into tar.gz"
+    slice: "archive"
+    relevant:
+      - "tar"
+      - "gzip"
+
+  - query: "extract tar gz archive"
+    slice: "archive"
+    relevant:
+      - "tar"
+      - "gunzip"
+
+  - query: "unzip a zip file"
+    slice: "archive"
+    relevant:
+      - "unzip"
+
   - query: "check disk usage by folder"
+    slice: "disk"
     relevant:
       - "du"
       - "df"
+
+  - query: "show filesystem free space"
+    slice: "disk"
+    relevant:
+      - "df"
+
+  - query: "list running processes"
+    slice: "process"
+    relevant:
+      - "ps"
+      - "top"
+      - "htop"
+
+  - query: "kill process by pid"
+    slice: "process"
+    relevant:
+      - "kill"
+      - "pkill"
+
+  - query: "insall python package with pip"
+    slice: "package"
+    relevant:
+      - "pip install"
+
+  - query: "install package with apt"
+    slice: "package"
+    relevant:
+      - "apt"
+
+  - query: "list files with details"
+    slice: "filesystem-basic"
+    relevant:
+      - "ls"
+
+  - query: "gti comit changez"
+    slice: "typo-git"
+    relevant:
+      - "git commit"
+
+  - query: "comprss files to archive"
+    slice: "typo-archive"
+    relevant:
+      - "tar"
+      - "zip"

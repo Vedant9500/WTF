@@ -29,6 +29,20 @@ import (
 //   - YAML parsing errors
 //   - Invalid command structure errors
 func LoadDatabase(filename string) (*Database, error) {
+	commands, err := loadCommandsFromFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	db := newDatabase(commands)
+	if err := db.LoadEmbeddings(); err != nil {
+		return nil, err
+	}
+
+	return db, nil
+}
+
+func loadCommandsFromFile(filename string) ([]Command, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, errors.NewDatabaseErrorWithContext("read", filename, err)
@@ -39,6 +53,11 @@ func LoadDatabase(filename string) (*Database, error) {
 		return nil, errors.NewDatabaseErrorWithContext("parse", filename, err)
 	}
 
+	populateLowercasedCommandFields(commands)
+	return commands, nil
+}
+
+func populateLowercasedCommandFields(commands []Command) {
 	// Populate lowercased cache fields for performance
 	for i := range commands {
 		commands[i].CommandLower = strings.ToLower(commands[i].Command)
@@ -52,13 +71,15 @@ func LoadDatabase(filename string) (*Database, error) {
 			commands[i].TagsLower[j] = strings.ToLower(tag)
 		}
 	}
+}
 
+func newDatabase(commands []Command) *Database {
 	db := &Database{Commands: commands}
 	// Build universal index for scalable search
 	db.BuildUniversalIndex()
 	// Build TF-IDF searcher and command index for hybrid NLP reranking
 	db.buildTFIDFSearcher()
-	return db, nil
+	return db
 }
 
 // LoadDatabaseWithPersonal loads both main and personal database files and merges them.
@@ -82,28 +103,40 @@ func LoadDatabase(filename string) (*Database, error) {
 //   - Commands from personal database are appended to main database commands
 func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, error) {
 	// Load main database
-	mainDB, err := LoadDatabase(mainDBPath)
+	mainCommands, err := loadCommandsFromFile(mainDBPath)
 	if err != nil {
 		return nil, err
 	}
 
 	// Try to load personal database (it's OK if it doesn't exist)
-	personalDB, err := LoadDatabase(personalDBPath)
+	personalCommands, err := loadCommandsFromFile(personalDBPath)
 	if err != nil {
 		// If personal database doesn't exist, that's fine - just use main database
 		if os.IsNotExist(err) {
-			return mainDB, nil
+			db := newDatabase(mainCommands)
+			if err := db.LoadEmbeddings(); err != nil {
+				return nil, err
+			}
+			return db, nil
 		}
 		// Check if it's a DatabaseError wrapping IsNotExist
 		if dbErr, ok := err.(*errors.DatabaseError); ok {
 			if os.IsNotExist(dbErr.Cause) {
-				return mainDB, nil
+				db := newDatabase(mainCommands)
+				if err := db.LoadEmbeddings(); err != nil {
+					return nil, err
+				}
+				return db, nil
 			}
 		}
 		// Check if it's an AppError wrapping IsNotExist
 		if appErr, ok := err.(*errors.AppError); ok {
 			if appErr.Cause != nil && os.IsNotExist(appErr.Cause) {
-				return mainDB, nil
+				db := newDatabase(mainCommands)
+				if err := db.LoadEmbeddings(); err != nil {
+					return nil, err
+				}
+				return db, nil
 			}
 		}
 		// Other errors should be reported
@@ -111,15 +144,14 @@ func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, err
 	}
 
 	// Merge commands from both databases
-	allCommands := make([]Command, 0, len(mainDB.Commands)+len(personalDB.Commands))
-	allCommands = append(allCommands, mainDB.Commands...)
-	allCommands = append(allCommands, personalDB.Commands...)
+	allCommands := make([]Command, 0, len(mainCommands)+len(personalCommands))
+	allCommands = append(allCommands, mainCommands...)
+	allCommands = append(allCommands, personalCommands...)
 
-	db := &Database{Commands: allCommands}
-	// Build universal index for scalable search
-	db.BuildUniversalIndex()
-	// Build TF-IDF searcher and command index for hybrid NLP reranking
-	db.buildTFIDFSearcher()
+	db := newDatabase(allCommands)
+	if err := db.LoadEmbeddings(); err != nil {
+		return nil, err
+	}
 	return db, nil
 }
 

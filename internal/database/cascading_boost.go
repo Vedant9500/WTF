@@ -13,7 +13,6 @@ type boostContext struct {
 	actionTerms  []string
 	targetTerms  []string
 	keywordTerms []string
-	commandHints []string
 	contexts     []string
 	intent       nlp.QueryIntent
 }
@@ -48,8 +47,7 @@ func (db *Database) buildBoostContext(pq *nlp.ProcessedQuery) boostContext {
 		actionTerms:  expandWithSynonyms(pq.Actions, processor),
 		targetTerms:  expandWithSynonyms(pq.Targets, processor),
 		keywordTerms: expandWithSynonyms(pq.Keywords, processor),
-		commandHints: pq.GetEnhancedKeywords(),
-		contexts:     extractContexts(pq.Keywords),
+		contexts:     db.extractContexts(pq.Keywords),
 		intent:       pq.Intent,
 	}
 }
@@ -61,10 +59,6 @@ func (db *Database) calculateBoostForCommand(cmd *Command, ctx boostContext) flo
 
 	matches := boostMatches{}
 
-	if hasHintMatch(cmd.Command, ctx.commandHints) {
-		matches.hint = true
-		boost += constants.CascadingHintBoost
-	}
 	if hasTermMatch(searchText, ctx.actionTerms) {
 		matches.action = true
 		boost += constants.CascadingActionBoost
@@ -98,7 +92,6 @@ func (db *Database) calculateBoostForCommand(cmd *Command, ctx boostContext) flo
 }
 
 type boostMatches struct {
-	hint    bool
 	action  bool
 	target  bool
 	keyword bool
@@ -108,9 +101,6 @@ type boostMatches struct {
 
 func shouldApplyCascadingBoost(m boostMatches) bool {
 	count := 0
-	if m.hint {
-		count++
-	}
 	if m.action {
 		count++
 	}
@@ -131,23 +121,6 @@ func shouldApplyCascadingBoost(m boostMatches) bool {
 		return true
 	}
 
-	if constants.CascadingAllowSingleSignalWithHint && m.hint {
-		return true
-	}
-
-	return false
-}
-
-// hasHintMatch returns true if command matches any hint
-func hasHintMatch(command string, hints []string) bool {
-	cmdLower := strings.ToLower(command)
-	cmdBase := getCommandBase(cmdLower)
-	for _, hint := range hints {
-		hintLower := strings.ToLower(hint)
-		if cmdBase == hintLower || cmdLower == hintLower {
-			return true
-		}
-	}
 	return false
 }
 
@@ -207,31 +180,25 @@ func expandWithSynonyms(terms []string, processor *nlp.QueryProcessor) []string 
 	return expanded
 }
 
-// extractContexts finds known tool/command names in keywords
-func extractContexts(keywords []string) []string {
-	knownContexts := map[string]bool{
-		"git": true, "docker": true, "npm": true, "pip": true,
-		"apt": true, "yum": true, "pacman": true, "brew": true,
-		"kubectl": true, "terraform": true, "ansible": true,
-		"ssh": true, "rsync": true, "tar": true, "grep": true,
-		"sed": true, "awk": true, "find": true, "chmod": true,
-		"chown": true, "curl": true, "wget": true, "systemctl": true,
-		"journalctl": true, "nginx": true, "apache": true,
-		"mysql": true, "postgres": true, "redis": true, "mongo": true,
-		"python": true, "node": true, "go": true, "rust": true,
-		"cargo": true, "yarn": true, "composer": true, "gem": true,
-		"arch": true, "ubuntu": true, "debian": true, "centos": true,
-		"windows": true, "macos": true, "linux": true,
-		"ipconfig": true, "ifconfig": true, "netstat": true, "ip": true,
+// extractContexts derives context command families from corpus-learned bases.
+func (db *Database) extractContexts(keywords []string) []string {
+	if db.familyPriorIndex == nil || len(keywords) == 0 {
+		return nil
 	}
 
-	var contexts []string
+	contexts := make([]string, 0, len(keywords))
+	seen := make(map[string]bool)
 	for _, kw := range keywords {
 		kwLower := strings.ToLower(kw)
-		if knownContexts[kwLower] {
+		if seen[kwLower] {
+			continue
+		}
+		if _, ok := db.familyPriorIndex.baseDocFreq[kwLower]; ok {
+			seen[kwLower] = true
 			contexts = append(contexts, kwLower)
 		}
 	}
+
 	return contexts
 }
 
@@ -240,7 +207,7 @@ var intentKeywords = map[nlp.QueryIntent][]string{
 	nlp.IntentView:    {"show", "display", "list", "view", "cat", "less"},
 	nlp.IntentDelete:  {"delete", "remove", "rm", "uninstall"},
 	nlp.IntentCreate:  {"create", "make", "new", "mkdir", "touch"},
-	nlp.IntentInstall: {"install", "setup", "add"},
+	nlp.IntentInstall: {"install", "setup", "add", "download", "fetch", "curl", "wget"},
 	nlp.IntentModify:  {"modify", "change", "edit", "update", "undo", "revert", "reset"},
 }
 

@@ -203,13 +203,88 @@ func StopWords() map[string]bool {
 
 // detectIntent analyzes actions and keywords to determine user intent
 func (qp *QueryProcessor) detectIntent(actions, keywords []string) QueryIntent {
-	// Check actions for clear intent first
-	if intent := qp.detectIntentFromActions(actions); intent != IntentGeneral {
-		return intent
+	// Score intents from both actions and keywords to avoid early generic-view
+	// matches dominating stronger task-specific verbs in conversational queries.
+	scores := map[QueryIntent]float64{}
+
+	for _, action := range actions {
+		for intent, w := range qp.intentVotesFromAction(action) {
+			scores[intent] += w
+		}
 	}
 
-	// Check keywords for intent hints with context
-	return qp.detectIntentFromKeywords(keywords, actions)
+	for _, keyword := range keywords {
+		for intent, w := range qp.intentVotesFromKeyword(keyword, actions) {
+			scores[intent] += w
+		}
+	}
+
+	best := IntentGeneral
+	bestScore := 0.0
+	for intent, score := range scores {
+		if score > bestScore {
+			best = intent
+			bestScore = score
+		}
+	}
+
+	if bestScore <= 0 {
+		return IntentGeneral
+	}
+
+	return best
+}
+
+func (qp *QueryProcessor) intentVotesFromAction(action string) map[QueryIntent]float64 {
+	votes := map[QueryIntent]float64{}
+	if action == "" {
+		return votes
+	}
+
+	switch action {
+	case "find", "search", "locate", "list":
+		votes[IntentFind] += 1.0
+	case "show", "display", "view", "see", "read", "cat", "check":
+		votes[IntentView] += 0.35
+	case "create", "make", "build", "generate", "new":
+		votes[IntentCreate] += 1.0
+	case "delete", "remove", "destroy", "clean", "clear":
+		votes[IntentDelete] += 1.0
+	case "modify", "change", "edit", "update", "alter", "save":
+		votes[IntentModify] += 1.0
+	case "install", "add", "download", "fetch", "retrieve":
+		votes[IntentInstall] += 1.0
+	case "run", "execute", "start", "launch", "kill", "stop", "terminate":
+		votes[IntentRun] += 1.0
+	case "configure", "config", "setup", "set":
+		votes[IntentConfigure] += 1.0
+	}
+
+	return votes
+}
+
+func (qp *QueryProcessor) intentVotesFromKeyword(keyword string, actions []string) map[QueryIntent]float64 {
+	votes := map[QueryIntent]float64{}
+	if keyword == "" {
+		return votes
+	}
+
+	switch keyword {
+	case "contents", "content", "inside", "text":
+		if qp.isViewContext(actions) {
+			votes[IntentView] += 0.4
+		}
+	case "install", "installation", "download", "fetch", "url", "https", "http":
+		votes[IntentInstall] += 0.6
+	case "config", "configuration", "setup":
+		votes[IntentConfigure] += 0.6
+	case "running", "execution", "processes":
+		votes[IntentFind] += 0.4
+	case "permissions", "permission", "chmod":
+		votes[IntentModify] += 0.4
+	}
+
+	return votes
 }
 
 func (qp *QueryProcessor) detectIntentFromActions(actions []string) QueryIntent {
@@ -279,32 +354,6 @@ func (pq *ProcessedQuery) GetEnhancedKeywords() []string {
 
 	// Add original keywords first
 	enhanced = append(enhanced, pq.Keywords...)
-
-	// Add command hints based on intent + target combinations
-	// This is crucial for mapping natural language to actual command names
-	enhanced = append(enhanced, pq.getCommandHints()...)
-
-	// Add ipconfig for IP-related queries (legacy)
-	hasIP := false
-	hasManage := false
-	hasWindows := false
-
-	for _, keyword := range pq.Keywords {
-		if keyword == "ip" {
-			hasIP = true
-		}
-		if keyword == "manage" {
-			hasManage = true
-		}
-		if keyword == "windows" {
-			hasWindows = true
-		}
-	}
-
-	// If query is about managing IP on Windows, add ipconfig
-	if hasIP && (hasManage || hasWindows) {
-		enhanced = append(enhanced, "ipconfig")
-	}
 
 	// Add actions as keywords (medium priority) - but only the most relevant ones
 	enhanced = append(enhanced, pq.getRelevantActions()...)
@@ -453,6 +502,10 @@ func buildActionWords() map[string][]string {
 		"configure": {"configure", "config", "setup", "set"},
 		"config":    {"configure", "config", "setup", "set"},
 		"add":       {"add", "install", "setup"},
+		"download":  {"download", "fetch", "retrieve", "save"},
+		"fetch":     {"download", "fetch", "retrieve"},
+		"retrieve":  {"download", "fetch", "retrieve"},
+		"save":      {"save", "write", "output"},
 
 		// Compression
 		"compress":   {"compress", "archive", "zip", "tar"},

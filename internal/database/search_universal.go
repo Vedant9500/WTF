@@ -420,6 +420,28 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 
 	// Calculate initial scores using BM25F
 	scores := db.calculateInitialScores(terms, pq, options)
+	// Merge scalable semantic candidates (no command-specific hinting) to improve
+	// lexical miss recovery on natural language phrasing.
+	if options.UseNLP && db.HasEmbeddings() {
+		semanticScores := db.calculateSemanticCandidateScores(query, options)
+		for docID, semScore := range semanticScores {
+			if cur, ok := scores[docID]; ok {
+				scores[docID] = cur + semScore*0.35
+				continue
+			}
+			scores[docID] = semScore * 0.55
+		}
+	}
+	if options.UseNLP && db.tfidf != nil {
+		tfidfScores := db.calculateTFIDFCandidateScores(query, options)
+		for docID, tfidfScore := range tfidfScores {
+			if cur, ok := scores[docID]; ok {
+				scores[docID] = cur + tfidfScore*0.45
+				continue
+			}
+			scores[docID] = tfidfScore * 0.65
+		}
+	}
 
 	// If no BM25F results, try fuzzy search as fallback for typos
 	if len(scores) == 0 {
@@ -443,6 +465,99 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 		results = results[:options.Limit]
 	}
 	return results
+}
+
+func (db *Database) calculateSemanticCandidateScores(query string, options SearchOptions) map[int]float64 {
+	queryEmbed := db.EmbedQuery(query)
+	if queryEmbed == nil {
+		return nil
+	}
+
+	allSemantic := db.SemanticScores(queryEmbed)
+	if len(allSemantic) == 0 {
+		return nil
+	}
+
+	currentPlatform := getCurrentPlatform()
+	maxCandidates := options.Limit * constants.ResultsBufferMultiplier
+	if maxCandidates < 10 {
+		maxCandidates = 10
+	}
+
+	type cand struct {
+		docID int
+		score float64
+	}
+	list := make([]cand, 0, maxCandidates*2)
+
+	for i, sim := range allSemantic {
+		if i >= len(db.Commands) {
+			break
+		}
+		if sim < constants.SemanticMinScore {
+			continue
+		}
+		cmd := &db.Commands[i]
+		if !matchesPlatformOptions(cmd, options, currentPlatform) {
+			continue
+		}
+		if options.PipelineOnly && !isPipelineCommand(cmd) {
+			continue
+		}
+
+		list = append(list, cand{docID: i, score: sim})
+	}
+
+	if len(list) == 0 {
+		return nil
+	}
+
+	sort.Slice(list, func(i, j int) bool { return list[i].score > list[j].score })
+	if len(list) > maxCandidates {
+		list = list[:maxCandidates]
+	}
+
+	out := make(map[int]float64, len(list))
+	for _, c := range list {
+		// Scale semantic similarity into BM25-compatible range.
+		out[c.docID] = 45.0 * c.score
+	}
+
+	return out
+}
+
+func (db *Database) calculateTFIDFCandidateScores(query string, options SearchOptions) map[int]float64 {
+	if db.tfidf == nil {
+		return nil
+	}
+
+	currentPlatform := getCurrentPlatform()
+	maxCandidates := options.Limit * constants.ResultsBufferMultiplier * 2
+	if maxCandidates < 15 {
+		maxCandidates = 15
+	}
+
+	tfidfRes := db.tfidf.Search(query, maxCandidates)
+	if len(tfidfRes) == 0 {
+		return nil
+	}
+
+	out := make(map[int]float64, len(tfidfRes))
+	for _, r := range tfidfRes {
+		if r.CommandIndex < 0 || r.CommandIndex >= len(db.Commands) {
+			continue
+		}
+		cmd := &db.Commands[r.CommandIndex]
+		if !matchesPlatformOptions(cmd, options, currentPlatform) {
+			continue
+		}
+		if options.PipelineOnly && !isPipelineCommand(cmd) {
+			continue
+		}
+		out[r.CommandIndex] = 100.0 * r.Similarity
+	}
+
+	return out
 }
 
 func (db *Database) calculateInitialScores(terms []string, pq *nlp.ProcessedQuery, options SearchOptions) map[int]float64 {
@@ -591,23 +706,6 @@ func (db *Database) enhanceQueryWithNLP(query string, terms []string) (pq *nlp.P
 			}
 			if !found && len(terms) < limit {
 				terms = append(terms, enhTerm)
-			}
-		}
-	}
-
-	// For diagnostic "process using port" intents, inject high-signal command hints
-	// so lexical BM25 can pull the right tools into candidate set.
-	if hasProcessPortIntent(terms, pq) {
-		for _, hint := range []string{"lsof", "netstat", "ss"} {
-			found := false
-			for _, t := range terms {
-				if t == hint {
-					found = true
-					break
-				}
-			}
-			if !found {
-				terms = append(terms, hint)
 			}
 		}
 	}
@@ -845,9 +943,6 @@ func (db *Database) collectResults(
 		// Additional universal feature weighting for verbose queries where
 		// users express concrete intent like download or disk usage.
 		score *= db.calculateLongQueryIntentFeatureBoost(cmd, terms, pq)
-
-		// Targeted short/medium query refinements for persistent eval misses.
-		score *= calculateTargetedQueryIntentBoost(cmd, query, terms)
 
 		// Apply intent-based boost if NLP is active
 		if pq != nil {

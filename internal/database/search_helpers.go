@@ -20,7 +20,7 @@ func (db *Database) applyPostScoringBoosts(
 	}
 
 	// Semantic boost: blend embedding similarity into scores if embeddings are loaded
-	if db.HasEmbeddings() && len(results) > 0 {
+	if options.UseNLP && db.HasEmbeddings() && len(results) > 0 {
 		results = db.applySemanticBoost(results, query)
 	}
 
