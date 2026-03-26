@@ -207,7 +207,7 @@ func TestLoadCommandEmbeddings_MetadataFormat(t *testing.T) {
 		t.Fatalf("failed to create file: %v", err)
 	}
 
-	if _, err := f.Write([]byte("WTFE")); err != nil {
+	if _, err := f.WriteString("WTFE"); err != nil {
 		t.Fatalf("failed to write magic: %v", err)
 	}
 	if err := binary.Write(f, binary.LittleEndian, uint16(1)); err != nil {
@@ -226,7 +226,7 @@ func TestLoadCommandEmbeddings_MetadataFormat(t *testing.T) {
 	if err := binary.Write(f, binary.LittleEndian, uint16(len(hash))); err != nil {
 		t.Fatalf("failed to write hash len: %v", err)
 	}
-	if _, err := f.Write([]byte(hash)); err != nil {
+	if _, err := f.WriteString(hash); err != nil {
 		t.Fatalf("failed to write hash: %v", err)
 	}
 

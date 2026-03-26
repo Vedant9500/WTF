@@ -99,17 +99,6 @@ func normalizeAndTokenize(s string) []string {
 
 var stopWords = nlp.StopWords()
 
-const (
-	tokenPort      = "port"
-	tokenPorts     = "ports"
-	tokenProcess   = "process"
-	tokenPID       = "pid"
-	tokenListening = "listening"
-	tokenSocket    = "socket"
-	tokenUsing     = "using"
-	tokenWho       = "who"
-)
-
 func defaultParams() bm25fParams {
 	return bm25fParams{
 		k1:     1.2,
@@ -387,9 +376,7 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 		db.BuildUniversalIndex()
 	}
 
-	if options.Limit <= 0 {
-		options.Limit = 10
-	}
+	options = normalizeSearchOptions(options)
 
 	terms := normalizeAndTokenize(query)
 	var pq *nlp.ProcessedQuery
@@ -405,50 +392,20 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 
 	// If no terms after processing, try fuzzy search as fallback
 	if len(terms) == 0 {
-		if options.UseFuzzy {
-			return db.performFuzzySearch(query, options)
-		}
-		return nil
+		return db.handleNoTermsFallback(query, options)
 	}
 
 	// Reduce noise for long queries by keeping top-IDF terms
-	termsCap := options.TopTermsCap
-	if termsCap <= 0 {
-		termsCap = 10
-	}
+	termsCap := resolveTopTermsCap(options)
 	terms = db.selectTopTerms(terms, termsCap)
 
 	// Calculate initial scores using BM25F
 	scores := db.calculateInitialScores(terms, pq, options)
-	// Merge scalable semantic candidates (no command-specific hinting) to improve
-	// lexical miss recovery on natural language phrasing.
-	if options.UseNLP && db.HasEmbeddings() {
-		semanticScores := db.calculateSemanticCandidateScores(query, options)
-		for docID, semScore := range semanticScores {
-			if cur, ok := scores[docID]; ok {
-				scores[docID] = cur + semScore*0.35
-				continue
-			}
-			scores[docID] = semScore * 0.55
-		}
-	}
-	if options.UseNLP && db.tfidf != nil {
-		tfidfScores := db.calculateTFIDFCandidateScores(query, options)
-		for docID, tfidfScore := range tfidfScores {
-			if cur, ok := scores[docID]; ok {
-				scores[docID] = cur + tfidfScore*0.45
-				continue
-			}
-			scores[docID] = tfidfScore * 0.65
-		}
-	}
+	db.mergeHybridCandidates(scores, query, options)
 
 	// If no BM25F results, try fuzzy search as fallback for typos
 	if len(scores) == 0 {
-		if options.UseFuzzy {
-			return db.performFuzzySearch(query, options)
-		}
-		return nil
+		return db.handleNoTermsFallback(query, options)
 	}
 
 	// Convert to results and apply pipeline boosts
@@ -465,6 +422,53 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 		results = results[:options.Limit]
 	}
 	return results
+}
+
+func normalizeSearchOptions(options SearchOptions) SearchOptions {
+	if options.Limit <= 0 {
+		options.Limit = 10
+	}
+	return options
+}
+
+func (db *Database) handleNoTermsFallback(query string, options SearchOptions) []SearchResult {
+	if options.UseFuzzy {
+		return db.performFuzzySearch(query, options)
+	}
+	return nil
+}
+
+func resolveTopTermsCap(options SearchOptions) int {
+	if options.TopTermsCap > 0 {
+		return options.TopTermsCap
+	}
+	return 10
+}
+
+func (db *Database) mergeHybridCandidates(scores map[int]float64, query string, options SearchOptions) {
+	// Merge scalable semantic candidates (no command-specific hinting) to improve
+	// lexical miss recovery on natural language phrasing.
+	if options.UseNLP && db.HasEmbeddings() {
+		semanticScores := db.calculateSemanticCandidateScores(query, options)
+		for docID, semScore := range semanticScores {
+			if cur, ok := scores[docID]; ok {
+				scores[docID] = cur + semScore*0.35
+				continue
+			}
+			scores[docID] = semScore * 0.55
+		}
+	}
+
+	if options.UseNLP && db.tfidf != nil {
+		tfidfScores := db.calculateTFIDFCandidateScores(query, options)
+		for docID, tfidfScore := range tfidfScores {
+			if cur, ok := scores[docID]; ok {
+				scores[docID] = cur + tfidfScore*0.45
+				continue
+			}
+			scores[docID] = tfidfScore * 0.65
+		}
+	}
 }
 
 func (db *Database) calculateSemanticCandidateScores(query string, options SearchOptions) map[int]float64 {
@@ -712,40 +716,6 @@ func (db *Database) enhanceQueryWithNLP(query string, terms []string) (pq *nlp.P
 	return pq, terms
 }
 
-func hasProcessPortIntent(terms []string, pq *nlp.ProcessedQuery) bool {
-	hasPort := false
-	hasProcess := false
-
-	for _, t := range terms {
-		switch t {
-		case tokenPort, tokenPorts, "8080", tokenListening, tokenSocket:
-			hasPort = true
-		case tokenProcess, tokenPID, tokenUsing, tokenWho:
-			hasProcess = true
-		}
-	}
-
-	if pq != nil {
-		for _, t := range pq.Keywords {
-			switch t {
-			case tokenPort, tokenPorts, tokenListening, tokenSocket, "8080":
-				hasPort = true
-			case tokenProcess, tokenPID, tokenUsing:
-				hasProcess = true
-			}
-		}
-		for _, t := range pq.Targets {
-			switch t {
-			case tokenPort, tokenPorts, tokenProcess, tokenPID:
-				hasPort = hasPort || t == tokenPort || t == tokenPorts
-				hasProcess = hasProcess || t == tokenProcess || t == tokenPID
-			}
-		}
-	}
-
-	return hasPort && hasProcess
-}
-
 func normalizeLongQueryTermsForScoring(terms []string, pq *nlp.ProcessedQuery) []string {
 	if len(terms) < constants.LongQueryNormalizationThreshold {
 		return terms
@@ -923,7 +893,7 @@ func indexCommand(cmd *Command) (uniqueLens docLens, termFreqs map[string]fieldT
 
 func (db *Database) collectResults(
 	scores map[int]float64,
-	query string,
+	_ string,
 	terms []string,
 	pq *nlp.ProcessedQuery,
 	options SearchOptions,
@@ -959,118 +929,6 @@ func (db *Database) collectResults(
 		results = append(results, SearchResult{Command: cmd, Score: score})
 	}
 	return results
-}
-
-type querySignalChecker struct {
-	queryLower string
-	termsSet   map[string]bool
-}
-
-func newQuerySignalChecker(query string, terms []string) querySignalChecker {
-	set := make(map[string]bool, len(terms))
-	for _, t := range terms {
-		set[t] = true
-	}
-	return querySignalChecker{queryLower: strings.ToLower(query), termsSet: set}
-}
-
-func (q querySignalChecker) has(term string) bool {
-	if q.termsSet[term] {
-		return true
-	}
-	return containsWord(" "+q.queryLower+" ", term)
-}
-
-func calculateTargetedQueryIntentBoost(cmd *Command, query string, terms []string) float64 {
-	checker := newQuerySignalChecker(query, terms)
-	cmdBase := getCommandBase(strings.ToLower(cmd.Command))
-	text := buildCommandSearchText(cmd)
-	q := strings.ToLower(query)
-
-	boost := 1.0
-	boost *= applyProcessPortBoost(cmdBase, text, checker)
-	boost *= applyReplaceInFilesBoost(cmd, cmdBase, checker)
-	boost *= applyCopyProgressBoost(cmd, cmdBase, checker)
-	boost *= applyTarGzBoost(cmdBase, q, checker)
-	boost *= applyWindowsPortBoost(cmd, cmdBase, checker)
-	return boost
-}
-
-func applyProcessPortBoost(cmdBase, text string, checker querySignalChecker) float64 {
-	if !(checker.has(tokenPort) && (checker.has(tokenProcess) || checker.has(tokenPID) || checker.has(tokenListening))) {
-		return 1.0
-	}
-	boost := 1.0
-	if cmdBase == "lsof" || cmdBase == "netstat" || cmdBase == "ss" || cmdBase == "fuser" {
-		boost *= 1.55
-	}
-	if containsWord(text, tokenPort) || containsWord(text, tokenPID) || containsWord(text, tokenSocket) {
-		boost *= 1.15
-	}
-	return boost
-}
-
-func applyReplaceInFilesBoost(cmd *Command, cmdBase string, checker querySignalChecker) float64 {
-	if !isReplaceInFilesIntent(checker) {
-		return 1.0
-	}
-	boost := 1.0
-	if cmdBase == "sed" || cmdBase == "perl" || cmdBase == "awk" || cmdBase == "ripgrep" || cmdBase == "rg" || cmdBase == "grep" {
-		boost *= 1.40
-	}
-	if cmdBase == "git" && strings.Contains(strings.ToLower(cmd.Command), "git sed") {
-		boost *= 0.65
-	}
-	return boost
-}
-
-func isReplaceInFilesIntent(checker querySignalChecker) bool {
-	hasReplace := checker.has("replace")
-	hasText := checker.has("text") || checker.has("pattern")
-	hasFilesScope := checker.has("file") || checker.has("files") || checker.has("multiple") || checker.has("recursive")
-	return hasReplace && hasText && hasFilesScope
-}
-
-func applyCopyProgressBoost(cmd *Command, cmdBase string, checker querySignalChecker) float64 {
-	if !(checker.has("copy") && (checker.has("progress") || checker.has("verbose"))) {
-		return 1.0
-	}
-	boost := 1.0
-	if cmdBase == "rsync" || cmdBase == "cp" || cmdBase == "pv" || cmdBase == "rclone" {
-		boost *= 1.35
-	}
-	if strings.Contains(strings.ToLower(cmd.Command), "git cp") {
-		boost *= 0.60
-	}
-	return boost
-}
-
-func applyTarGzBoost(cmdBase, queryLower string, checker querySignalChecker) float64 {
-	if !((checker.has("compress") || checker.has("archive")) &&
-		(checker.has("tar") || checker.has("gz") || strings.Contains(queryLower, "tar.gz"))) {
-		return 1.0
-	}
-	if cmdBase == "tar" || cmdBase == "gzip" {
-		return 1.45
-	}
-	if cmdBase == "zip" {
-		return 0.82
-	}
-	return 1.0
-}
-
-func applyWindowsPortBoost(cmd *Command, cmdBase string, checker querySignalChecker) float64 {
-	if !(checker.has("windows") && checker.has(tokenPort)) {
-		return 1.0
-	}
-	boost := 1.0
-	if cmdBase == "netstat" || strings.Contains(strings.ToLower(cmd.Command), "get-nettcpconnection") {
-		boost *= 1.35
-	}
-	if len(cmd.Platform) == 1 && !strings.EqualFold(cmd.Platform[0], "windows") {
-		boost *= 0.80
-	}
-	return boost
 }
 
 func (db *Database) calculateLongQueryIntentFeatureBoost(cmd *Command, terms []string, pq *nlp.ProcessedQuery) float64 {

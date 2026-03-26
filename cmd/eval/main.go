@@ -58,16 +58,16 @@ type queryResult struct {
 
 // sliceMetrics holds aggregated metrics for a query slice.
 type sliceMetrics struct {
-	Slice       string  `json:"slice"`
-	QueryCount  int     `json:"query_count"`
-	Top1        float64 `json:"top1"`
-	Hit3        float64 `json:"hit3"`
-	MRR         float64 `json:"mrr"`
-	NDCG3       float64 `json:"ndcg3"`
-	Top1Count   int     `json:"-"`
-	Hit3Count   int     `json:"-"`
-	RRSum       float64 `json:"-"`
-	NDCG3Sum    float64 `json:"-"`
+	Slice      string  `json:"slice"`
+	QueryCount int     `json:"query_count"`
+	Top1       float64 `json:"top1"`
+	Hit3       float64 `json:"hit3"`
+	MRR        float64 `json:"mrr"`
+	NDCG3      float64 `json:"ndcg3"`
+	Top1Count  int     `json:"-"`
+	Hit3Count  int     `json:"-"`
+	RRSum      float64 `json:"-"`
+	NDCG3Sum   float64 `json:"-"`
 }
 
 // evalReport holds the full evaluation report.
@@ -118,7 +118,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	allQueries := append(shortQueries, longQueries...)
+	allQueries := make([]evalQuery, 0, len(shortQueries)+len(longQueries))
+	allQueries = append(allQueries, shortQueries...)
+	allQueries = append(allQueries, longQueries...)
 
 	if len(allQueries) == 0 {
 		fmt.Fprintf(os.Stderr, "No queries found for set %q\n", *setFlag)
@@ -310,19 +312,20 @@ func evaluateQuery(db *database.Database, q evalQuery, limit int, noHints bool) 
 
 	// Check relevance: a result is relevant if its command starts with any relevant prefix
 	for i, r := range results {
-		if isRelevant(r.Command.Command, q.Relevant) {
-			rank := i + 1
-			if rank == 1 {
-				qr.IsTop1 = true
-			}
-			if rank <= 3 {
-				qr.IsHit3 = true
-			}
-			if qr.RR == 0 {
-				qr.RR = 1.0 / float64(rank)
-			}
-			break // Only first relevant result matters for RR
+		if !isRelevant(r.Command.Command, q.Relevant) {
+			continue
 		}
+		rank := i + 1
+		if rank == 1 {
+			qr.IsTop1 = true
+		}
+		if rank <= 3 {
+			qr.IsHit3 = true
+		}
+		if qr.RR == 0 {
+			qr.RR = 1.0 / float64(rank)
+		}
+		break // Only first relevant result matters for RR
 	}
 
 	// NDCG@3
@@ -447,4 +450,3 @@ func outputJSON(report evalReport) {
 		os.Exit(1)
 	}
 }
-

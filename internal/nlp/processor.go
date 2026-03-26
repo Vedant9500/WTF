@@ -50,6 +50,13 @@ const (
 	IntentGeneral   QueryIntent = "general"
 )
 
+const (
+	actionShow    = "show"
+	actionSetup   = "setup"
+	actionDelete  = "delete"
+	actionInstall = "install"
+)
+
 // ProcessQuery analyzes and enhances a natural language query
 func (qp *QueryProcessor) ProcessQuery(query string) *ProcessedQuery {
 	pq := &ProcessedQuery{
@@ -244,19 +251,19 @@ func (qp *QueryProcessor) intentVotesFromAction(action string) map[QueryIntent]f
 	switch action {
 	case "find", "search", "locate", "list":
 		votes[IntentFind] += 1.0
-	case "show", "display", "view", "see", "read", "cat", "check":
+	case actionShow, "display", "view", "see", "read", "cat", "check":
 		votes[IntentView] += 0.35
 	case "create", "make", "build", "generate", "new":
 		votes[IntentCreate] += 1.0
-	case "delete", "remove", "destroy", "clean", "clear":
+	case actionDelete, "remove", "destroy", "clean", "clear":
 		votes[IntentDelete] += 1.0
 	case "modify", "change", "edit", "update", "alter", "save":
 		votes[IntentModify] += 1.0
-	case "install", "add", "download", "fetch", "retrieve":
+	case actionInstall, "add", "download", "fetch", "retrieve":
 		votes[IntentInstall] += 1.0
 	case "run", "execute", "start", "launch", "kill", "stop", "terminate":
 		votes[IntentRun] += 1.0
-	case "configure", "config", "setup", "set":
+	case "configure", "config", actionSetup, "set":
 		votes[IntentConfigure] += 1.0
 	}
 
@@ -274,9 +281,9 @@ func (qp *QueryProcessor) intentVotesFromKeyword(keyword string, actions []strin
 		if qp.isViewContext(actions) {
 			votes[IntentView] += 0.4
 		}
-	case "install", "installation", "download", "fetch", "url", "https", "http":
+	case actionInstall, "installation", "download", "fetch", "url", "https", "http":
 		votes[IntentInstall] += 0.6
-	case "config", "configuration", "setup":
+	case "config", "configuration", actionSetup:
 		votes[IntentConfigure] += 0.6
 	case "running", "execution", "processes":
 		votes[IntentFind] += 0.4
@@ -285,53 +292,6 @@ func (qp *QueryProcessor) intentVotesFromKeyword(keyword string, actions []strin
 	}
 
 	return votes
-}
-
-func (qp *QueryProcessor) detectIntentFromActions(actions []string) QueryIntent {
-	for _, action := range actions {
-		switch action {
-		case "find", "search", "locate", "list":
-			return IntentFind
-		case "show", "display", "view", "see", "read", "cat":
-			return IntentView
-		case "create", "make", "build", "generate", "new":
-			return IntentCreate
-		case "delete", "remove", "destroy", "clean", "clear":
-			return IntentDelete
-		case "modify", "change", "edit", "update", "alter":
-			return IntentModify
-		case "install", "add", "download":
-			return IntentInstall
-		case "run", "execute", "start", "launch":
-			return IntentRun
-		case "kill", "stop", "terminate":
-			return IntentRun
-		case "configure", "config", "setup", "set":
-			return IntentConfigure
-		}
-	}
-	return IntentGeneral
-}
-
-func (qp *QueryProcessor) detectIntentFromKeywords(keywords, actions []string) QueryIntent {
-	for _, keyword := range keywords {
-		switch keyword {
-		case "contents", "content", "inside", "text":
-			// Check if this is about viewing (see, show, read) or clearing (clear, empty)
-			if qp.isViewContext(actions) {
-				return IntentView
-			}
-		case "install", "installation":
-			return IntentInstall
-		case "config", "configuration", "setup":
-			return IntentConfigure
-		case "running", "execution", "processes":
-			return IntentFind // Finding/listing processes
-		case "permissions", "permission", "chmod":
-			return IntentModify
-		}
-	}
-	return IntentGeneral
 }
 
 func (qp *QueryProcessor) isViewContext(actions []string) bool {

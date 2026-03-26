@@ -114,8 +114,8 @@ func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, err
 		// If personal database doesn't exist, that's fine - just use main database
 		if os.IsNotExist(err) {
 			db := newDatabase(mainCommands)
-			if err := db.LoadEmbeddings(); err != nil {
-				return nil, err
+			if e := db.LoadEmbeddings(); e != nil {
+				return nil, e
 			}
 			return db, nil
 		}
@@ -123,8 +123,8 @@ func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, err
 		if dbErr, ok := err.(*errors.DatabaseError); ok {
 			if os.IsNotExist(dbErr.Cause) {
 				db := newDatabase(mainCommands)
-				if err := db.LoadEmbeddings(); err != nil {
-					return nil, err
+				if e := db.LoadEmbeddings(); e != nil {
+					return nil, e
 				}
 				return db, nil
 			}
@@ -133,8 +133,8 @@ func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, err
 		if appErr, ok := err.(*errors.AppError); ok {
 			if appErr.Cause != nil && os.IsNotExist(appErr.Cause) {
 				db := newDatabase(mainCommands)
-				if err := db.LoadEmbeddings(); err != nil {
-					return nil, err
+				if e := db.LoadEmbeddings(); e != nil {
+					return nil, e
 				}
 				return db, nil
 			}

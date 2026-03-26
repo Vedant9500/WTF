@@ -92,60 +92,13 @@ func (idx *Index) LoadCommandEmbeddings(filepath string) error {
 
 	reader := bufio.NewReader(f)
 
-	// Read either the modern metadata header (magic-prefixed) or the legacy header.
-	var (
-		numCommands uint32
-		dimension   uint32
-		formatVer   uint16
-		hash        string
-	)
-
 	prefix := make([]byte, 4)
-	if _, err := io.ReadFull(reader, prefix); err != nil {
-		return fmt.Errorf("failed to read command embedding header: %w", err)
+	if _, readErr := io.ReadFull(reader, prefix); readErr != nil {
+		return fmt.Errorf("failed to read command embedding header: %w", readErr)
 	}
-
-	if string(prefix) == cmdEmbeddingsMagic {
-		formatVer = cmdEmbeddingsVersion
-
-		var version uint16
-		if err := binary.Read(reader, binary.LittleEndian, &version); err != nil {
-			return fmt.Errorf("failed to read embedding format version: %w", err)
-		}
-		if version != cmdEmbeddingsVersion {
-			return fmt.Errorf("unsupported embedding format version: %d", version)
-		}
-
-		// Reserved for future compatibility flags.
-		var reserved uint16
-		if err := binary.Read(reader, binary.LittleEndian, &reserved); err != nil {
-			return fmt.Errorf("failed to read embedding reserved header: %w", err)
-		}
-
-		if err := binary.Read(reader, binary.LittleEndian, &numCommands); err != nil {
-			return fmt.Errorf("failed to read num commands: %w", err)
-		}
-		if err := binary.Read(reader, binary.LittleEndian, &dimension); err != nil {
-			return fmt.Errorf("failed to read dimension: %w", err)
-		}
-
-		var hashLen uint16
-		if err := binary.Read(reader, binary.LittleEndian, &hashLen); err != nil {
-			return fmt.Errorf("failed to read command hash length: %w", err)
-		}
-		if hashLen > 0 {
-			hashBytes := make([]byte, hashLen)
-			if _, err := io.ReadFull(reader, hashBytes); err != nil {
-				return fmt.Errorf("failed to read command hash: %w", err)
-			}
-			hash = string(hashBytes)
-		}
-	} else {
-		// Legacy format: first 4 bytes were num_commands.
-		numCommands = binary.LittleEndian.Uint32(prefix)
-		if err := binary.Read(reader, binary.LittleEndian, &dimension); err != nil {
-			return fmt.Errorf("failed to read dimension: %w", err)
-		}
+	numCommands, dimension, formatVer, hash, err := readCommandEmbeddingsHeader(reader, prefix)
+	if err != nil {
+		return err
 	}
 
 	if int(dimension) != idx.Dimension {
@@ -169,6 +122,58 @@ func (idx *Index) LoadCommandEmbeddings(filepath string) error {
 	idx.CmdSourceCommands = numCommands
 
 	return nil
+}
+
+func readCommandEmbeddingsHeader(
+	reader *bufio.Reader,
+	prefix []byte,
+) (numCommands, dimension uint32, formatVersion uint16, hash string, err error) {
+	if string(prefix) != cmdEmbeddingsMagic {
+		// Legacy format: first 4 bytes were num_commands.
+		numCommands = binary.LittleEndian.Uint32(prefix)
+		if err = binary.Read(reader, binary.LittleEndian, &dimension); err != nil {
+			return 0, 0, 0, "", fmt.Errorf("failed to read dimension: %w", err)
+		}
+		return numCommands, dimension, 0, "", nil
+	}
+
+	var version uint16
+	if err = binary.Read(reader, binary.LittleEndian, &version); err != nil {
+		return 0, 0, 0, "", fmt.Errorf("failed to read embedding format version: %w", err)
+	}
+	if version != cmdEmbeddingsVersion {
+		return 0, 0, 0, "", fmt.Errorf("unsupported embedding format version: %d", version)
+	}
+
+	// Reserved for future compatibility flags.
+	var reserved uint16
+	if err = binary.Read(reader, binary.LittleEndian, &reserved); err != nil {
+		return 0, 0, 0, "", fmt.Errorf("failed to read embedding reserved header: %w", err)
+	}
+
+	if err = binary.Read(reader, binary.LittleEndian, &numCommands); err != nil {
+		return 0, 0, 0, "", fmt.Errorf("failed to read num commands: %w", err)
+	}
+
+	if err = binary.Read(reader, binary.LittleEndian, &dimension); err != nil {
+		return 0, 0, 0, "", fmt.Errorf("failed to read dimension: %w", err)
+	}
+
+	var hashLen uint16
+	if err = binary.Read(reader, binary.LittleEndian, &hashLen); err != nil {
+		return 0, 0, 0, "", fmt.Errorf("failed to read command hash length: %w", err)
+	}
+
+	hash = ""
+	if hashLen > 0 {
+		hashBytes := make([]byte, hashLen)
+		if _, err = io.ReadFull(reader, hashBytes); err != nil {
+			return 0, 0, 0, "", fmt.Errorf("failed to read command hash: %w", err)
+		}
+		hash = string(hashBytes)
+	}
+
+	return numCommands, dimension, cmdEmbeddingsVersion, hash, nil
 }
 
 // EmbedQuery computes an embedding for a query by averaging word vectors.
@@ -209,9 +214,9 @@ func (idx *Index) EmbedQuery(query string) []float32 {
 	return out
 }
 
-func (idx *Index) lookupWeightedVector(token string) ([]float32, float64, bool) {
+func (idx *Index) lookupWeightedVector(token string) (vec []float32, weight float64, ok bool) {
 	for _, candidate := range tokenVariants(token) {
-		if vec, ok := idx.WordVectors[candidate]; ok {
+		if vec, ok = idx.WordVectors[candidate]; ok {
 			return vec, idx.tokenWeight(candidate), true
 		}
 	}
