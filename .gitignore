@@ -46,6 +46,7 @@ custom.yml
 commands_fixed.yml
 .tmp/
 releases/
+scripts/enrich_database_llm.py
 
 # Ignore PKGBUILD
 PKGBUILD
