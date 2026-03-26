@@ -77,35 +77,7 @@ func (qp *QueryProcessor) ProcessQuery(query string) *ProcessedQuery {
 
 	// Remove stop words and categorize remaining words
 	for _, word := range words {
-		if qp.stopWords[word] {
-			continue
-		}
-
-		// Check for actions
-		if actions, found := qp.actionWords[word]; found {
-			pq.Actions = append(pq.Actions, actions...)
-			continue
-		}
-
-		// Check for targets
-		if targets, found := qp.targetWords[word]; found {
-			pq.Targets = append(pq.Targets, targets...)
-			// IMPORTANT: Also keep the original word as a keyword
-			// This ensures "ip" stays as "ip" even when expanded to "network interface address"
-			pq.Keywords = append(pq.Keywords, word)
-			continue
-		}
-
-		// Add as keyword
-		pq.Keywords = append(pq.Keywords, word)
-
-		// Expand with synonyms ONLY for very specific cases
-		if synonyms, found := qp.synonyms[word]; found {
-			// Only add the most relevant synonym, not all of them
-			if len(synonyms) > 0 {
-				pq.Keywords = append(pq.Keywords, synonyms[0]) // Just the first/best synonym
-			}
-		}
+		qp.processWord(pq, word)
 	}
 
 	// Apply context-based action enhancement
@@ -123,6 +95,76 @@ func (qp *QueryProcessor) ProcessQuery(query string) *ProcessedQuery {
 	pq.Keywords = removeDuplicates(pq.Keywords)
 
 	return pq
+}
+
+func (qp *QueryProcessor) processWord(pq *ProcessedQuery, word string) {
+	normalized := normalizeToken(word)
+	if qp.isStopWord(word, normalized) {
+		return
+	}
+
+	if qp.tryAppendActions(pq, word, normalized) {
+		return
+	}
+
+	if qp.tryAppendTargets(pq, word, normalized) {
+		return
+	}
+
+	qp.appendKeywordsAndSynonyms(pq, word, normalized)
+}
+
+func (qp *QueryProcessor) isStopWord(word, normalized string) bool {
+	return qp.stopWords[word] || qp.stopWords[normalized]
+}
+
+func (qp *QueryProcessor) tryAppendActions(pq *ProcessedQuery, word, normalized string) bool {
+	if actions, found := qp.actionWords[word]; found {
+		pq.Actions = append(pq.Actions, actions...)
+		return true
+	}
+	if normalized != word {
+		if actions, found := qp.actionWords[normalized]; found {
+			pq.Actions = append(pq.Actions, actions...)
+			return true
+		}
+	}
+	return false
+}
+
+func (qp *QueryProcessor) tryAppendTargets(pq *ProcessedQuery, word, normalized string) bool {
+	if targets, found := qp.targetWords[word]; found {
+		pq.Targets = append(pq.Targets, targets...)
+		// Keep the original token as keyword to preserve direct user signal.
+		pq.Keywords = append(pq.Keywords, word)
+		return true
+	}
+	if normalized != word {
+		if targets, found := qp.targetWords[normalized]; found {
+			pq.Targets = append(pq.Targets, targets...)
+			pq.Keywords = append(pq.Keywords, word, normalized)
+			return true
+		}
+	}
+	return false
+}
+
+func (qp *QueryProcessor) appendKeywordsAndSynonyms(pq *ProcessedQuery, word, normalized string) {
+	pq.Keywords = append(pq.Keywords, word)
+	if normalized != word {
+		pq.Keywords = append(pq.Keywords, normalized)
+	}
+
+	if synonyms, found := qp.synonyms[word]; found {
+		if len(synonyms) > 0 {
+			pq.Keywords = append(pq.Keywords, synonyms[0])
+		}
+		return
+	}
+
+	if synonyms, found := qp.synonyms[normalized]; found && len(synonyms) > 0 {
+		pq.Keywords = append(pq.Keywords, synonyms[0])
+	}
 }
 
 // cleanQuery removes unnecessary characters and normalizes the text
@@ -186,6 +228,8 @@ func (qp *QueryProcessor) detectIntentFromActions(actions []string) QueryIntent 
 		case "install", "add", "download":
 			return IntentInstall
 		case "run", "execute", "start", "launch":
+			return IntentRun
+		case "kill", "stop", "terminate":
 			return IntentRun
 		case "configure", "config", "setup", "set":
 			return IntentConfigure
@@ -404,9 +448,11 @@ func buildActionWords() map[string][]string {
 		"launch":  {"start", "run", "execute"},
 
 		// Installing
-		"install": {"install", "setup", "add"},
-		"setup":   {"setup", "install", "configure"},
-		"add":     {"add", "install", "setup"},
+		"install":   {"install", "setup", "add"},
+		"setup":     {"setup", "install", "configure"},
+		"configure": {"configure", "config", "setup", "set"},
+		"config":    {"configure", "config", "setup", "set"},
+		"add":       {"add", "install", "setup"},
 
 		// Compression
 		"compress":   {"compress", "archive", "zip", "tar"},

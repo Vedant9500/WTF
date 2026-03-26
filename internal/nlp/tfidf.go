@@ -42,6 +42,14 @@ type TFIDFResult struct {
 
 // buildIndex creates the TF-IDF index from the command database
 func (s *TFIDFSearcher) buildIndex() {
+	if len(s.commands) == 0 {
+		s.vocabulary = make(map[string]int)
+		s.idf = nil
+		s.commandTF = nil
+		s.commandNorms = nil
+		return
+	}
+
 	// Step 1: Build vocabulary from all commands
 	wordCounts := make(map[string]int)
 	documents := make([][]string, len(s.commands))
@@ -87,7 +95,8 @@ func (s *TFIDFSearcher) buildIndex() {
 	s.idf = make([]float64, len(s.vocabulary))
 	for word, idx := range s.vocabulary {
 		docCount := wordCounts[word]
-		s.idf[idx] = math.Log(float64(len(s.commands)) / float64(docCount))
+		// Use smoothed IDF to avoid all-zero vectors on tiny corpora (e.g., one document).
+		s.idf[idx] = math.Log((1.0+float64(len(s.commands)))/(1.0+float64(docCount))) + 1.0
 	}
 
 	// Step 4: Calculate TF for each command and document norms
@@ -125,12 +134,21 @@ func (s *TFIDFSearcher) tokenize(text string) []string {
 		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 	})
 
-	var tokens []string
+	var unigrams []string
 	for _, word := range words {
+		normalized := normalizeToken(word)
 		// Skip very short words and common stop words
-		if len(word) >= 2 && !s.isStopWord(word) {
-			tokens = append(tokens, word)
+		if len(normalized) >= 2 && !s.isStopWord(normalized) {
+			unigrams = append(unigrams, normalized)
 		}
+	}
+
+	tokens := make([]string, 0, len(unigrams)*2)
+	tokens = append(tokens, unigrams...)
+
+	// Add adjacent bigrams to preserve short command phrases (e.g., "git commit").
+	for i := 0; i+1 < len(unigrams); i++ {
+		tokens = append(tokens, unigrams[i]+"_"+unigrams[i+1])
 	}
 
 	return tokens
@@ -146,6 +164,10 @@ func (s *TFIDFSearcher) isStopWord(word string) bool {
 
 // Search performs TF-IDF based search with cosine similarity
 func (s *TFIDFSearcher) Search(query string, limit int) []TFIDFResult {
+	if limit <= 0 {
+		return []TFIDFResult{}
+	}
+
 	// Tokenize query
 	queryTokens := s.tokenize(query)
 	if len(queryTokens) == 0 {
@@ -231,6 +253,10 @@ func (s *TFIDFSearcher) GetVocabularyStats() map[string]interface{} {
 
 // getAverageTermsPerCommand calculates the average number of terms per command
 func (s *TFIDFSearcher) getAverageTermsPerCommand() float64 {
+	if len(s.commandTF) == 0 {
+		return 0
+	}
+
 	totalTerms := 0
 	for _, termMap := range s.commandTF {
 		totalTerms += len(termMap)

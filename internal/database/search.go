@@ -12,6 +12,8 @@ import (
 	"github.com/Vedant9500/WTF/internal/utils"
 )
 
+const queryActionCompress = "compress"
+
 // SearchResult represents a command with its relevance score
 type SearchResult struct {
 	Command *Command
@@ -325,22 +327,22 @@ func isDomainSpecificMatch(word string, cmd *Command) bool {
 	cmdLower := strings.ToLower(cmd.Command)
 
 	domainMappings := map[string][]string{
-		"compress":        {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", "compress", constants.Archive},
-		constants.Archive: {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", "compress", constants.Archive, "unzip"},
-		"extract":         {constants.FormatTar, "unzip", "gunzip", "extract", "unarchive"},
-		"directory":       {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
-		"folder":          {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
-		"create":          {"mkdir", "touch", "make", "new"},
-		"file":            {"cp", "mv", "rm", "touch", "cat", "less", "more"},
-		constants.Search:  {"grep", "find", "locate", "ag", "rg"},
-		"download":        {"wget", "curl", "fetch", "download"},
-		"git":             {"git", "clone", "commit", "push", "pull", "branch"},
-		"package":         {"apt", "yum", "dnf", "pkg", "brew", "pip", "npm"},
-		"process":         {"ps", "kill", "top", "htop", "jobs"},
-		"network":         {"ping", "ssh", "scp", "rsync", "nc", "nmap"},
-		"edit":            {"vim", "nano", "emacs", "edit", "sed", "awk"},
-		"permission":      {"chmod", "chown", "chgrp", "sudo"},
-		"new":             {"mkdir", "touch", "create", "make"},
+		queryActionCompress: {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", queryActionCompress, constants.Archive},
+		constants.Archive:   {constants.FormatTar, "gzip", constants.FormatZip, "bzip", "7z", queryActionCompress, constants.Archive, "unzip"},
+		"extract":           {constants.FormatTar, "unzip", "gunzip", "extract", "unarchive"},
+		"directory":         {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
+		"folder":            {"mkdir", "rmdir", "ls", "dir", "cd", "pwd"},
+		"create":            {"mkdir", "touch", "make", "new"},
+		"file":              {"cp", "mv", "rm", "touch", "cat", "less", "more"},
+		constants.Search:    {"grep", "find", "locate", "ag", "rg"},
+		"download":          {"wget", "curl", "fetch", "download"},
+		"git":               {"git", "clone", "commit", "push", "pull", "branch"},
+		"package":           {"apt", "yum", "dnf", "pkg", "brew", "pip", "npm"},
+		"process":           {"ps", "kill", "top", "htop", "jobs"},
+		"network":           {"ping", "ssh", "scp", "rsync", "nc", "nmap"},
+		"edit":              {"vim", "nano", "emacs", "edit", "sed", "awk"},
+		"permission":        {"chmod", "chown", "chgrp", "sudo"},
+		"new":               {"mkdir", "touch", "create", "make"},
 	}
 
 	// Check if the command belongs to the word's domain
@@ -372,7 +374,7 @@ func getCategoryRelevanceBoost(cmd *Command, queryWords []string) float64 {
 // getCategoryBoostForWord returns the boost factor for a specific word and command
 func getCategoryBoostForWord(word, cmdLower string) float64 {
 	switch word {
-	case "compress", constants.Archive:
+	case queryActionCompress, constants.Archive:
 		return getCompressionBoost(cmdLower)
 	case constants.FormatZip:
 		return getZipBoost(cmdLower)
@@ -893,7 +895,7 @@ func applyActionBoosts(cmdLower, descLower string, actions []string) float64 {
 		}
 
 		// Special handling for compression actions
-		if action == "compress" || action == "archive" {
+		if action == queryActionCompress || action == constants.Archive {
 			if containsAny(cmdLower, []string{constants.FormatTar, constants.FormatZip, "gzip"}) {
 				boost *= 2.5
 			}

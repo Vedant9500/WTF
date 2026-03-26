@@ -488,7 +488,7 @@ func TestComplexQueryProcessing(t *testing.T) {
 		{
 			name:           "Configuration query",
 			query:          "configure ssh keys for github",
-			expectedIntent: IntentGeneral, // Adjusted to match actual behavior
+			expectedIntent: IntentConfigure,
 			shouldContain:  []string{"ssh", "keys", "github"},
 		},
 	}
@@ -549,5 +549,46 @@ func TestStopWordFiltering(t *testing.T) {
 		if !found {
 			t.Errorf("Expected word '%s' should be in enhanced keywords %v", expected, enhanced)
 		}
+	}
+}
+
+func TestProcessTerminationIntentDetection(t *testing.T) {
+	processor := NewQueryProcessor()
+
+	testCases := []string{
+		"kill process",
+		"stop process",
+		"terminate process",
+	}
+
+	for _, query := range testCases {
+		t.Run(query, func(t *testing.T) {
+			result := processor.ProcessQuery(query)
+			if result.Intent != IntentRun {
+				t.Fatalf("expected intent %s for query %q, got %s", IntentRun, query, result.Intent)
+			}
+		})
+	}
+}
+
+func TestInflectedActionFormsMapToIntent(t *testing.T) {
+	processor := NewQueryProcessor()
+
+	testCases := []struct {
+		query  string
+		intent QueryIntent
+	}{
+		{query: "installing docker package", intent: IntentInstall},
+		{query: "configured ssh keys", intent: IntentConfigure},
+		{query: "compressing files", intent: IntentGeneral},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.query, func(t *testing.T) {
+			result := processor.ProcessQuery(tc.query)
+			if result.Intent != tc.intent {
+				t.Fatalf("expected intent %s for query %q, got %s", tc.intent, tc.query, result.Intent)
+			}
+		})
 	}
 }

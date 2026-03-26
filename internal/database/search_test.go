@@ -5,6 +5,40 @@ import (
 	"testing"
 )
 
+func buildPlatformStatusDB() *Database {
+	return &Database{
+		Commands: []Command{
+			{
+				Command:          "systemctl status nginx",
+				Description:      "linux service status",
+				Keywords:         []string{"status", "service", "linux"},
+				CommandLower:     "systemctl status nginx",
+				DescriptionLower: "linux service status",
+				KeywordsLower:    []string{"status", "service", "linux"},
+				Platform:         []string{"linux"},
+			},
+			{
+				Command:          "Get-Service -Name nginx",
+				Description:      "windows service status",
+				Keywords:         []string{"status", "service", "windows"},
+				CommandLower:     "get-service -name nginx",
+				DescriptionLower: "windows service status",
+				KeywordsLower:    []string{"status", "service", "windows"},
+				Platform:         []string{"windows"},
+			},
+			{
+				Command:          "git status",
+				Description:      "show repository status",
+				Keywords:         []string{"status", "git"},
+				CommandLower:     "git status",
+				DescriptionLower: "show repository status",
+				KeywordsLower:    []string{"status", "git"},
+				Platform:         []string{"cross-platform"},
+			},
+		},
+	}
+}
+
 func TestSearch(t *testing.T) {
 	// Create test database
 	db := &Database{
@@ -177,37 +211,7 @@ func TestSearchUniversalContextBoost(t *testing.T) {
 }
 
 func TestSearchUniversalExplicitPlatformsIncludeCrossByDefault(t *testing.T) {
-	db := &Database{
-		Commands: []Command{
-			{
-				Command:          "systemctl status nginx",
-				Description:      "linux service status",
-				Keywords:         []string{"status", "service", "linux"},
-				CommandLower:     "systemctl status nginx",
-				DescriptionLower: "linux service status",
-				KeywordsLower:    []string{"status", "service", "linux"},
-				Platform:         []string{"linux"},
-			},
-			{
-				Command:          "Get-Service -Name nginx",
-				Description:      "windows service status",
-				Keywords:         []string{"status", "service", "windows"},
-				CommandLower:     "get-service -name nginx",
-				DescriptionLower: "windows service status",
-				KeywordsLower:    []string{"status", "service", "windows"},
-				Platform:         []string{"windows"},
-			},
-			{
-				Command:          "git status",
-				Description:      "show repository status",
-				Keywords:         []string{"status", "git"},
-				CommandLower:     "git status",
-				DescriptionLower: "show repository status",
-				KeywordsLower:    []string{"status", "git"},
-				Platform:         []string{"cross-platform"},
-			},
-		},
-	}
+	db := buildPlatformStatusDB()
 
 	db.BuildUniversalIndex()
 	results := db.SearchUniversal("status", SearchOptions{Limit: 10, Platforms: []string{"windows"}})
@@ -238,37 +242,7 @@ func TestSearchUniversalExplicitPlatformsIncludeCrossByDefault(t *testing.T) {
 }
 
 func TestSearchUniversalNoCrossPlatformExcludesCrossPlatformResults(t *testing.T) {
-	db := &Database{
-		Commands: []Command{
-			{
-				Command:          "systemctl status nginx",
-				Description:      "linux service status",
-				Keywords:         []string{"status", "service", "linux"},
-				CommandLower:     "systemctl status nginx",
-				DescriptionLower: "linux service status",
-				KeywordsLower:    []string{"status", "service", "linux"},
-				Platform:         []string{"linux"},
-			},
-			{
-				Command:          "Get-Service -Name nginx",
-				Description:      "windows service status",
-				Keywords:         []string{"status", "service", "windows"},
-				CommandLower:     "get-service -name nginx",
-				DescriptionLower: "windows service status",
-				KeywordsLower:    []string{"status", "service", "windows"},
-				Platform:         []string{"windows"},
-			},
-			{
-				Command:          "git status",
-				Description:      "show repository status",
-				Keywords:         []string{"status", "git"},
-				CommandLower:     "git status",
-				DescriptionLower: "show repository status",
-				KeywordsLower:    []string{"status", "git"},
-				Platform:         []string{"cross-platform"},
-			},
-		},
-	}
+	db := buildPlatformStatusDB()
 
 	db.BuildUniversalIndex()
 	results := db.SearchUniversal("status", SearchOptions{
