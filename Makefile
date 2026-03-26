@@ -118,6 +118,39 @@ benchmark:
 	@echo "Running benchmarks..."
 	go test ./... -bench=. -benchmem
 
+# Run evaluation harness (dev set, with hints)
+.PHONY: bench-eval
+bench-eval:
+	@echo "Running evaluation harness (dev set)..."
+	go run ./cmd/eval -set dev
+
+# Run evaluation harness without hints for comparison
+.PHONY: bench-eval-no-hints
+bench-eval-no-hints:
+	@echo "Running evaluation harness (dev set, no hints)..."
+	go run ./cmd/eval -set dev -no-hints
+
+# Compare with and without hints
+.PHONY: bench-eval-compare
+bench-eval-compare:
+	@echo "=== WITH HINTS ==="
+	go run ./cmd/eval -set dev
+	@echo ""
+	@echo "=== WITHOUT HINTS ==="
+	go run ./cmd/eval -set dev -no-hints
+
+# Run evaluation on held-out test set (use sparingly)
+.PHONY: bench-eval-test
+bench-eval-test:
+	@echo "Running evaluation harness (test set)..."
+	go run ./cmd/eval -set test
+
+# Run full evaluation (all sets) with JSON output
+.PHONY: bench-eval-json
+bench-eval-json:
+	go run ./cmd/eval -set all -json
+
+
 # Install to local Go bin
 .PHONY: install
 install:

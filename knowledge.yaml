@@ -1,11 +1,11 @@
 # WTF (What's The Function) - AI Knowledge Base
 # Format: YAML Knowledge Graph optimized for LLM consumption
 # Version: 1.2.0
-# Generated: 2026-01-18
+# Generated: 2026-03-26
 
 meta:
   project_name: "WTF (What's The Function)"
-  description: "CLI tool for natural language command discovery using BM25F search"
+  description: "CLI tool for natural language command discovery using BM25F with hybrid lexical/semantic reranking"
   language: "Go"
   go_version: "1.25.8"
   version: "1.2.0"
@@ -43,7 +43,7 @@ architecture:
     - step: 4
       action: "Database loading"
       package: "database"
-      function: "LoadDatabaseWithPersonal()"
+      function: "LoadDatabaseWithPersonal() + LoadEmbeddings()"
       
     - step: 5
       action: "Index building"
@@ -87,7 +87,7 @@ packages:
 
   database:
     path: "internal/database"
-    responsibility: "Command storage, BM25F search engine, TF-IDF reranker"
+    responsibility: "Command storage, BM25F search engine, hybrid candidate fusion, and post-scoring reranking"
     key_files:
       - file: "models.go"
         exports: ["Database", "Command", "SearchResult", "SearchOptions"]
@@ -104,7 +104,7 @@ packages:
 
   nlp:
     path: "internal/nlp"
-    responsibility: "Query processing, intent detection, synonym expansion, TF-IDF"
+    responsibility: "Query processing, weighted intent voting, synonym expansion, TF-IDF"
     key_files:
       - file: "processor.go"
         exports: ["QueryProcessor", "ProcessedQuery", "ProcessQuery()"]
@@ -172,10 +172,10 @@ packages:
 
   embedding:
     path: "internal/embedding"
-    responsibility: "GloVe word vectors for optional semantic search"
+    responsibility: "GloVe word vectors, metadata-aware command embedding loading, and optional semantic scoring"
     key_files:
       - file: "embedding.go"
-        exports: ["Index", "LoadWordVectors()"]
+        exports: ["Index", "LoadWordVectors()", "LoadCommandEmbeddings()", "EmbedQuery()", "SemanticScores()"]
     depends_on: []
 
   constants:
@@ -216,7 +216,7 @@ packages:
 
 search_engine:
   algorithm: "BM25F"
-  description: "Field-weighted Best Match 25 with inverted index"
+  description: "Field-weighted BM25F with NLP normalization, lexical scoring, and optional semantic/TF-IDF candidate fusion"
   
   pipeline:
     - stage: 1
@@ -231,19 +231,34 @@ search_engine:
         - "Generate enhanced keywords"
         
     - stage: 2
+      name: "Long Query Normalization"
+      function: "database.normalizeLongQueryTermsForScoring()"
+      description: "Compacts verbose conversational queries into higher-signal terms"
+
+    - stage: 3
       name: "BM25F Inverted Index Search"
       function: "database.SearchUniversal()"
       formula: "Score = Σ(IDF × boost × termBM25F)"
-      
-    - stage: 3
+
+    - stage: 4
+      name: "Semantic Candidate Merge"
+      function: "database.calculateSemanticCandidateScores()"
+      description: "Adds embedding-similarity candidates when embeddings are available"
+
+    - stage: 5
+      name: "TF-IDF Candidate Merge"
+      function: "database.calculateTFIDFCandidateScores()"
+      description: "Adds lexical-semantic TF-IDF candidates to recover paraphrases"
+
+    - stage: 6
       name: "Cascading Boost"
       function: "database.cascadingBoost()"
-      description: "Token-type weighted boosting"
-      
-    - stage: 4
-      name: "TF-IDF Reranking"
-      function: "database.rerankWithNLP()"
-      description: "Cosine similarity refinement for top results"
+      description: "Token-type weighted boosting with corpus-derived context signals"
+
+    - stage: 7
+      name: "Post-Scoring Hybrid Boosts"
+      function: "database.applyPostScoringBoosts()"
+      description: "Runs TF-IDF reranking, cascading boosts, and optional semantic score blending"
 
   bm25f_parameters:
     k1: 1.2
@@ -299,8 +314,8 @@ nlp_system:
       triggers: []
       default: true
 
-  detection_method: "keyword_matching"
-  detection_note: "NOT ML-based, uses hardcoded keyword maps"
+  detection_method: "weighted keyword/action voting"
+  detection_note: "Non-ML heuristic voting over action and keyword evidence"
 
   synonym_expansion:
     max_per_word: 1
@@ -718,9 +733,45 @@ performance:
   optimizations:
     - "Lowercased cache fields (avoid repeated ToLower())"
     - "Inverted index (avoid full scan)"
+    - "Long-query term normalization and top-IDF term selection"
+    - "Hybrid candidate fusion (BM25F + semantic + TF-IDF)"
     - "Top-K limiting before TF-IDF"
     - "Term selection by IDF (reduce noise)"
     - "LRU cache for repeated queries"
+
+# ============================================================================
+# EMBEDDING SAFETY
+# ============================================================================
+
+embedding_safety:
+  loader: "internal/database/embedding_loader.go"
+  signature: "internal/database/embedding_signature.go"
+  guarantees:
+    - "Command embedding count cannot exceed loaded command count"
+    - "Modern cmd_embeddings.bin carries magic/version/hash metadata"
+    - "Hash mismatch disables semantic command boosting safely"
+    - "Legacy files without hash remain compatible with warning"
+
+# ============================================================================
+# EVALUATION AND ROADMAP
+# ============================================================================
+
+evaluation_and_roadmap:
+  evaluation_harness:
+    file: "scripts/evaluate_search.go"
+    datasets:
+      - "assets/eval_queries.yaml"
+      - "assets/eval_queries_long.yaml"
+    metrics: ["Top1", "Hit@3", "MRR", "NDCG@3", "Per-slice metrics"]
+
+  roadmap:
+    file: "plan.md"
+    approach: "Offline, lightweight, non-LLM IR improvements"
+    phases:
+      - "Phase 1: lexical retrieval upgrades (phrases/proximity/BM25 tuning)"
+      - "Phase 2: pseudo relevance feedback (RM3/Rocchio + clarity gating)"
+      - "Phase 3: lightweight learned linear reranker"
+      - "Phase 4: optional distributional semantics as rerank feature"
 
 # ============================================================================
 # QUICK REFERENCE

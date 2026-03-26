@@ -1,164 +1,321 @@
+# Long/conversational evaluation queries for WTF retrieval benchmarking
+# set: "dev" = used during development/tuning, "test" = held-out for final validation
 queries:
+  # === Recursive Text Search ===
   - query: "how can i recursively search every text file in this project for error or timeout and print matching lines"
     slice: "recursive-text-search"
-    relevant:
-      - "grep"
-      - "ripgrep"
-      - "find"
+    set: "dev"
+    relevant: ["grep", "ripgrep", "find"]
 
   - query: "find every json file and then search for the word timeout inside them"
     slice: "recursive-text-search"
-    relevant:
-      - "find"
-      - "grep"
-      - "ripgrep"
-
-  - query: "i need to replace a string recursively across all files in this directory and keep backups"
-    slice: "recursive-text-replace"
-    relevant:
-      - "sed"
-      - "perl"
-      - "awk"
+    set: "dev"
+    relevant: ["find", "grep", "ripgrep"]
 
   - query: "what command can search recursively but ignore binary files and show line numbers"
     slice: "recursive-text-search"
-    relevant:
-      - "grep"
-      - "ripgrep"
+    set: "dev"
+    relevant: ["grep", "ripgrep"]
 
+  - query: "i want to search through all python files in this project for any import statement that mentions requests"
+    slice: "recursive-text-search"
+    set: "test"
+    relevant: ["grep", "ripgrep", "find"]
+
+  # === Text Replace ===
+  - query: "i need to replace a string recursively across all files in this directory and keep backups"
+    slice: "recursive-text-replace"
+    set: "dev"
+    relevant: ["sed", "perl", "awk"]
+
+  - query: "how can i replace every occurrence of localhost with my server ip in all config files"
+    slice: "recursive-text-replace"
+    set: "dev"
+    relevant: ["sed", "perl"]
+
+  # === Download ===
   - query: "show me how to download a file from a url and save it with a custom name in current directory"
     slice: "download"
-    relevant:
-      - "wget"
-      - "curl"
+    set: "dev"
+    relevant: ["wget", "curl"]
 
   - query: "download a file over https and save it to a specific output filename"
     slice: "download"
-    relevant:
-      - "wget"
-      - "curl"
+    set: "dev"
+    relevant: ["wget", "curl"]
 
   - query: "i want to resume a partially downloaded file from the same url"
     slice: "download"
-    relevant:
-      - "wget"
-      - "curl"
+    set: "dev"
+    relevant: ["wget", "curl"]
 
+  - query: "what tool can mirror an entire website for offline browsing"
+    slice: "download"
+    set: "test"
+    relevant: ["wget", "curl"]
+
+  # === Git ===
   - query: "what is the safest way to undo the last git commit but keep my file changes"
     slice: "git-undo"
-    relevant:
-      - "git reset"
-      - "git revert"
+    set: "dev"
+    relevant: ["git reset", "git revert"]
 
   - query: "how do i undo a commit that has already been pushed to remote without rewriting history"
     slice: "git-undo"
-    relevant:
-      - "git revert"
+    set: "dev"
+    relevant: ["git revert"]
 
   - query: "what command should i use to remove merged branches but keep main and develop"
     slice: "git-branch"
-    relevant:
-      - "git branch"
+    set: "dev"
+    relevant: ["git branch"]
 
+  - query: "i need to save my current work temporarily and switch to another branch without committing"
+    slice: "git-stash"
+    set: "dev"
+    relevant: ["git stash"]
+
+  - query: "how do i see the difference between my current code and the last commit"
+    slice: "git-diff"
+    set: "dev"
+    relevant: ["git diff"]
+
+  - query: "show me how to clone a repo and only get the latest commit without full history"
+    slice: "git-clone"
+    set: "dev"
+    relevant: ["git clone"]
+
+  - query: "what is the command to squash the last three commits into one before pushing"
+    slice: "git-merge"
+    set: "test"
+    relevant: ["git rebase"]
+
+  - query: "how can i see which files were changed in a specific commit"
+    slice: "git-log"
+    set: "dev"
+    relevant: ["git show", "git log", "git diff"]
+
+  # === Archive ===
   - query: "how can i compress this folder into a tar gz archive with maximum compatibility"
     slice: "archive"
-    relevant:
-      - "tar"
-      - "gzip"
+    set: "dev"
+    relevant: ["tar", "gzip"]
 
   - query: "i need to extract a tar gz archive into a target directory preserving permissions"
     slice: "archive"
-    relevant:
-      - "tar"
-      - "gunzip"
+    set: "dev"
+    relevant: ["tar", "gunzip"]
 
   - query: "please suggest a command to unzip an archive into the current working folder"
     slice: "archive"
-    relevant:
-      - "unzip"
+    set: "dev"
+    relevant: ["unzip"]
 
+  - query: "how do i create a password protected zip archive from the command line"
+    slice: "archive"
+    set: "test"
+    relevant: ["zip", "7z"]
+
+  # === File Copy ===
   - query: "please show me a command to copy a big file while showing progress"
     slice: "file-copy-progress"
-    relevant:
-      - "cp"
-      - "rsync"
+    set: "dev"
+    relevant: ["cp", "rsync"]
 
   - query: "copy a directory tree to another disk and display progress and speed"
     slice: "file-copy-progress"
-    relevant:
-      - "rsync"
-      - "cp"
+    set: "dev"
+    relevant: ["rsync", "cp"]
 
+  # === Disk ===
   - query: "how do i check disk usage for each folder under the current directory sorted by size"
     slice: "disk"
-    relevant:
-      - "du"
-      - "df"
+    set: "dev"
+    relevant: ["du", "df"]
 
   - query: "show free and used filesystem space in human readable units"
     slice: "disk"
-    relevant:
-      - "df"
+    set: "dev"
+    relevant: ["df"]
 
+  # === Process / Port ===
   - query: "which command finds the process listening on port 8080 on windows"
     slice: "process-on-port"
-    relevant:
-      - "netstat"
-      - "ss"
-      - "lsof"
+    set: "dev"
+    relevant: ["netstat", "ss", "lsof"]
 
   - query: "on linux i need to find the pid that owns a tcp listening socket on a given port"
     slice: "process-on-port"
-    relevant:
-      - "lsof"
-      - "ss"
-      - "netstat"
+    set: "dev"
+    relevant: ["lsof", "ss", "netstat"]
 
   - query: "what can i use to list all running processes and then terminate one by pid"
     slice: "process-management"
-    relevant:
-      - "ps"
-      - "kill"
-      - "top"
+    set: "dev"
+    relevant: ["ps", "kill", "top"]
 
+  - query: "how do i find a process by name and kill it without knowing the pid"
+    slice: "process-management"
+    set: "dev"
+    relevant: ["pkill", "killall", "pgrep"]
+
+  - query: "show me a way to monitor cpu and memory usage of a specific process in real time"
+    slice: "monitoring"
+    set: "test"
+    relevant: ["top", "htop", "ps"]
+
+  # === Filesystem ===
   - query: "show command to create a new folder then move into it in one workflow"
     slice: "filesystem-basic"
-    relevant:
-      - "mkdir"
-      - "cd"
+    set: "dev"
+    relevant: ["mkdir", "cd"]
 
   - query: "find all files larger than 500mb under this project and print full paths"
     slice: "filesystem-find"
-    relevant:
-      - "find"
+    set: "dev"
+    relevant: ["find"]
 
   - query: "list hidden files in this directory with detailed permissions and owner"
     slice: "filesystem-basic"
-    relevant:
-      - "ls"
+    set: "dev"
+    relevant: ["ls"]
 
+  - query: "what is the command to recursively delete a directory and everything inside it"
+    slice: "filesystem-basic"
+    set: "dev"
+    relevant: ["rm"]
+
+  - query: "how do i create a symbolic link that points to another file or directory"
+    slice: "symlink"
+    set: "dev"
+    relevant: ["ln"]
+
+  # === Package Management ===
   - query: "install a python package in the current environment with pip"
     slice: "package"
-    relevant:
-      - "pip install"
+    set: "dev"
+    relevant: ["pip install"]
 
   - query: "install a package on ubuntu from apt repositories"
     slice: "package"
-    relevant:
-      - "apt"
+    set: "dev"
+    relevant: ["apt"]
 
+  - query: "what command do i use to update all installed packages on my linux system"
+    slice: "package"
+    set: "test"
+    relevant: ["apt", "yum", "dnf", "pacman"]
+
+  # === Docker ===
   - query: "build a docker image from this repo and tag it for local testing"
     slice: "docker"
-    relevant:
-      - "docker build"
+    set: "dev"
+    relevant: ["docker build"]
 
   - query: "list active docker containers and include stopped ones too"
     slice: "docker"
-    relevant:
-      - "docker ps"
+    set: "dev"
+    relevant: ["docker ps"]
 
   - query: "remove an unused docker image by name or id"
     slice: "docker"
-    relevant:
-      - "docker image rm"
-      - "docker rmi"
+    set: "dev"
+    relevant: ["docker image rm", "docker rmi"]
+
+  - query: "how do i get a bash shell inside a running docker container to debug it"
+    slice: "docker-exec"
+    set: "dev"
+    relevant: ["docker exec"]
+
+  - query: "show me how to start all services defined in a docker compose file in the background"
+    slice: "docker-compose"
+    set: "test"
+    relevant: ["docker-compose", "docker compose"]
+
+  # === SSH & Remote ===
+  - query: "how can i securely copy a file from my local machine to a remote server using ssh"
+    slice: "ssh"
+    set: "dev"
+    relevant: ["scp", "rsync"]
+
+  - query: "what is the command to connect to a remote server on a non standard ssh port"
+    slice: "ssh"
+    set: "dev"
+    relevant: ["ssh"]
+
+  - query: "i want to set up ssh key based authentication so i dont have to type my password every time"
+    slice: "ssh"
+    set: "dev"
+    relevant: ["ssh-keygen", "ssh-copy-id"]
+
+  # === Permissions ===
+  - query: "how do i make a shell script executable so i can run it directly from the terminal"
+    slice: "permissions"
+    set: "dev"
+    relevant: ["chmod"]
+
+  - query: "what command changes the owner and group of all files in a directory recursively"
+    slice: "permissions"
+    set: "dev"
+    relevant: ["chown"]
+
+  # === Networking ===
+  - query: "i need to look up the dns records for a domain to debug a routing issue"
+    slice: "network-dns"
+    set: "dev"
+    relevant: ["dig", "nslookup", "host"]
+
+  - query: "show me how to trace the network path from my machine to a remote server"
+    slice: "network-basic"
+    set: "dev"
+    relevant: ["traceroute", "tracepath"]
+
+  # === API / HTTP ===
+  - query: "how do i send a post request with a json body using curl from the terminal"
+    slice: "curl-api"
+    set: "dev"
+    relevant: ["curl", "httpie"]
+
+  - query: "what is the curl command to make a get api request with custom auth headers"
+    slice: "curl-api"
+    set: "test"
+    relevant: ["curl", "httpie"]
+
+  # === Text Processing ===
+  - query: "i want to sort a large csv file by the third column and remove duplicate lines"
+    slice: "text-processing"
+    set: "dev"
+    relevant: ["sort", "uniq"]
+
+  - query: "show me how to extract just the second column from a tab separated file"
+    slice: "text-processing"
+    set: "dev"
+    relevant: ["cut", "awk"]
+
+  - query: "how do i compare two files and see only the lines that are different between them"
+    slice: "text-processing"
+    set: "dev"
+    relevant: ["diff"]
+
+  # === Service Management ===
+  - query: "how do i restart a system service and check its status on a linux machine"
+    slice: "service"
+    set: "dev"
+    relevant: ["systemctl"]
+
+  # === Scheduling ===
+  - query: "what is the command to set up a scheduled task that runs every day at midnight on linux"
+    slice: "scheduling"
+    set: "dev"
+    relevant: ["crontab", "cron"]
+
+  # === System Info ===
+  - query: "how can i check what version of linux is running on this server"
+    slice: "system-info"
+    set: "dev"
+    relevant: ["uname", "lsb_release", "cat"]
+
+  - query: "show me how to check available memory and swap usage on this machine"
+    slice: "monitoring"
+    set: "dev"
+    relevant: ["free"]

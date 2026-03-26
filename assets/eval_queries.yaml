@@ -1,203 +1,623 @@
+# Short evaluation queries for WTF retrieval benchmarking
+# set: "dev" = used during development/tuning, "test" = held-out for final validation
 queries:
+  # === Git ===
   - query: "undo last git commit keep changes"
     slice: "git-undo"
-    relevant:
-      - "git reset"
-      - "git revert"
+    set: "dev"
+    relevant: ["git reset", "git revert"]
 
   - query: "revert a pushed commit safely"
     slice: "git-undo"
-    relevant:
-      - "git revert"
+    set: "dev"
+    relevant: ["git revert"]
+
+  - query: "unstage a file from git"
+    slice: "git-undo"
+    set: "test"
+    relevant: ["git reset", "git restore"]
 
   - query: "delete merged local branches"
     slice: "git-branch"
-    relevant:
-      - "git branch"
+    set: "dev"
+    relevant: ["git branch"]
+
+  - query: "create a new git branch"
+    slice: "git-branch"
+    set: "dev"
+    relevant: ["git branch", "git checkout", "git switch"]
+
+  - query: "switch to another branch"
+    slice: "git-branch"
+    set: "test"
+    relevant: ["git checkout", "git switch"]
 
   - query: "show git commit history"
     slice: "git-log"
-    relevant:
-      - "git log"
+    set: "dev"
+    relevant: ["git log"]
 
+  - query: "show changes in last commit"
+    slice: "git-diff"
+    set: "dev"
+    relevant: ["git diff", "git show"]
+
+  - query: "compare two branches"
+    slice: "git-diff"
+    set: "test"
+    relevant: ["git diff"]
+
+  - query: "stash uncommitted changes"
+    slice: "git-stash"
+    set: "dev"
+    relevant: ["git stash"]
+
+  - query: "apply stashed changes"
+    slice: "git-stash"
+    set: "dev"
+    relevant: ["git stash"]
+
+  - query: "clone a git repository"
+    slice: "git-clone"
+    set: "dev"
+    relevant: ["git clone"]
+
+  - query: "merge branch into main"
+    slice: "git-merge"
+    set: "dev"
+    relevant: ["git merge"]
+
+  - query: "rebase branch on top of main"
+    slice: "git-merge"
+    set: "test"
+    relevant: ["git rebase"]
+
+  - query: "create a git tag"
+    slice: "git-tag"
+    set: "dev"
+    relevant: ["git tag"]
+
+  - query: "add remote repository"
+    slice: "git-remote"
+    set: "dev"
+    relevant: ["git remote"]
+
+  - query: "cherry pick a commit"
+    slice: "git-undo"
+    set: "dev"
+    relevant: ["git cherry-pick"]
+
+  # === Docker ===
   - query: "remove docker image"
     slice: "docker"
-    relevant:
-      - "docker image rm"
-      - "docker rmi"
+    set: "dev"
+    relevant: ["docker image rm", "docker rmi"]
 
   - query: "list running docker containers"
     slice: "docker"
-    relevant:
-      - "docker ps"
+    set: "dev"
+    relevant: ["docker ps"]
 
   - query: "build docker image from current folder"
     slice: "docker"
-    relevant:
-      - "docker build"
+    set: "dev"
+    relevant: ["docker build"]
 
+  - query: "stop all running containers"
+    slice: "docker"
+    set: "test"
+    relevant: ["docker stop", "docker kill"]
+
+  - query: "enter a running container shell"
+    slice: "docker-exec"
+    set: "dev"
+    relevant: ["docker exec"]
+
+  - query: "view container logs"
+    slice: "docker-logs"
+    set: "dev"
+    relevant: ["docker logs"]
+
+  - query: "start docker compose services"
+    slice: "docker-compose"
+    set: "dev"
+    relevant: ["docker-compose", "docker compose"]
+
+  - query: "pull docker image from registry"
+    slice: "docker"
+    set: "dev"
+    relevant: ["docker pull"]
+
+  # === Filesystem ===
   - query: "find files bigger than 1gb"
     slice: "filesystem-find"
-    relevant:
-      - "find"
+    set: "dev"
+    relevant: ["find"]
 
   - query: "find all json files"
     slice: "filesystem-find"
-    relevant:
-      - "find"
+    set: "dev"
+    relevant: ["find"]
+
+  - query: "find files modified today"
+    slice: "filesystem-find"
+    set: "dev"
+    relevant: ["find"]
+
+  - query: "find empty directories"
+    slice: "filesystem-find"
+    set: "test"
+    relevant: ["find"]
 
   - query: "create a new directory"
     slice: "filesystem-basic"
-    relevant:
-      - "mkdir"
+    set: "dev"
+    relevant: ["mkdir"]
 
   - query: "delete an empty directory"
     slice: "filesystem-basic"
-    relevant:
-      - "rmdir"
-      - "rm"
-
-  - query: "copy directory recursively"
-    slice: "filesystem-copy"
-    relevant:
-      - "cp"
-      - "rsync"
-
-  - query: "copy file with progress"
-    slice: "filesystem-copy"
-    relevant:
-      - "cp"
-      - "rsync"
-
-  - query: "move file to another folder"
-    slice: "filesystem-move"
-    relevant:
-      - "mv"
-
-  - query: "search text recursively in files"
-    slice: "text-search"
-    relevant:
-      - "grep"
-      - "ripgrep"
-      - "find"
-
-  - query: "replace text in multiple files"
-    slice: "text-replace"
-    relevant:
-      - "sed"
-      - "perl"
-      - "awk"
-
-  - query: "find and replace pattern in file"
-    slice: "text-replace"
-    relevant:
-      - "sed"
-      - "perl"
-
-  - query: "show first 20 lines of file"
-    slice: "text-view"
-    relevant:
-      - "head"
-
-  - query: "show last 50 lines of log"
-    slice: "text-view"
-    relevant:
-      - "tail"
-
-  - query: "show open ports on windows"
-    slice: "network-ports"
-    relevant:
-      - "netstat"
-      - "ss"
-      - "lsof"
-
-  - query: "find process using port 8080"
-    slice: "network-ports"
-    relevant:
-      - "lsof"
-      - "netstat"
-      - "ss"
-
-  - query: "test if host is reachable"
-    slice: "network-basic"
-    relevant:
-      - "ping"
-
-  - query: "download a file from url"
-    slice: "download"
-    relevant:
-      - "wget"
-      - "curl"
-
-  - query: "download over https with output filename"
-    slice: "download"
-    relevant:
-      - "wget"
-      - "curl"
-
-  - query: "compress a folder into tar.gz"
-    slice: "archive"
-    relevant:
-      - "tar"
-      - "gzip"
-
-  - query: "extract tar gz archive"
-    slice: "archive"
-    relevant:
-      - "tar"
-      - "gunzip"
-
-  - query: "unzip a zip file"
-    slice: "archive"
-    relevant:
-      - "unzip"
-
-  - query: "check disk usage by folder"
-    slice: "disk"
-    relevant:
-      - "du"
-      - "df"
-
-  - query: "show filesystem free space"
-    slice: "disk"
-    relevant:
-      - "df"
-
-  - query: "list running processes"
-    slice: "process"
-    relevant:
-      - "ps"
-      - "top"
-      - "htop"
-
-  - query: "kill process by pid"
-    slice: "process"
-    relevant:
-      - "kill"
-      - "pkill"
-
-  - query: "insall python package with pip"
-    slice: "package"
-    relevant:
-      - "pip install"
-
-  - query: "install package with apt"
-    slice: "package"
-    relevant:
-      - "apt"
+    set: "dev"
+    relevant: ["rmdir", "rm"]
 
   - query: "list files with details"
     slice: "filesystem-basic"
-    relevant:
-      - "ls"
+    set: "dev"
+    relevant: ["ls"]
 
+  - query: "show current directory path"
+    slice: "filesystem-basic"
+    set: "dev"
+    relevant: ["pwd"]
+
+  - query: "create an empty file"
+    slice: "filesystem-basic"
+    set: "test"
+    relevant: ["touch"]
+
+  - query: "copy directory recursively"
+    slice: "filesystem-copy"
+    set: "dev"
+    relevant: ["cp", "rsync"]
+
+  - query: "copy file with progress"
+    slice: "filesystem-copy"
+    set: "dev"
+    relevant: ["cp", "rsync"]
+
+  - query: "move file to another folder"
+    slice: "filesystem-move"
+    set: "dev"
+    relevant: ["mv"]
+
+  - query: "rename a file"
+    slice: "filesystem-move"
+    set: "dev"
+    relevant: ["mv", "rename"]
+
+  - query: "create symbolic link"
+    slice: "symlink"
+    set: "dev"
+    relevant: ["ln"]
+
+  - query: "show file type"
+    slice: "filesystem-basic"
+    set: "dev"
+    relevant: ["file"]
+
+  - query: "count lines in a file"
+    slice: "text-processing"
+    set: "dev"
+    relevant: ["wc"]
+
+  # === Text Search & Processing ===
+  - query: "search text recursively in files"
+    slice: "text-search"
+    set: "dev"
+    relevant: ["grep", "ripgrep", "find"]
+
+  - query: "search for pattern using regex"
+    slice: "text-search"
+    set: "dev"
+    relevant: ["grep", "ripgrep"]
+
+  - query: "replace text in multiple files"
+    slice: "text-replace"
+    set: "dev"
+    relevant: ["sed", "perl", "awk"]
+
+  - query: "find and replace pattern in file"
+    slice: "text-replace"
+    set: "dev"
+    relevant: ["sed", "perl"]
+
+  - query: "show first 20 lines of file"
+    slice: "text-view"
+    set: "dev"
+    relevant: ["head"]
+
+  - query: "show last 50 lines of log"
+    slice: "text-view"
+    set: "dev"
+    relevant: ["tail"]
+
+  - query: "follow log file in real time"
+    slice: "text-view"
+    set: "dev"
+    relevant: ["tail"]
+
+  - query: "sort lines in a file"
+    slice: "text-processing"
+    set: "dev"
+    relevant: ["sort"]
+
+  - query: "remove duplicate lines"
+    slice: "text-processing"
+    set: "dev"
+    relevant: ["uniq", "sort"]
+
+  - query: "extract specific columns from csv"
+    slice: "text-processing"
+    set: "test"
+    relevant: ["cut", "awk"]
+
+  - query: "print specific field from text"
+    slice: "text-processing"
+    set: "dev"
+    relevant: ["awk", "cut"]
+
+  - query: "translate characters in text"
+    slice: "text-processing"
+    set: "dev"
+    relevant: ["tr"]
+
+  - query: "compare two text files"
+    slice: "text-processing"
+    set: "dev"
+    relevant: ["diff"]
+
+  # === Network ===
+  - query: "show open ports on windows"
+    slice: "network-ports"
+    set: "dev"
+    relevant: ["netstat", "ss", "lsof"]
+
+  - query: "find process using port 8080"
+    slice: "network-ports"
+    set: "dev"
+    relevant: ["lsof", "netstat", "ss"]
+
+  - query: "test if host is reachable"
+    slice: "network-basic"
+    set: "dev"
+    relevant: ["ping"]
+
+  - query: "trace route to a server"
+    slice: "network-basic"
+    set: "dev"
+    relevant: ["traceroute", "tracepath"]
+
+  - query: "lookup dns record for domain"
+    slice: "network-dns"
+    set: "dev"
+    relevant: ["dig", "nslookup", "host"]
+
+  - query: "show network interfaces"
+    slice: "network-basic"
+    set: "test"
+    relevant: ["ifconfig", "ip"]
+
+  - query: "show my public ip address"
+    slice: "network-basic"
+    set: "dev"
+    relevant: ["curl", "wget"]
+
+  # === Download & HTTP ===
+  - query: "download a file from url"
+    slice: "download"
+    set: "dev"
+    relevant: ["wget", "curl"]
+
+  - query: "download over https with output filename"
+    slice: "download"
+    set: "dev"
+    relevant: ["wget", "curl"]
+
+  - query: "make api request with curl"
+    slice: "curl-api"
+    set: "dev"
+    relevant: ["curl"]
+
+  - query: "send post request with json body"
+    slice: "curl-api"
+    set: "dev"
+    relevant: ["curl", "httpie"]
+
+  - query: "send http request with headers"
+    slice: "curl-api"
+    set: "test"
+    relevant: ["curl", "httpie"]
+
+  # === Archive & Compression ===
+  - query: "compress a folder into tar.gz"
+    slice: "archive"
+    set: "dev"
+    relevant: ["tar", "gzip"]
+
+  - query: "extract tar gz archive"
+    slice: "archive"
+    set: "dev"
+    relevant: ["tar", "gunzip"]
+
+  - query: "unzip a zip file"
+    slice: "archive"
+    set: "dev"
+    relevant: ["unzip"]
+
+  - query: "create a zip archive"
+    slice: "archive"
+    set: "dev"
+    relevant: ["zip"]
+
+  - query: "list contents of an archive"
+    slice: "archive"
+    set: "test"
+    relevant: ["tar", "unzip", "7z"]
+
+  # === Disk & System ===
+  - query: "check disk usage by folder"
+    slice: "disk"
+    set: "dev"
+    relevant: ["du", "df"]
+
+  - query: "show filesystem free space"
+    slice: "disk"
+    set: "dev"
+    relevant: ["df"]
+
+  - query: "list running processes"
+    slice: "process"
+    set: "dev"
+    relevant: ["ps", "top", "htop"]
+
+  - query: "kill process by pid"
+    slice: "process"
+    set: "dev"
+    relevant: ["kill", "pkill"]
+
+  - query: "kill process by name"
+    slice: "process"
+    set: "dev"
+    relevant: ["pkill", "killall"]
+
+  - query: "monitor system resources"
+    slice: "monitoring"
+    set: "dev"
+    relevant: ["top", "htop"]
+
+  - query: "show memory usage"
+    slice: "monitoring"
+    set: "dev"
+    relevant: ["free"]
+
+  - query: "show system uptime"
+    slice: "system-info"
+    set: "dev"
+    relevant: ["uptime"]
+
+  - query: "show os version info"
+    slice: "system-info"
+    set: "dev"
+    relevant: ["uname", "lsb_release"]
+
+  - query: "show current username"
+    slice: "system-info"
+    set: "test"
+    relevant: ["whoami"]
+
+  - query: "show hostname"
+    slice: "system-info"
+    set: "dev"
+    relevant: ["hostname"]
+
+  # === Permissions & Users ===
+  - query: "change file permissions"
+    slice: "permissions"
+    set: "dev"
+    relevant: ["chmod"]
+
+  - query: "change file owner"
+    slice: "permissions"
+    set: "dev"
+    relevant: ["chown"]
+
+  - query: "make script executable"
+    slice: "permissions"
+    set: "test"
+    relevant: ["chmod"]
+
+  # === SSH & Remote ===
+  - query: "connect to server via ssh"
+    slice: "ssh"
+    set: "dev"
+    relevant: ["ssh"]
+
+  - query: "copy file to remote server"
+    slice: "ssh"
+    set: "dev"
+    relevant: ["scp", "rsync"]
+
+  - query: "sync files to remote"
+    slice: "ssh"
+    set: "dev"
+    relevant: ["rsync"]
+
+  - query: "generate ssh key pair"
+    slice: "ssh"
+    set: "test"
+    relevant: ["ssh-keygen"]
+
+  # === Package Management ===
+  - query: "insall python package with pip"
+    slice: "package"
+    set: "dev"
+    relevant: ["pip install"]
+
+  - query: "install package with apt"
+    slice: "package"
+    set: "dev"
+    relevant: ["apt"]
+
+  - query: "update all system packages"
+    slice: "package"
+    set: "dev"
+    relevant: ["apt", "yum", "dnf", "pacman"]
+
+  - query: "install npm package globally"
+    slice: "package"
+    set: "dev"
+    relevant: ["npm"]
+
+  - query: "install homebrew package"
+    slice: "package"
+    set: "test"
+    relevant: ["brew"]
+
+  # === Scheduling ===
+  - query: "edit crontab schedule"
+    slice: "scheduling"
+    set: "dev"
+    relevant: ["crontab"]
+
+  - query: "list scheduled cron jobs"
+    slice: "scheduling"
+    set: "dev"
+    relevant: ["crontab"]
+
+  # === Service Management ===
+  - query: "start a systemd service"
+    slice: "service"
+    set: "dev"
+    relevant: ["systemctl"]
+
+  - query: "check service status"
+    slice: "service"
+    set: "dev"
+    relevant: ["systemctl"]
+
+  - query: "enable service on boot"
+    slice: "service"
+    set: "test"
+    relevant: ["systemctl"]
+
+  # === Environment ===
+  - query: "set environment variable"
+    slice: "environment"
+    set: "dev"
+    relevant: ["export", "set"]
+
+  - query: "show all environment variables"
+    slice: "environment"
+    set: "dev"
+    relevant: ["env", "printenv"]
+
+  # === Easy / Exact Command Queries ===
+  - query: "ls"
+    slice: "exact-command"
+    set: "dev"
+    relevant: ["ls"]
+
+  - query: "git"
+    slice: "exact-command"
+    set: "dev"
+    relevant: ["git"]
+
+  - query: "docker"
+    slice: "exact-command"
+    set: "dev"
+    relevant: ["docker"]
+
+  - query: "curl"
+    slice: "exact-command"
+    set: "dev"
+    relevant: ["curl"]
+
+  - query: "chmod"
+    slice: "exact-command"
+    set: "test"
+    relevant: ["chmod"]
+
+  - query: "tar"
+    slice: "exact-command"
+    set: "dev"
+    relevant: ["tar"]
+
+  - query: "grep"
+    slice: "exact-command"
+    set: "dev"
+    relevant: ["grep"]
+
+  - query: "ssh"
+    slice: "exact-command"
+    set: "dev"
+    relevant: ["ssh"]
+
+  - query: "awk"
+    slice: "exact-command"
+    set: "dev"
+    relevant: ["awk"]
+
+  - query: "sed"
+    slice: "exact-command"
+    set: "test"
+    relevant: ["sed"]
+
+  # === Typo Queries ===
   - query: "gti comit changez"
-    slice: "typo-git"
-    relevant:
-      - "git commit"
+    slice: "typo"
+    set: "dev"
+    relevant: ["git commit"]
 
   - query: "comprss files to archive"
-    slice: "typo-archive"
-    relevant:
-      - "tar"
-      - "zip"
+    slice: "typo"
+    set: "dev"
+    relevant: ["tar", "zip"]
+
+  - query: "reomve directory"
+    slice: "typo"
+    set: "dev"
+    relevant: ["rmdir", "rm"]
+
+  - query: "dowload file from internet"
+    slice: "typo"
+    set: "dev"
+    relevant: ["wget", "curl"]
+
+  - query: "serach text in files"
+    slice: "typo"
+    set: "dev"
+    relevant: ["grep", "ripgrep"]
+
+  - query: "dockr build imge"
+    slice: "typo"
+    set: "test"
+    relevant: ["docker build"]
+
+  - query: "cehck disk space"
+    slice: "typo"
+    set: "dev"
+    relevant: ["df", "du"]
+
+  - query: "shwo running proceses"
+    slice: "typo"
+    set: "dev"
+    relevant: ["ps", "top"]
+
+  - query: "killl process"
+    slice: "typo"
+    set: "dev"
+    relevant: ["kill", "pkill"]
+
+  - query: "craete new flder"
+    slice: "typo"
+    set: "test"
+    relevant: ["mkdir"]
