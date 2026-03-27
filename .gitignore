@@ -47,6 +47,7 @@ commands_fixed.yml
 .tmp/
 releases/
 scripts/enrich_database_llm.py
+.agent/rules/*.md
 
 # Ignore PKGBUILD
 PKGBUILD

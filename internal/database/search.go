@@ -20,19 +20,39 @@ type SearchResult struct {
 	Score   float64
 }
 
+// BM25FieldValues provides per-field values for BM25F parameters.
+type BM25FieldValues struct {
+	Cmd  float64
+	Desc float64
+	Keys float64
+	Tags float64
+}
+
+// BM25Overrides allows overriding BM25F scoring parameters at query time.
+// Nil fields preserve index defaults.
+type BM25Overrides struct {
+	K1     *float64
+	B      *BM25FieldValues
+	W      *BM25FieldValues
+	MinIDF *float64
+}
+
 // SearchOptions holds options for search behavior
 type SearchOptions struct {
-	Limit           int
-	ContextBoosts   map[string]float64
-	PipelineOnly    bool     // Focus only on pipeline commands
-	PipelineBoost   float64  // Boost factor for pipeline commands
-	UseFuzzy        bool     // Enable fuzzy search for typos
-	FuzzyThreshold  int      // Minimum fuzzy score threshold
-	UseNLP          bool     // Enable natural language processing
-	TopTermsCap     int      // Cap for top-IDF term selection in universal search (0 = default)
-	AllPlatforms    bool     // Show commands for all platforms (disable filtering)
-	Platforms       []string // Filter to specific platforms
-	NoCrossPlatform bool     // Exclude cross-platform tools
+	Limit            int
+	ContextBoosts    map[string]float64
+	PipelineOnly     bool           // Focus only on pipeline commands
+	PipelineBoost    float64        // Boost factor for pipeline commands
+	UseFuzzy         bool           // Enable fuzzy search for typos
+	FuzzyThreshold   int            // Minimum fuzzy score threshold
+	UseNLP           bool           // Enable natural language processing
+	TopTermsCap      int            // Cap for top-IDF term selection in universal search (0 = default)
+	AllPlatforms     bool           // Show commands for all platforms (disable filtering)
+	Platforms        []string       // Filter to specific platforms
+	NoCrossPlatform  bool           // Exclude cross-platform tools
+	DisableBigrams   bool           // Disable command/keyword phrase bigrams in BM25F scoring
+	DisableCharNGram bool           // Disable character n-gram lexical candidate channel
+	BM25Overrides    *BM25Overrides // Optional BM25F runtime overrides for parameter sweeps
 }
 
 // Search performs a basic keyword-based search

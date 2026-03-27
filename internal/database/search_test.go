@@ -329,6 +329,118 @@ func TestSearchUniversalRevertIntentPrioritizesGitRevert(t *testing.T) {
 	}
 }
 
+func TestSearchUniversalBigramTermMatchesCompoundCommand(t *testing.T) {
+	db := &Database{
+		Commands: []Command{
+			{
+				Command:          "git reset --hard",
+				Description:      "reset repository state",
+				Keywords:         []string{"git", "reset"},
+				CommandLower:     "git reset --hard",
+				DescriptionLower: "reset repository state",
+				KeywordsLower:    []string{"git", "reset"},
+			},
+			{
+				Command:          "reset git index",
+				Description:      "reset git index state",
+				Keywords:         []string{"reset", "git", "index"},
+				CommandLower:     "reset git index",
+				DescriptionLower: "reset git index state",
+				KeywordsLower:    []string{"reset", "git", "index"},
+			},
+		},
+	}
+
+	db.BuildUniversalIndex()
+	scores := db.calculateInitialScores([]string{"git_reset"}, nil, SearchOptions{Limit: 5})
+
+	if len(scores) != 1 {
+		t.Fatalf("expected exactly one bigram match, got %d", len(scores))
+	}
+
+	if _, ok := scores[0]; !ok {
+		t.Fatalf("expected compound command to match bigram term")
+	}
+}
+
+func TestSearchUniversalCharNGramRecoversTypos(t *testing.T) {
+	db := &Database{
+		Commands: []Command{
+			{
+				Command:          "git commit -m 'msg'",
+				Description:      "commit repository changes",
+				Keywords:         []string{"git", "commit"},
+				CommandLower:     "git commit -m 'msg'",
+				DescriptionLower: "commit repository changes",
+				KeywordsLower:    []string{"git", "commit"},
+			},
+			{
+				Command:          "docker build .",
+				Description:      "build container image",
+				Keywords:         []string{"docker", "build"},
+				CommandLower:     "docker build .",
+				DescriptionLower: "build container image",
+				KeywordsLower:    []string{"docker", "build"},
+			},
+		},
+	}
+
+	db.BuildUniversalIndex()
+	results := db.SearchUniversal("gti comit", SearchOptions{
+		Limit:          5,
+		UseNLP:         false,
+		UseFuzzy:       false,
+		DisableBigrams: true,
+	})
+
+	if len(results) == 0 {
+		t.Fatalf("expected typo query to recover candidates via char n-grams")
+	}
+
+	if results[0].Command == nil || !strings.Contains(results[0].Command.Command, "git commit") {
+		t.Fatalf("expected git commit command first, got %v", results[0].Command.Command)
+	}
+}
+
+func TestSearchUniversalBM25OverrideMinIDFCanSuppressLowSignalTerms(t *testing.T) {
+	db := &Database{
+		Commands: []Command{
+			{
+				Command:          "git commit -m 'msg'",
+				Description:      "commit repository changes",
+				Keywords:         []string{"git", "commit"},
+				CommandLower:     "git commit -m 'msg'",
+				DescriptionLower: "commit repository changes",
+				KeywordsLower:    []string{"git", "commit"},
+			},
+			{
+				Command:          "git status",
+				Description:      "show repository status",
+				Keywords:         []string{"git", "status"},
+				CommandLower:     "git status",
+				DescriptionLower: "show repository status",
+				KeywordsLower:    []string{"git", "status"},
+			},
+		},
+	}
+
+	db.BuildUniversalIndex()
+
+	highMinIDF := 10.0
+	results := db.SearchUniversal("git", SearchOptions{
+		Limit:            5,
+		UseFuzzy:         false,
+		DisableCharNGram: true,
+		BM25Overrides: &BM25Overrides{
+			MinIDF: &highMinIDF,
+		},
+	})
+
+	if len(results) != 0 {
+		t.Fatalf("expected no results when minIDF override is very high, got %d", len(results))
+	}
+}
+
 func utilsMin(a, b int) int {
 	if a < b {
 		return a

@@ -45,24 +45,24 @@ Target corpus: ~6.6k commands and growing.
 
 ## 6. Phase Plan
 
-### Phase 0: Evaluation Infrastructure (Pre-requisite)
+### [COMPLETED] Phase 0: Evaluation Infrastructure (Pre-requisite)
 Objective: Build a robust evaluation foundation before making retrieval changes.
 
 Work items:
-1. Expand eval set from 63 to 150–200 queries:
+- [x] 1. Expand eval set from 63 to 150–200 queries:
    - Ensure ≥10 queries per slice for statistical significance.
    - Add "easy" queries (exact command names) to detect trivial regressions.
    - Add explicit negative relevance judgments for common false positives.
    - Include more typo variants (currently only 2 queries).
-2. Split eval into dev set (80%) and held-out test set (20%).
-3. Add `make bench-eval` target that runs both eval sets and outputs a markdown comparison table with per-slice breakdowns.
-4. Measure current `hints.go` contribution by running benchmarks with hints enabled vs disabled.
-5. Add feature flag infrastructure so each phase can be toggled via config without code changes.
+- [x] 2. Split eval into dev set (80%) and held-out test set (20%).
+- [x] 3. Add `make bench-eval` target that runs both eval sets and outputs a markdown comparison table with per-slice breakdowns.
+- [x] 4. Measure current `hints.go` contribution by running benchmarks with hints enabled vs disabled.
+- [x] 5. Add feature flag infrastructure so each phase can be toggled via config without code changes.
 
 Success criteria:
-- Eval set has ≥150 queries with proper slice coverage.
-- Dev/test split established; test set is never used during development.
-- Benchmark automation produces reproducible comparison reports.
+- [x] Eval set has ≥150 queries with proper slice coverage.
+- [x] Dev/test split established; test set is never used during development.
+- [x] Benchmark automation produces reproducible comparison reports.
 
 ---
 
@@ -70,10 +70,10 @@ Success criteria:
 Objective: Improve long-query and paraphrase handling using classic IR only.
 
 Work items:
-1. **Bigram/phrase indexing** for `command` and `keywords` fields:
+- [x] 1. **Bigram/phrase indexing** for `command` and `keywords` fields:
    - Multi-word command names like `git reset`, `docker build`, `pip install` are effectively compound tokens — bigrams will match them naturally.
    - Skip `description` field initially (too short for meaningful phrase matching beyond what multi-term BM25F already provides). Extend only if measured improvement justifies it.
-2. **BM25F parameter sweep** (replaces BM25+ evaluation):
+- [ ] 2. **BM25F parameter sweep** (replaces BM25+ evaluation):
    - BM25+ solves over-penalization of long documents — irrelevant for this corpus where docs are uniformly short (length normalization term ≈ 1.0).
    - Instead, systematically tune the parameters that actually matter for short structured docs:
      - `k1` (term frequency saturation)
@@ -82,10 +82,10 @@ Work items:
      - `minIDF` threshold (currently 0.0 — raising this filters low-info expansion terms)
      - `TopTermsCap` for long queries (currently defaulting to 10)
    - Use grid search or Bayesian optimization over the dev eval set.
-3. **Char n-gram feature channel** for typo robustness:
+- [x] 3. **Char n-gram feature channel** for typo robustness:
    - Current fuzzy search is all-or-nothing fallback. Char n-grams provide partial-match credit within the primary BM25F scoring path.
    - Add as a separate scoring channel blended with lexical score, not a replacement for fuzzy fallback.
-4. **Proximity scoring** (low priority, optional):
+- [ ] 4. **Proximity scoring** (low priority, optional):
    - Research shows proximity helps most on long documents. With fields of 2–15 tokens, co-occurring query terms are inherently close together.
    - Only implement for `description` field, and only if bigrams + param sweep don't close the gap sufficiently.
    - Validate via ablation that it moves at least 3+ eval queries before keeping.
@@ -245,12 +245,12 @@ Track at minimum:
 - Feature flags for A/B comparison of each phase.
 
 ## 8. Implementation Sequence (Recommended)
-1. **Phase 0** — evaluation infrastructure and expanded eval set.
-2. **Phase 1** — bigram indexing (cmd+keys) + BM25F param sweep + char n-grams.
-3. **Phase 2** — corpus-native expansion via learnedFamilyIndex, then RM3 if needed.
-4. **Phase 3** — learned reranker over feature vector (highest expected ROI).
-5. **Phase 4** — corpus-trained fastText or LSA replacing GloVe.
-6. **Phase 5** — deprecate hints.go, remove hardcoded boosts, clean up constants.
+- [x] 1. **Phase 0** — evaluation infrastructure and expanded eval set.
+- [ ] 2. **Phase 1** — bigram indexing (cmd+keys) + BM25F param sweep + char n-grams.
+- [ ] 3. **Phase 2** — corpus-native expansion via learnedFamilyIndex, then RM3 if needed.
+- [ ] 4. **Phase 3** — learned reranker over feature vector (highest expected ROI).
+- [ ] 5. **Phase 4** — corpus-trained fastText or LSA replacing GloVe.
+- [ ] 6. **Phase 5** — deprecate hints.go, remove hardcoded boosts, clean up constants.
 
 This ordering maximizes gains while keeping complexity and dependencies low. Phase 0 is a prerequisite — making retrieval changes without a robust eval set risks unmeasured regressions.
 
@@ -275,9 +275,9 @@ This ordering maximizes gains while keeping complexity and dependencies low. Pha
 - Proximity scoring beyond description field (low ROI for short docs).
 
 ## 11. Immediate Next Steps
-1. Expand eval set to 150+ queries with proper slice coverage and dev/test split.
-2. Add `make bench-eval` automation target.
-3. Measure hints.go contribution (benchmark with/without).
-4. Implement Phase 1.1 bigram/phrase indexing for command and keywords fields.
-5. Run BM25F parameter sweep and document optimal settings.
-6. Run full benchmark suite and document deltas before starting Phase 2.
+- [x] 1. Expand eval set to 150+ queries with proper slice coverage and dev/test split.
+- [x] 2. Add `make bench-eval` automation target.
+- [x] 3. Measure hints.go contribution (benchmark with/without).
+- [x] 4. Implement Phase 1.1 bigram/phrase indexing for command and keywords fields.
+- [ ] 5. Run BM25F parameter sweep and document optimal settings.
+- [ ] 6. Run full benchmark suite and document deltas before starting Phase 2.

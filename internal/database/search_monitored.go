@@ -124,15 +124,24 @@ func (mdb *MonitoredDatabase) ProfileSearchMemory(query string) metrics.MemoryPr
 
 // convertToCacheOptions converts SearchOptions to cache.SearchOptions
 func (mdb *MonitoredDatabase) convertToCacheOptions(options SearchOptions) cache.SearchOptions {
-	return cache.SearchOptions{
-		Limit:          options.Limit,
-		ContextBoosts:  options.ContextBoosts,
-		PipelineOnly:   options.PipelineOnly,
-		PipelineBoost:  options.PipelineBoost,
-		UseFuzzy:       options.UseFuzzy,
-		FuzzyThreshold: options.FuzzyThreshold,
-		UseNLP:         options.UseNLP,
+	out := cache.SearchOptions{
+		Limit:            options.Limit,
+		ContextBoosts:    options.ContextBoosts,
+		PipelineOnly:     options.PipelineOnly,
+		PipelineBoost:    options.PipelineBoost,
+		UseFuzzy:         options.UseFuzzy,
+		FuzzyThreshold:   options.FuzzyThreshold,
+		UseNLP:           options.UseNLP,
+		DisableBigrams:   options.DisableBigrams,
+		DisableCharNGram: options.DisableCharNGram,
 	}
+	if options.BM25Overrides != nil {
+		out.BM25K1 = options.BM25Overrides.K1
+		out.BM25MinIDF = options.BM25Overrides.MinIDF
+		out.BM25B = bm25FieldMap(options.BM25Overrides.B)
+		out.BM25W = bm25FieldMap(options.BM25Overrides.W)
+	}
+	return out
 }
 
 // SearchPerformanceAnalyzer analyzes search performance patterns

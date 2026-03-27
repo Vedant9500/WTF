@@ -33,13 +33,21 @@ func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options Searc
 
 	// Convert SearchOptions to cache.SearchOptions
 	cacheOptions := cache.SearchOptions{
-		Limit:          options.Limit,
-		ContextBoosts:  options.ContextBoosts,
-		PipelineOnly:   options.PipelineOnly,
-		PipelineBoost:  options.PipelineBoost,
-		UseFuzzy:       options.UseFuzzy,
-		FuzzyThreshold: options.FuzzyThreshold,
-		UseNLP:         options.UseNLP,
+		Limit:            options.Limit,
+		ContextBoosts:    options.ContextBoosts,
+		PipelineOnly:     options.PipelineOnly,
+		PipelineBoost:    options.PipelineBoost,
+		UseFuzzy:         options.UseFuzzy,
+		FuzzyThreshold:   options.FuzzyThreshold,
+		UseNLP:           options.UseNLP,
+		DisableBigrams:   options.DisableBigrams,
+		DisableCharNGram: options.DisableCharNGram,
+	}
+	if options.BM25Overrides != nil {
+		cacheOptions.BM25K1 = options.BM25Overrides.K1
+		cacheOptions.BM25MinIDF = options.BM25Overrides.MinIDF
+		cacheOptions.BM25B = bm25FieldMap(options.BM25Overrides.B)
+		cacheOptions.BM25W = bm25FieldMap(options.BM25Overrides.W)
 	}
 
 	// Try to get from cache first
@@ -118,4 +126,16 @@ func convertDBResults(results []SearchResult) []cache.SearchResult {
 		out[i] = cache.SearchResult{Command: r.Command, Score: r.Score}
 	}
 	return out
+}
+
+func bm25FieldMap(values *BM25FieldValues) map[string]float64 {
+	if values == nil {
+		return nil
+	}
+	return map[string]float64{
+		"cmd":  values.Cmd,
+		"desc": values.Desc,
+		"keys": values.Keys,
+		"tags": values.Tags,
+	}
 }

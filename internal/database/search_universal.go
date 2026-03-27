@@ -15,6 +15,10 @@ import (
 type universalIndex struct {
 	// term -> postings
 	postings map[string][]posting
+	// character n-gram -> doc IDs (command+keywords channel)
+	charPostings map[string][]int
+	// unique character n-gram count per doc (command+keywords channel)
+	docCharGramCount []int
 
 	// document lengths per field
 	docLens []docLens
@@ -106,6 +110,85 @@ func defaultParams() bm25fParams {
 		w:      docLensF{cmd: 3.5, desc: 1.0, keys: 2.0, tags: 1.2}, // Increased cmd weight for better command matching
 		minIDF: 0.0,
 	}
+}
+
+func (p bm25fParams) withOverrides(overrides *BM25Overrides) bm25fParams {
+	if overrides == nil {
+		return p
+	}
+	if overrides.K1 != nil && *overrides.K1 > 0 {
+		p.k1 = *overrides.K1
+	}
+	if overrides.MinIDF != nil && *overrides.MinIDF >= 0 {
+		p.minIDF = *overrides.MinIDF
+	}
+	if overrides.B != nil {
+		p.b = docLensF{
+			cmd:  clamp01(overrides.B.Cmd),
+			desc: clamp01(overrides.B.Desc),
+			keys: clamp01(overrides.B.Keys),
+			tags: clamp01(overrides.B.Tags),
+		}
+	}
+	if overrides.W != nil {
+		if overrides.W.Cmd > 0 {
+			p.w.cmd = overrides.W.Cmd
+		}
+		if overrides.W.Desc > 0 {
+			p.w.desc = overrides.W.Desc
+		}
+		if overrides.W.Keys > 0 {
+			p.w.keys = overrides.W.Keys
+		}
+		if overrides.W.Tags > 0 {
+			p.w.tags = overrides.W.Tags
+		}
+	}
+	return p
+}
+
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
+func appendAdjacentBigrams(tokens []string) []string {
+	if len(tokens) < 2 {
+		return tokens
+	}
+	out := make([]string, 0, len(tokens)*2)
+	out = append(out, tokens...)
+	for i := 0; i+1 < len(tokens); i++ {
+		left := tokens[i]
+		right := tokens[i+1]
+		if left == "" || right == "" {
+			continue
+		}
+		out = append(out, left+"_"+right)
+	}
+	return out
+}
+
+func uniqueCharNGrams(text string, n int) map[string]struct{} {
+	if n <= 0 {
+		return nil
+	}
+	compact := strings.ReplaceAll(strings.ToLower(text), " ", "")
+	runes := []rune(compact)
+	if len(runes) < n {
+		return nil
+	}
+	out := make(map[string]struct{}, len(runes)-n+1)
+	for i := 0; i+n <= len(runes); i++ {
+		gram := string(runes[i : i+n])
+		out[gram] = struct{}{}
+	}
+	return out
 }
 
 // selectTopTerms keeps the most informative terms by IDF to avoid noise from long queries.
@@ -262,10 +345,12 @@ func (db *Database) filterAndSortTerms(list []termWithScore, maxTerms int) []str
 // BuildUniversalIndex constructs the inverted index. Call after loading/merging commands.
 func (db *Database) BuildUniversalIndex() {
 	idx := &universalIndex{
-		postings: make(map[string][]posting),
-		df:       make(map[string]int),
-		N:        len(db.Commands),
-		params:   defaultParams(),
+		postings:         make(map[string][]posting),
+		charPostings:     make(map[string][]int),
+		df:               make(map[string]int),
+		N:                len(db.Commands),
+		params:           defaultParams(),
+		docCharGramCount: make([]int, len(db.Commands)),
 	}
 
 	if idx.N == 0 {
@@ -281,6 +366,13 @@ func (db *Database) BuildUniversalIndex() {
 		lens, tf := indexCommand(&db.Commands[i])
 		idx.docLens[i] = lens
 		perDocTFs[i] = tf
+
+		charField := db.Commands[i].CommandLower + " " + strings.Join(db.Commands[i].KeywordsLower, " ")
+		grams := uniqueCharNGrams(charField, 3)
+		idx.docCharGramCount[i] = len(grams)
+		for gram := range grams {
+			idx.charPostings[gram] = append(idx.charPostings[gram], i)
+		}
 
 		// update df once per term per doc
 		for term := range tf {
@@ -389,6 +481,9 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 	// Dual-path query handling: preserve short-query behavior and normalize
 	// verbose long queries into compact intent-bearing terms before BM25F.
 	terms = normalizeLongQueryTermsForScoring(terms, pq)
+	if !options.DisableBigrams {
+		terms = appendAdjacentBigrams(terms)
+	}
 
 	// If no terms after processing, try fuzzy search as fallback
 	if len(terms) == 0 {
@@ -446,6 +541,17 @@ func resolveTopTermsCap(options SearchOptions) int {
 }
 
 func (db *Database) mergeHybridCandidates(scores map[int]float64, query string, options SearchOptions) {
+	if !options.DisableCharNGram {
+		charScores := db.calculateCharNGramCandidateScores(query, options)
+		for docID, ngramScore := range charScores {
+			if cur, ok := scores[docID]; ok {
+				scores[docID] = cur + ngramScore*0.35
+				continue
+			}
+			scores[docID] = ngramScore * 0.80
+		}
+	}
+
 	// Merge scalable semantic candidates (no command-specific hinting) to improve
 	// lexical miss recovery on natural language phrasing.
 	if options.UseNLP && db.HasEmbeddings() {
@@ -469,6 +575,102 @@ func (db *Database) mergeHybridCandidates(scores map[int]float64, query string, 
 			scores[docID] = tfidfScore * 0.65
 		}
 	}
+}
+
+func (db *Database) calculateCharNGramCandidateScores(query string, options SearchOptions) map[int]float64 {
+	idx := db.uIndex
+	if idx == nil || len(idx.charPostings) == 0 {
+		return nil
+	}
+
+	queryNGrams := uniqueCharNGrams(query, 3)
+	if len(queryNGrams) == 0 {
+		return nil
+	}
+
+	overlapByDoc := overlapCountsByDoc(idx, queryNGrams)
+	if len(overlapByDoc) == 0 {
+		return nil
+	}
+
+	currentPlatform := getCurrentPlatform()
+	maxCandidates := options.Limit * constants.ResultsBufferMultiplier * 2
+	if maxCandidates < 12 {
+		maxCandidates = 12
+	}
+
+	type cand struct {
+		docID int
+		score float64
+	}
+	list := make([]cand, 0, len(overlapByDoc))
+	qNorm := math.Sqrt(float64(len(queryNGrams)))
+
+	for docID, overlap := range overlapByDoc {
+		sim, ok := db.charNGramSimilarityForDoc(docID, overlap, qNorm, idx, options, currentPlatform)
+		if !ok {
+			continue
+		}
+		list = append(list, cand{docID: docID, score: sim})
+	}
+
+	if len(list) == 0 {
+		return nil
+	}
+
+	sort.Slice(list, func(i, j int) bool { return list[i].score > list[j].score })
+	if len(list) > maxCandidates {
+		list = list[:maxCandidates]
+	}
+
+	out := make(map[int]float64, len(list))
+	for _, c := range list {
+		out[c.docID] = 55.0 * c.score
+	}
+
+	return out
+}
+
+func overlapCountsByDoc(idx *universalIndex, queryNGrams map[string]struct{}) map[int]int {
+	overlapByDoc := make(map[int]int)
+	for gram := range queryNGrams {
+		for _, docID := range idx.charPostings[gram] {
+			overlapByDoc[docID]++
+		}
+	}
+	return overlapByDoc
+}
+
+func (db *Database) charNGramSimilarityForDoc(
+	docID, overlap int,
+	qNorm float64,
+	idx *universalIndex,
+	options SearchOptions,
+	currentPlatform string,
+) (float64, bool) {
+	if docID < 0 || docID >= len(db.Commands) {
+		return 0, false
+	}
+
+	doc := &db.Commands[docID]
+	if !matchesPlatformOptions(doc, options, currentPlatform) {
+		return 0, false
+	}
+	if options.PipelineOnly && !isPipelineCommand(doc) {
+		return 0, false
+	}
+
+	dNorm := math.Sqrt(float64(idx.docCharGramCount[docID]))
+	if dNorm == 0 || qNorm == 0 {
+		return 0, false
+	}
+
+	sim := float64(overlap) / (qNorm * dNorm)
+	if sim < 0.12 {
+		return 0, false
+	}
+
+	return sim, true
 }
 
 func (db *Database) calculateSemanticCandidateScores(query string, options SearchOptions) map[int]float64 {
@@ -566,6 +768,7 @@ func (db *Database) calculateTFIDFCandidateScores(query string, options SearchOp
 
 func (db *Database) calculateInitialScores(terms []string, pq *nlp.ProcessedQuery, options SearchOptions) map[int]float64 {
 	idx := db.uIndex
+	params := idx.params.withOverrides(options.BM25Overrides)
 	scores := make(map[int]float64, len(db.Commands)/4)
 	currentPlatform := getCurrentPlatform()
 
@@ -594,14 +797,14 @@ func (db *Database) calculateInitialScores(terms []string, pq *nlp.ProcessedQuer
 			continue
 		}
 		idf := bm25IDF(idx.N, idx.df[term])
-		if idf < idx.params.minIDF {
+		if idf < params.minIDF {
 			continue
 		}
 		boost := 1.0
 		if b, ok := termBoost[term]; ok && b > 0 {
 			boost = b
 		}
-		db.processPostingsForTerm(postings, idx, idf, boost, scores, currentPlatform, options)
+		db.processPostingsForTerm(postings, idx, params, idf, boost, scores, currentPlatform, options)
 	}
 	return scores
 }
@@ -609,6 +812,7 @@ func (db *Database) calculateInitialScores(terms []string, pq *nlp.ProcessedQuer
 func (db *Database) processPostingsForTerm(
 	postings []posting,
 	idx *universalIndex,
+	params bm25fParams,
 	idf, boost float64,
 	scores map[int]float64,
 	currentPlatform string,
@@ -628,7 +832,7 @@ func (db *Database) processPostingsForTerm(
 		}
 
 		s := scores[p.docID]
-		s += (idf * boost) * idx.termBM25F(p.docID, p.tf)
+		s += (idf * boost) * idx.termBM25F(p.docID, p.tf, params)
 		scores[p.docID] = s
 	}
 }
@@ -842,6 +1046,7 @@ func indexCommand(cmd *Command) (uniqueLens docLens, termFreqs map[string]fieldT
 
 	// tokens per field
 	cmdTokens := normalizeAndTokenize(cmdText)
+	cmdTokens = appendAdjacentBigrams(cmdTokens)
 	descTokens := normalizeAndTokenize(descText)
 	keysTokens := make([]string, 0)
 	if len(cmd.KeywordsLower) > 0 {
@@ -849,6 +1054,7 @@ func indexCommand(cmd *Command) (uniqueLens docLens, termFreqs map[string]fieldT
 	} else if len(cmd.Keywords) > 0 {
 		keysTokens = normalizeAndTokenize(strings.Join(cmd.Keywords, " "))
 	}
+	keysTokens = appendAdjacentBigrams(keysTokens)
 	tagsTokens := make([]string, 0)
 	if len(cmd.TagsLower) > 0 {
 		tagsTokens = normalizeAndTokenize(strings.Join(cmd.TagsLower, " "))
@@ -1454,33 +1660,32 @@ func (db *Database) rerankWithNLP(results []SearchResult, query string, options 
 	return topK
 }
 
-func (idx *universalIndex) termBM25F(docID int, tf fieldTF) float64 {
+func (idx *universalIndex) termBM25F(docID int, tf fieldTF, params bm25fParams) float64 {
 	// per-field BM25 sum
 	var score float64
 	// command
 	if tf.cmd > 0 {
-		score += idx.fieldBM25(float64(tf.cmd), float64(idx.docLens[docID].cmd), idx.avgLen.cmd, idx.params.w.cmd, idx.params.b.cmd)
+		score += idx.fieldBM25(float64(tf.cmd), float64(idx.docLens[docID].cmd), idx.avgLen.cmd, params.w.cmd, params.b.cmd, params.k1)
 	}
 	// description
 	if tf.desc > 0 {
-		score += idx.fieldBM25(float64(tf.desc), float64(idx.docLens[docID].desc), idx.avgLen.desc, idx.params.w.desc, idx.params.b.desc)
+		score += idx.fieldBM25(float64(tf.desc), float64(idx.docLens[docID].desc), idx.avgLen.desc, params.w.desc, params.b.desc, params.k1)
 	}
 	// keywords
 	if tf.keys > 0 {
-		score += idx.fieldBM25(float64(tf.keys), float64(idx.docLens[docID].keys), idx.avgLen.keys, idx.params.w.keys, idx.params.b.keys)
+		score += idx.fieldBM25(float64(tf.keys), float64(idx.docLens[docID].keys), idx.avgLen.keys, params.w.keys, params.b.keys, params.k1)
 	}
 	// tags
 	if tf.tags > 0 {
-		score += idx.fieldBM25(float64(tf.tags), float64(idx.docLens[docID].tags), idx.avgLen.tags, idx.params.w.tags, idx.params.b.tags)
+		score += idx.fieldBM25(float64(tf.tags), float64(idx.docLens[docID].tags), idx.avgLen.tags, params.w.tags, params.b.tags, params.k1)
 	}
 	return score
 }
 
-func (idx *universalIndex) fieldBM25(tf, dl, avgdl, w, b float64) float64 {
+func (idx *universalIndex) fieldBM25(tf, dl, avgdl, w, b, k1 float64) float64 {
 	if avgdl <= 0 {
 		avgdl = 1
 	}
-	k1 := idx.params.k1
 	norm := (1 - b) + b*(dl/avgdl)
 	tfw := w * tf
 	return (tfw * (k1 + 1)) / (tfw + k1*norm)
