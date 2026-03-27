@@ -134,6 +134,7 @@ func (mdb *MonitoredDatabase) convertToCacheOptions(options SearchOptions) cache
 		UseNLP:           options.UseNLP,
 		DisableBigrams:   options.DisableBigrams,
 		DisableCharNGram: options.DisableCharNGram,
+		DisableProximity: options.DisableProximity,
 	}
 	if options.BM25Overrides != nil {
 		out.BM25K1 = options.BM25Overrides.K1

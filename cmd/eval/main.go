@@ -80,12 +80,37 @@ type evalReport struct {
 }
 
 type evalConfig struct {
-	Set          string `json:"set"`
-	Limit        int    `json:"limit"`
-	NoHints      bool   `json:"no_hints"`
-	ShortQueries int    `json:"short_queries"`
-	LongQueries  int    `json:"long_queries"`
-	TotalQueries int    `json:"total_queries"`
+	Set          string  `json:"set"`
+	Limit        int     `json:"limit"`
+	NoHints      bool    `json:"no_hints"`
+	NoBigrams    bool    `json:"no_bigrams"`
+	NoCharNGram  bool    `json:"no_char_ngram"`
+	NoProximity  bool    `json:"no_proximity"`
+	TopTermsCap  int     `json:"top_terms_cap"`
+	BM25K1       float64 `json:"bm25_k1"`
+	BM25BCmd     float64 `json:"bm25_b_cmd"`
+	BM25BDesc    float64 `json:"bm25_b_desc"`
+	BM25BKeys    float64 `json:"bm25_b_keys"`
+	BM25BTags    float64 `json:"bm25_b_tags"`
+	BM25WCmd     float64 `json:"bm25_w_cmd"`
+	BM25WDesc    float64 `json:"bm25_w_desc"`
+	BM25WKeys    float64 `json:"bm25_w_keys"`
+	BM25WTags    float64 `json:"bm25_w_tags"`
+	BM25MinIDF   float64 `json:"bm25_min_idf"`
+	ShortQueries int     `json:"short_queries"`
+	LongQueries  int     `json:"long_queries"`
+	TotalQueries int     `json:"total_queries"`
+}
+
+type bm25EvalConfig struct {
+	K1               float64
+	B                database.BM25FieldValues
+	W                database.BM25FieldValues
+	MinIDF           float64
+	TopTermsCap      int
+	DisableBigrams   bool
+	DisableCharNGram bool
+	DisableProximity bool
 }
 
 func main() {
@@ -96,7 +121,33 @@ func main() {
 	limit := flag.Int("limit", 5, "Max results per query")
 	noHints := flag.Bool("no-hints", false, "Disable command hints for comparison")
 	asJSON := flag.Bool("json", false, "Output results as JSON")
+
+	bm25K1 := flag.Float64("bm25-k1", 1.2, "BM25F k1 override")
+	bm25BCmd := flag.Float64("bm25-b-cmd", 0.75, "BM25F b (command field)")
+	bm25BDesc := flag.Float64("bm25-b-desc", 0.75, "BM25F b (description field)")
+	bm25BKeys := flag.Float64("bm25-b-keys", 0.7, "BM25F b (keywords field)")
+	bm25BTags := flag.Float64("bm25-b-tags", 0.7, "BM25F b (tags field)")
+	bm25WCmd := flag.Float64("bm25-w-cmd", 3.5, "BM25F weight (command field)")
+	bm25WDesc := flag.Float64("bm25-w-desc", 1.0, "BM25F weight (description field)")
+	bm25WKeys := flag.Float64("bm25-w-keys", 2.0, "BM25F weight (keywords field)")
+	bm25WTags := flag.Float64("bm25-w-tags", 1.2, "BM25F weight (tags field)")
+	bm25MinIDF := flag.Float64("bm25-min-idf", 0.0, "BM25F minimum IDF threshold")
+	topTermsCap := flag.Int("top-terms-cap", 10, "Top-IDF terms cap used for long query scoring")
+	disableBigrams := flag.Bool("disable-bigrams", false, "Disable command/keyword bigram channel")
+	disableCharNGram := flag.Bool("disable-char-ngram", false, "Disable character n-gram channel")
+	disableProximity := flag.Bool("disable-proximity", false, "Disable description proximity boost")
 	flag.Parse()
+
+	bm25Cfg := bm25EvalConfig{
+		K1:               *bm25K1,
+		B:                database.BM25FieldValues{Cmd: *bm25BCmd, Desc: *bm25BDesc, Keys: *bm25BKeys, Tags: *bm25BTags},
+		W:                database.BM25FieldValues{Cmd: *bm25WCmd, Desc: *bm25WDesc, Keys: *bm25WKeys, Tags: *bm25WTags},
+		MinIDF:           *bm25MinIDF,
+		TopTermsCap:      *topTermsCap,
+		DisableBigrams:   *disableBigrams,
+		DisableCharNGram: *disableCharNGram,
+		DisableProximity: *disableProximity,
+	}
 
 	// Load database
 	db, err := loadDatabase(*dbPath)
@@ -128,11 +179,25 @@ func main() {
 	}
 
 	// Run evaluation
-	report := runEvaluation(db, allQueries, *limit, *noHints)
+	report := runEvaluation(db, allQueries, *limit, *noHints, bm25Cfg)
 	report.Config = evalConfig{
 		Set:          *setFlag,
 		Limit:        *limit,
 		NoHints:      *noHints,
+		NoBigrams:    *disableBigrams,
+		NoCharNGram:  *disableCharNGram,
+		NoProximity:  *disableProximity,
+		TopTermsCap:  *topTermsCap,
+		BM25K1:       *bm25K1,
+		BM25BCmd:     *bm25BCmd,
+		BM25BDesc:    *bm25BDesc,
+		BM25BKeys:    *bm25BKeys,
+		BM25BTags:    *bm25BTags,
+		BM25WCmd:     *bm25WCmd,
+		BM25WDesc:    *bm25WDesc,
+		BM25WKeys:    *bm25WKeys,
+		BM25WTags:    *bm25WTags,
+		BM25MinIDF:   *bm25MinIDF,
 		ShortQueries: len(shortQueries),
 		LongQueries:  len(longQueries),
 		TotalQueries: len(allQueries),
@@ -198,11 +263,11 @@ func loadEvalQueries(path, setFilter string) ([]evalQuery, error) {
 	return filtered, nil
 }
 
-func runEvaluation(db *database.Database, queries []evalQuery, limit int, noHints bool) evalReport {
+func runEvaluation(db *database.Database, queries []evalQuery, limit int, noHints bool, cfg bm25EvalConfig) evalReport {
 	results := make([]queryResult, 0, len(queries))
 
 	for _, q := range queries {
-		result := evaluateQuery(db, q, limit, noHints)
+		result := evaluateQuery(db, q, limit, noHints, cfg)
 		results = append(results, result)
 	}
 
@@ -284,11 +349,26 @@ func runEvaluation(db *database.Database, queries []evalQuery, limit int, noHint
 	}
 }
 
-func evaluateQuery(db *database.Database, q evalQuery, limit int, noHints bool) queryResult {
+func evaluateQuery(db *database.Database, q evalQuery, limit int, noHints bool, cfg bm25EvalConfig) queryResult {
+	k1 := cfg.K1
+	minIDF := cfg.MinIDF
+	b := cfg.B
+	w := cfg.W
+
 	options := database.SearchOptions{
-		Limit:    limit,
-		UseNLP:   !noHints,
-		UseFuzzy: true,
+		Limit:            limit,
+		UseNLP:           !noHints,
+		UseFuzzy:         true,
+		TopTermsCap:      cfg.TopTermsCap,
+		DisableBigrams:   cfg.DisableBigrams,
+		DisableCharNGram: cfg.DisableCharNGram,
+		DisableProximity: cfg.DisableProximity,
+		BM25Overrides: &database.BM25Overrides{
+			K1:     &k1,
+			B:      &b,
+			W:      &w,
+			MinIDF: &minIDF,
+		},
 	}
 
 	results := db.SearchUniversal(q.Query, options)
@@ -401,6 +481,13 @@ func outputMarkdown(report evalReport) {
 		report.Config.Set, report.Config.TotalQueries,
 		report.Config.ShortQueries, report.Config.LongQueries,
 		report.Config.Limit, !report.Config.NoHints)
+	fmt.Printf(
+		"**BM25:** k1=%.3f minIDF=%.3f topTerms=%d | b(cmd/desc/keys/tags)=%.3f/%.3f/%.3f/%.3f | w(cmd/desc/keys/tags)=%.3f/%.3f/%.3f/%.3f\n\n",
+		report.Config.BM25K1, report.Config.BM25MinIDF, report.Config.TopTermsCap,
+		report.Config.BM25BCmd, report.Config.BM25BDesc, report.Config.BM25BKeys, report.Config.BM25BTags,
+		report.Config.BM25WCmd, report.Config.BM25WDesc, report.Config.BM25WKeys, report.Config.BM25WTags)
+	fmt.Printf("**Channels:** bigrams=%v char-ngram=%v proximity=%v\n\n",
+		!report.Config.NoBigrams, !report.Config.NoCharNGram, !report.Config.NoProximity)
 
 	// Aggregate
 	fmt.Println("## Aggregate Metrics")

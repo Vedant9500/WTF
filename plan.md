@@ -73,22 +73,24 @@ Work items:
 - [x] 1. **Bigram/phrase indexing** for `command` and `keywords` fields:
    - Multi-word command names like `git reset`, `docker build`, `pip install` are effectively compound tokens — bigrams will match them naturally.
    - Skip `description` field initially (too short for meaningful phrase matching beyond what multi-term BM25F already provides). Extend only if measured improvement justifies it.
-- [ ] 2. **BM25F parameter sweep** (replaces BM25+ evaluation):
+- [x] 2. **BM25F parameter sweep** (replaces BM25+ evaluation):
    - BM25+ solves over-penalization of long documents — irrelevant for this corpus where docs are uniformly short (length normalization term ≈ 1.0).
    - Instead, systematically tune the parameters that actually matter for short structured docs:
      - `k1` (term frequency saturation)
      - Per-field `b` values (length normalization per field)
      - Field weight ratios (cmd vs desc vs keys vs tags)
      - `minIDF` threshold (currently 0.0 — raising this filters low-info expansion terms)
-     - `TopTermsCap` for long queries (currently defaulting to 10)
+   - `TopTermsCap` for long queries (candidate 8 identified in sweep; default kept at 10 pending split-wise validation)
    - Use grid search or Bayesian optimization over the dev eval set.
 - [x] 3. **Char n-gram feature channel** for typo robustness:
    - Current fuzzy search is all-or-nothing fallback. Char n-grams provide partial-match credit within the primary BM25F scoring path.
    - Add as a separate scoring channel blended with lexical score, not a replacement for fuzzy fallback.
-- [ ] 4. **Proximity scoring** (low priority, optional):
+- [x] 4. **Proximity scoring** (low priority, optional):
    - Research shows proximity helps most on long documents. With fields of 2–15 tokens, co-occurring query terms are inherently close together.
    - Only implement for `description` field, and only if bigrams + param sweep don't close the gap sufficiently.
-   - Validate via ablation that it moves at least 3+ eval queries before keeping.
+   - Implemented as a description-only boost behind `DisableProximity` feature flag.
+   - Ablation (dev, no-hints): Top-1 moved on 8 queries, RR improved on 5 and worsened on 2.
+   - Long-query-only dev NDCG@3 improved from 0.1976 -> 0.2010, so channel is kept enabled by default.
 
 Success criteria:
 - Long-query NDCG@3 improves versus current no-hints baseline.
@@ -279,5 +281,5 @@ This ordering maximizes gains while keeping complexity and dependencies low. Pha
 - [x] 2. Add `make bench-eval` automation target.
 - [x] 3. Measure hints.go contribution (benchmark with/without).
 - [x] 4. Implement Phase 1.1 bigram/phrase indexing for command and keywords fields.
-- [ ] 5. Run BM25F parameter sweep and document optimal settings.
+- [x] 5. Run BM25F parameter sweep and document optimal settings.
 - [ ] 6. Run full benchmark suite and document deltas before starting Phase 2.

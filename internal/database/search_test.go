@@ -441,6 +441,71 @@ func TestSearchUniversalBM25OverrideMinIDFCanSuppressLowSignalTerms(t *testing.T
 	}
 }
 
+func TestDescriptionProximityBoostPrefersCloserTerms(t *testing.T) {
+	closeCmd := &Command{DescriptionLower: "show disk usage by directory quickly"}
+	farCmd := &Command{DescriptionLower: "show disk metrics and stats and health and diagnostics by directory"}
+	terms := []string{"disk", "directory"}
+
+	closeBoost := calculateDescriptionProximityBoost(closeCmd, terms)
+	farBoost := calculateDescriptionProximityBoost(farCmd, terms)
+
+	if closeBoost <= farBoost {
+		t.Fatalf("expected close proximity boost > far proximity boost, close=%.4f far=%.4f", closeBoost, farBoost)
+	}
+	if closeBoost <= 1.0 {
+		t.Fatalf("expected proximity boost above neutral for close terms, got %.4f", closeBoost)
+	}
+}
+
+func TestSearchUniversalDisableProximityChangesScore(t *testing.T) {
+	db := &Database{
+		Commands: []Command{
+			{
+				Command:          "cmd-near",
+				Description:      "show disk usage by directory quickly",
+				Keywords:         []string{"disk", "directory"},
+				CommandLower:     "cmd-near",
+				DescriptionLower: "show disk usage by directory quickly",
+				KeywordsLower:    []string{"disk", "directory"},
+			},
+		},
+	}
+
+	db.BuildUniversalIndex()
+	query := "disk directory"
+
+	withProximity := db.SearchUniversal(query, SearchOptions{
+		Limit:            5,
+		UseNLP:           false,
+		UseFuzzy:         false,
+		DisableBigrams:   true,
+		DisableCharNGram: true,
+	})
+	withoutProximity := db.SearchUniversal(query, SearchOptions{
+		Limit:            5,
+		UseNLP:           false,
+		UseFuzzy:         false,
+		DisableBigrams:   true,
+		DisableCharNGram: true,
+		DisableProximity: true,
+	})
+
+	if len(withProximity) == 0 || len(withoutProximity) == 0 {
+		t.Fatalf("expected results for both proximity modes")
+	}
+	if withProximity[0].Command == nil || withProximity[0].Command.Command != "cmd-near" {
+		t.Fatalf("expected cmd-near first with proximity enabled, got %v", withProximity[0].Command.Command)
+	}
+	if withoutProximity[0].Command == nil || withoutProximity[0].Command.Command != "cmd-near" {
+		t.Fatalf("expected cmd-near first with proximity disabled, got %v", withoutProximity[0].Command.Command)
+	}
+
+	if withProximity[0].Score <= withoutProximity[0].Score {
+		t.Fatalf("expected proximity-enabled score > disabled score, with=%.4f without=%.4f",
+			withProximity[0].Score, withoutProximity[0].Score)
+	}
+}
+
 func utilsMin(a, b int) int {
 	if a < b {
 		return a

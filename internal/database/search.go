@@ -52,6 +52,7 @@ type SearchOptions struct {
 	NoCrossPlatform  bool           // Exclude cross-platform tools
 	DisableBigrams   bool           // Disable command/keyword phrase bigrams in BM25F scoring
 	DisableCharNGram bool           // Disable character n-gram lexical candidate channel
+	DisableProximity bool           // Disable description-field proximity boost
 	BM25Overrides    *BM25Overrides // Optional BM25F runtime overrides for parameter sweeps
 }
 

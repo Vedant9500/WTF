@@ -27,6 +27,7 @@ type SearchOptions struct {
 	UseNLP           bool               `json:"use_nlp,omitempty"`
 	DisableBigrams   bool               `json:"disable_bigrams,omitempty"`
 	DisableCharNGram bool               `json:"disable_char_ngram,omitempty"`
+	DisableProximity bool               `json:"disable_proximity,omitempty"`
 	BM25K1           *float64           `json:"bm25_k1,omitempty"`
 	BM25B            map[string]float64 `json:"bm25_b,omitempty"`
 	BM25W            map[string]float64 `json:"bm25_w,omitempty"`

@@ -1108,6 +1108,10 @@ func (db *Database) collectResults(
 	for docID, score := range scores {
 		cmd := &db.Commands[docID]
 
+		if !options.DisableProximity {
+			score *= calculateDescriptionProximityBoost(cmd, terms)
+		}
+
 		// Apply IDF-weighted query coverage so commands matching more query intent terms
 		// are favored over commands that only match one dominant token.
 		score *= db.calculateQueryCoverageBoost(cmd, terms, pq)
@@ -1135,6 +1139,100 @@ func (db *Database) collectResults(
 		results = append(results, SearchResult{Command: cmd, Score: score})
 	}
 	return results
+}
+
+func calculateDescriptionProximityBoost(cmd *Command, terms []string) float64 {
+	descTerms, queryTerms, ok := proximityInputs(cmd, terms)
+	if !ok {
+		return 1.0
+	}
+
+	matchedCount, minDist := minProximityDistance(descTerms, queryTerms)
+	if matchedCount < 2 || minDist == math.MaxInt {
+		return 1.0
+	}
+
+	coverageDenom := utils.Min(4, len(queryTerms))
+	if coverageDenom <= 0 {
+		return 1.0
+	}
+	coverage := float64(matchedCount) / float64(coverageDenom)
+	if coverage > 1.0 {
+		coverage = 1.0
+	}
+
+	// Close co-occurrence in description signals tighter intent fit for verbose queries.
+	proximity := 1.0 / (1.0 + float64(minDist))
+	boost := 1.0 + 0.20*coverage*proximity
+	if boost > 1.10 {
+		return 1.10
+	}
+	return boost
+}
+
+func proximityInputs(cmd *Command, terms []string) (descTerms, queryTerms []string, ok bool) {
+	if cmd == nil {
+		return nil, nil, false
+	}
+	descText := cmd.DescriptionLower
+	if descText == "" {
+		descText = strings.ToLower(cmd.Description)
+	}
+	descTerms = normalizeAndTokenize(descText)
+	queryTerms = uniqueProximityTerms(terms)
+	if len(descTerms) < 4 || len(queryTerms) < 2 {
+		return nil, nil, false
+	}
+	return descTerms, queryTerms, true
+}
+
+func minProximityDistance(descTerms, queryTerms []string) (matchedCount, minDist int) {
+	querySet := make(map[string]struct{}, len(queryTerms))
+	for _, t := range queryTerms {
+		querySet[t] = struct{}{}
+	}
+
+	matchedTerms := make(map[string]struct{}, len(queryTerms))
+	lastPos := make(map[string]int, len(queryTerms))
+	minDist = math.MaxInt
+
+	for pos, tok := range descTerms {
+		if _, ok := querySet[tok]; !ok {
+			continue
+		}
+		matchedTerms[tok] = struct{}{}
+		for other, otherPos := range lastPos {
+			if other == tok {
+				continue
+			}
+			dist := pos - otherPos
+			if dist < 0 {
+				dist = -dist
+			}
+			if dist < minDist {
+				minDist = dist
+			}
+		}
+		lastPos[tok] = pos
+	}
+
+	return len(matchedTerms), minDist
+}
+
+func uniqueProximityTerms(terms []string) []string {
+	seen := make(map[string]struct{}, len(terms))
+	out := make([]string, 0, len(terms))
+	for _, t := range terms {
+		if t == "" || strings.Contains(t, "_") {
+			continue
+		}
+		if _, ok := seen[t]; ok {
+			continue
+		}
+		seen[t] = struct{}{}
+		out = append(out, t)
+	}
+	return out
 }
 
 func (db *Database) calculateLongQueryIntentFeatureBoost(cmd *Command, terms []string, pq *nlp.ProcessedQuery) float64 {

@@ -42,6 +42,7 @@ func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options Searc
 		UseNLP:           options.UseNLP,
 		DisableBigrams:   options.DisableBigrams,
 		DisableCharNGram: options.DisableCharNGram,
+		DisableProximity: options.DisableProximity,
 	}
 	if options.BM25Overrides != nil {
 		cacheOptions.BM25K1 = options.BM25Overrides.K1
