@@ -110,6 +110,12 @@ const (
 const (
 	LearnedFamilyPriorAlpha = 0.35
 	LearnedFamilyTopBases   = 5
+	// Phase 2 corpus-native expansion defaults (opt-in only).
+	FamilyExpansionTopBasesDefault    = 3
+	FamilyExpansionTopTermsDefault    = 4
+	FamilyExpansionClarityMaxDefault  = 0.55
+	FamilyExpansionBlendWeightDefault = 0.25
+	FamilyExpansionMaxContribution    = 25.0
 
 	// Long-query guardrails to reduce ambiguity on verbose prompts.
 	LongQueryTermThreshold              = 7

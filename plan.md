@@ -129,6 +129,24 @@ Success criteria:
 - Short-query precision remains stable (±2%).
 - Corpus-native expansion matches or exceeds RM3 on at least half of slices (determines whether full RM3 is worth the complexity).
 
+Current findings (2026-03-28):
+- A targeted Phase 2 sweep was run and saved to:
+   - `test-reports/phase2_targeted_sweep.csv`
+   - `test-reports/phase2_targeted_refine.csv`
+   - `test-reports/phase2_dev_test_compare.csv`
+- Candidate profile outcomes:
+   - **Safe profile**: `clarity=0.55`, `bases=2`, `terms=2`, `blend=0.30`
+      - Dev: small improvements (Hit@3 and NDCG@3 positive in comparison runs).
+      - Test: mostly neutral (no reliable held-out gain yet), but no major regressions.
+   - **Experimental profile**: `clarity=0.45`, `bases=3`, `terms=4`, `blend=0.30`
+      - Higher upside on aggregate sweeps.
+      - Regressed held-out test in split validation.
+- Conclusion:
+   - Keep Phase 2 disabled by default.
+   - Keep the **safe profile** for controlled experiments.
+   - Keep the **experimental profile** behind an explicit testing flag only.
+   - Do not promote to defaults until deterministic eval runs and slice-level stability are confirmed.
+
 ---
 
 ### Phase 3: Lightweight Learned Reranker (Non-Neural)

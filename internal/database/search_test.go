@@ -506,6 +506,86 @@ func TestSearchUniversalDisableProximityChangesScore(t *testing.T) {
 	}
 }
 
+func TestMergeFamilyExpansionCandidatesAddsBaseRelatedCommands(t *testing.T) {
+	db := &Database{
+		Commands: []Command{
+			{
+				Command:          "tar -czf archive.tar.gz .",
+				Description:      "create compressed tar archive",
+				Keywords:         []string{"compress", "archive", "tar", "backup"},
+				CommandLower:     "tar -czf archive.tar.gz .",
+				DescriptionLower: "create compressed tar archive",
+				KeywordsLower:    []string{"compress", "archive", "tar", "backup"},
+			},
+			{
+				Command:          "zip -r backup.zip .",
+				Description:      "create zip archive",
+				Keywords:         []string{"compress", "archive", "zip", "backup"},
+				CommandLower:     "zip -r backup.zip .",
+				DescriptionLower: "create zip archive",
+				KeywordsLower:    []string{"compress", "archive", "zip", "backup"},
+			},
+			{
+				Command:          "grep -R pattern .",
+				Description:      "search files recursively",
+				Keywords:         []string{"search", "text", "pattern"},
+				CommandLower:     "grep -r pattern .",
+				DescriptionLower: "search files recursively",
+				KeywordsLower:    []string{"search", "text", "pattern"},
+			},
+		},
+	}
+
+	db.BuildUniversalIndex()
+	scores := map[int]float64{}
+	terms := []string{"compress", "archive", "backup", "files", "folder", "create", "format", "bundle", "zip", "tar"}
+
+	db.mergeFamilyExpansionCandidates(scores, terms, nil, SearchOptions{
+		EnableFamilyExpansion:      true,
+		FamilyExpansionMaxBases:    2,
+		FamilyExpansionClarityMax:  1.0,
+		FamilyExpansionBlendWeight: 0.25,
+		Limit:                      5,
+	})
+
+	if scores[0] <= 0 && scores[1] <= 0 {
+		t.Fatalf("expected at least one archive-family command to get expansion bonus, got scores=%v", scores)
+	}
+	if scores[2] > 0 {
+		t.Fatalf("expected unrelated grep command to remain unboosted, got score=%f", scores[2])
+	}
+}
+
+func TestMergeFamilyExpansionCandidatesClarityGateBlocksExpansion(t *testing.T) {
+	db := &Database{
+		Commands: []Command{
+			{
+				Command:          "git commit -m 'msg'",
+				Description:      "commit changes",
+				Keywords:         []string{"git", "commit"},
+				CommandLower:     "git commit -m 'msg'",
+				DescriptionLower: "commit changes",
+				KeywordsLower:    []string{"git", "commit"},
+			},
+		},
+	}
+	db.BuildUniversalIndex()
+	scores := map[int]float64{}
+	terms := []string{"git", "commit", "changes", "repository", "history", "message", "branch", "remote", "push", "status"}
+
+	db.mergeFamilyExpansionCandidates(scores, terms, nil, SearchOptions{
+		EnableFamilyExpansion:      true,
+		FamilyExpansionMaxBases:    2,
+		FamilyExpansionClarityMax:  -1.0,
+		FamilyExpansionBlendWeight: 0.25,
+		Limit:                      5,
+	})
+
+	if len(scores) != 0 {
+		t.Fatalf("expected no expansion due to strict clarity gate, got scores=%v", scores)
+	}
+}
+
 func utilsMin(a, b int) int {
 	if a < b {
 		return a

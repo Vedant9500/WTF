@@ -49,13 +49,18 @@ type metricsSummary struct {
 }
 
 type bm25EvalConfig struct {
-	K1               float64
-	B                database.BM25FieldValues
-	W                database.BM25FieldValues
-	MinIDF           float64
-	TopTermsCap      int
-	DisableBigrams   bool
-	DisableCharNGram bool
+	K1                         float64
+	B                          database.BM25FieldValues
+	W                          database.BM25FieldValues
+	MinIDF                     float64
+	TopTermsCap                int
+	EnableFamilyExpansion      bool
+	FamilyExpansionMaxBases    int
+	FamilyExpansionMaxTerms    int
+	FamilyExpansionClarityMax  float64
+	FamilyExpansionBlendWeight float64
+	DisableBigrams             bool
+	DisableCharNGram           bool
 }
 
 type sweepResult struct {
@@ -94,6 +99,24 @@ type cliOptions struct {
 	gridWTags            string
 	gridMinIDF           string
 	gridTopTerms         string
+}
+
+type sweepFlagRefs struct {
+	sweepMode            *bool
+	sweepTopN            *int
+	sweepWorkers         *int
+	sweepProgressSeconds *int
+	gridK1               *string
+	gridBCmd             *string
+	gridBDesc            *string
+	gridBKeys            *string
+	gridBTags            *string
+	gridWCmd             *string
+	gridWDesc            *string
+	gridWKeys            *string
+	gridWTags            *string
+	gridMinIDF           *string
+	gridTopTerms         *string
 }
 
 func main() {
@@ -162,6 +185,8 @@ func main() {
 }
 
 func parseCLIOptions() cliOptions {
+	sweepFlags := defineSweepFlags()
+
 	var (
 		dbPath       = flag.String("db", "assets/commands.yml", "Path to commands database YAML")
 		evalPath     = flag.String("eval", "assets/eval_queries.yaml", "Path to evaluation query set YAML")
@@ -176,76 +201,129 @@ func parseCLIOptions() cliOptions {
 		minMRR       = flag.Float64("min-mrr", -1, "Fail if MRR is below this value (0-1); disabled when < 0")
 		minNDCG      = flag.Float64("min-ndcg", -1, "Fail if NDCG@K is below this value (0-1); disabled when < 0")
 
-		bm25K1      = flag.Float64("bm25-k1", 1.2, "BM25F k1 override")
-		bm25BCmd    = flag.Float64("bm25-b-cmd", 0.75, "BM25F b (command field)")
-		bm25BDesc   = flag.Float64("bm25-b-desc", 0.75, "BM25F b (description field)")
-		bm25BKeys   = flag.Float64("bm25-b-keys", 0.7, "BM25F b (keywords field)")
-		bm25BTags   = flag.Float64("bm25-b-tags", 0.7, "BM25F b (tags field)")
-		bm25WCmd    = flag.Float64("bm25-w-cmd", 3.5, "BM25F weight (command field)")
-		bm25WDesc   = flag.Float64("bm25-w-desc", 1.0, "BM25F weight (description field)")
-		bm25WKeys   = flag.Float64("bm25-w-keys", 2.0, "BM25F weight (keywords field)")
-		bm25WTags   = flag.Float64("bm25-w-tags", 1.2, "BM25F weight (tags field)")
-		bm25MinIDF  = flag.Float64("bm25-min-idf", 0.0, "BM25F minimum IDF threshold")
-		topTermsCap = flag.Int("top-terms-cap", 10, "Top-IDF terms cap used for long query scoring")
+		bm25K1                 = flag.Float64("bm25-k1", 1.2, "BM25F k1 override")
+		bm25BCmd               = flag.Float64("bm25-b-cmd", 0.75, "BM25F b (command field)")
+		bm25BDesc              = flag.Float64("bm25-b-desc", 0.75, "BM25F b (description field)")
+		bm25BKeys              = flag.Float64("bm25-b-keys", 0.7, "BM25F b (keywords field)")
+		bm25BTags              = flag.Float64("bm25-b-tags", 0.7, "BM25F b (tags field)")
+		bm25WCmd               = flag.Float64("bm25-w-cmd", 3.5, "BM25F weight (command field)")
+		bm25WDesc              = flag.Float64("bm25-w-desc", 1.0, "BM25F weight (description field)")
+		bm25WKeys              = flag.Float64("bm25-w-keys", 2.0, "BM25F weight (keywords field)")
+		bm25WTags              = flag.Float64("bm25-w-tags", 1.2, "BM25F weight (tags field)")
+		bm25MinIDF             = flag.Float64("bm25-min-idf", 0.0, "BM25F minimum IDF threshold")
+		topTermsCap            = flag.Int("top-terms-cap", 10, "Top-IDF terms cap used for long query scoring")
+		familyExpansionProfile = flag.String(
+			"family-expansion-profile",
+			"custom",
+			"Family expansion profile: off, safe, experimental, custom",
+		)
+		enableFamilyExpansion     = flag.Bool("family-expansion", false, "Enable Phase 2 corpus-native family expansion")
+		familyExpansionMaxBases   = flag.Int("family-expansion-max-bases", 3, "Max learned command bases considered for expansion")
+		familyExpansionMaxTerms   = flag.Int("family-expansion-max-terms", 4, "Max expansion terms appended")
+		familyExpansionClarityMax = flag.Float64(
+			"family-expansion-clarity-max",
+			0.55,
+			"Expand only when family clarity/confidence is <= threshold",
+		)
+		familyExpansionBlendWeight = flag.Float64("family-expansion-blend-weight", 0.25, "Additive blend weight for expansion channel")
 
 		disableBigrams   = flag.Bool("disable-bigrams", false, "Disable command/keyword bigram channel")
 		disableCharNGram = flag.Bool("disable-char-ngram", false, "Disable character n-gram channel")
-
-		sweepMode            = flag.Bool("sweep", false, "Run BM25 grid sweep instead of single evaluation")
-		sweepTopN            = flag.Int("sweep-topn", 10, "Top N configs to print in sweep mode")
-		sweepWorkers         = flag.Int("sweep-workers", runtime.NumCPU(), "Number of concurrent workers for sweep evaluation")
-		sweepProgressSeconds = flag.Int("sweep-progress-seconds", 10, "Progress log interval in seconds during sweep mode")
-		gridK1               = flag.String("grid-k1", "", "Comma-separated k1 values for sweep mode")
-		gridBCmd             = flag.String("grid-b-cmd", "", "Comma-separated b(cmd) values for sweep mode")
-		gridBDesc            = flag.String("grid-b-desc", "", "Comma-separated b(desc) values for sweep mode")
-		gridBKeys            = flag.String("grid-b-keys", "", "Comma-separated b(keys) values for sweep mode")
-		gridBTags            = flag.String("grid-b-tags", "", "Comma-separated b(tags) values for sweep mode")
-		gridWCmd             = flag.String("grid-w-cmd", "", "Comma-separated w(cmd) values for sweep mode")
-		gridWDesc            = flag.String("grid-w-desc", "", "Comma-separated w(desc) values for sweep mode")
-		gridWKeys            = flag.String("grid-w-keys", "", "Comma-separated w(keys) values for sweep mode")
-		gridWTags            = flag.String("grid-w-tags", "", "Comma-separated w(tags) values for sweep mode")
-		gridMinIDF           = flag.String("grid-min-idf", "", "Comma-separated minIDF values for sweep mode")
-		gridTopTerms         = flag.String("grid-top-terms", "", "Comma-separated TopTermsCap values for sweep mode")
 	)
 	flag.Parse()
 
+	baseConfig := bm25EvalConfig{
+		K1:                         *bm25K1,
+		B:                          database.BM25FieldValues{Cmd: *bm25BCmd, Desc: *bm25BDesc, Keys: *bm25BKeys, Tags: *bm25BTags},
+		W:                          database.BM25FieldValues{Cmd: *bm25WCmd, Desc: *bm25WDesc, Keys: *bm25WKeys, Tags: *bm25WTags},
+		MinIDF:                     *bm25MinIDF,
+		TopTermsCap:                *topTermsCap,
+		EnableFamilyExpansion:      *enableFamilyExpansion,
+		FamilyExpansionMaxBases:    *familyExpansionMaxBases,
+		FamilyExpansionMaxTerms:    *familyExpansionMaxTerms,
+		FamilyExpansionClarityMax:  *familyExpansionClarityMax,
+		FamilyExpansionBlendWeight: *familyExpansionBlendWeight,
+		DisableBigrams:             *disableBigrams,
+		DisableCharNGram:           *disableCharNGram,
+	}
+	applyFamilyExpansionProfile(&baseConfig, strings.ToLower(strings.TrimSpace(*familyExpansionProfile)))
+
 	return cliOptions{
-		dbPath:       *dbPath,
-		evalPath:     *evalPath,
-		limit:        *limit,
-		k:            *k,
-		useNLP:       *useNLP,
-		useFuzzy:     *useFuzzy,
-		allPlatforms: *allPlatforms,
-		verbose:      *verbose,
-		minTop1:      *minTop1,
-		minHitK:      *minHitK,
-		minMRR:       *minMRR,
-		minNDCG:      *minNDCG,
-		baseConfig: bm25EvalConfig{
-			K1:               *bm25K1,
-			B:                database.BM25FieldValues{Cmd: *bm25BCmd, Desc: *bm25BDesc, Keys: *bm25BKeys, Tags: *bm25BTags},
-			W:                database.BM25FieldValues{Cmd: *bm25WCmd, Desc: *bm25WDesc, Keys: *bm25WKeys, Tags: *bm25WTags},
-			MinIDF:           *bm25MinIDF,
-			TopTermsCap:      *topTermsCap,
-			DisableBigrams:   *disableBigrams,
-			DisableCharNGram: *disableCharNGram,
-		},
-		sweepMode:            *sweepMode,
-		sweepTopN:            *sweepTopN,
-		sweepWorkers:         *sweepWorkers,
-		sweepProgressSeconds: *sweepProgressSeconds,
-		gridK1:               *gridK1,
-		gridBCmd:             *gridBCmd,
-		gridBDesc:            *gridBDesc,
-		gridBKeys:            *gridBKeys,
-		gridBTags:            *gridBTags,
-		gridWCmd:             *gridWCmd,
-		gridWDesc:            *gridWDesc,
-		gridWKeys:            *gridWKeys,
-		gridWTags:            *gridWTags,
-		gridMinIDF:           *gridMinIDF,
-		gridTopTerms:         *gridTopTerms,
+		dbPath:               *dbPath,
+		evalPath:             *evalPath,
+		limit:                *limit,
+		k:                    *k,
+		useNLP:               *useNLP,
+		useFuzzy:             *useFuzzy,
+		allPlatforms:         *allPlatforms,
+		verbose:              *verbose,
+		minTop1:              *minTop1,
+		minHitK:              *minHitK,
+		minMRR:               *minMRR,
+		minNDCG:              *minNDCG,
+		baseConfig:           baseConfig,
+		sweepMode:            *sweepFlags.sweepMode,
+		sweepTopN:            *sweepFlags.sweepTopN,
+		sweepWorkers:         *sweepFlags.sweepWorkers,
+		sweepProgressSeconds: *sweepFlags.sweepProgressSeconds,
+		gridK1:               *sweepFlags.gridK1,
+		gridBCmd:             *sweepFlags.gridBCmd,
+		gridBDesc:            *sweepFlags.gridBDesc,
+		gridBKeys:            *sweepFlags.gridBKeys,
+		gridBTags:            *sweepFlags.gridBTags,
+		gridWCmd:             *sweepFlags.gridWCmd,
+		gridWDesc:            *sweepFlags.gridWDesc,
+		gridWKeys:            *sweepFlags.gridWKeys,
+		gridWTags:            *sweepFlags.gridWTags,
+		gridMinIDF:           *sweepFlags.gridMinIDF,
+		gridTopTerms:         *sweepFlags.gridTopTerms,
+	}
+}
+
+func defineSweepFlags() sweepFlagRefs {
+	return sweepFlagRefs{
+		sweepMode:            flag.Bool("sweep", false, "Run BM25 grid sweep instead of single evaluation"),
+		sweepTopN:            flag.Int("sweep-topn", 10, "Top N configs to print in sweep mode"),
+		sweepWorkers:         flag.Int("sweep-workers", runtime.NumCPU(), "Number of concurrent workers for sweep evaluation"),
+		sweepProgressSeconds: flag.Int("sweep-progress-seconds", 10, "Progress log interval in seconds during sweep mode"),
+		gridK1:               flag.String("grid-k1", "", "Comma-separated k1 values for sweep mode"),
+		gridBCmd:             flag.String("grid-b-cmd", "", "Comma-separated b(cmd) values for sweep mode"),
+		gridBDesc:            flag.String("grid-b-desc", "", "Comma-separated b(desc) values for sweep mode"),
+		gridBKeys:            flag.String("grid-b-keys", "", "Comma-separated b(keys) values for sweep mode"),
+		gridBTags:            flag.String("grid-b-tags", "", "Comma-separated b(tags) values for sweep mode"),
+		gridWCmd:             flag.String("grid-w-cmd", "", "Comma-separated w(cmd) values for sweep mode"),
+		gridWDesc:            flag.String("grid-w-desc", "", "Comma-separated w(desc) values for sweep mode"),
+		gridWKeys:            flag.String("grid-w-keys", "", "Comma-separated w(keys) values for sweep mode"),
+		gridWTags:            flag.String("grid-w-tags", "", "Comma-separated w(tags) values for sweep mode"),
+		gridMinIDF:           flag.String("grid-min-idf", "", "Comma-separated minIDF values for sweep mode"),
+		gridTopTerms:         flag.String("grid-top-terms", "", "Comma-separated TopTermsCap values for sweep mode"),
+	}
+}
+
+func applyFamilyExpansionProfile(cfg *bm25EvalConfig, profile string) {
+	if cfg == nil {
+		return
+	}
+
+	switch profile {
+	case "off":
+		cfg.EnableFamilyExpansion = false
+	case "safe":
+		cfg.EnableFamilyExpansion = true
+		cfg.FamilyExpansionClarityMax = 0.55
+		cfg.FamilyExpansionMaxBases = 2
+		cfg.FamilyExpansionMaxTerms = 2
+		cfg.FamilyExpansionBlendWeight = 0.30
+	case "experimental":
+		cfg.EnableFamilyExpansion = true
+		cfg.FamilyExpansionClarityMax = 0.45
+		cfg.FamilyExpansionMaxBases = 3
+		cfg.FamilyExpansionMaxTerms = 4
+		cfg.FamilyExpansionBlendWeight = 0.30
+	case "custom", "":
+		// Keep explicit CLI knobs unchanged.
+	default:
+		// Unknown values fall back to custom behavior.
 	}
 }
 
@@ -320,13 +398,18 @@ func searchOptionsFromConfig(cfg bm25EvalConfig, limit int, useNLP, useFuzzy, al
 	w := cfg.W
 
 	return database.SearchOptions{
-		Limit:            limit,
-		UseNLP:           useNLP,
-		UseFuzzy:         useFuzzy,
-		AllPlatforms:     allPlatforms,
-		TopTermsCap:      cfg.TopTermsCap,
-		DisableBigrams:   cfg.DisableBigrams,
-		DisableCharNGram: cfg.DisableCharNGram,
+		Limit:                      limit,
+		UseNLP:                     useNLP,
+		UseFuzzy:                   useFuzzy,
+		AllPlatforms:               allPlatforms,
+		TopTermsCap:                cfg.TopTermsCap,
+		EnableFamilyExpansion:      cfg.EnableFamilyExpansion,
+		FamilyExpansionMaxBases:    cfg.FamilyExpansionMaxBases,
+		FamilyExpansionMaxTerms:    cfg.FamilyExpansionMaxTerms,
+		FamilyExpansionClarityMax:  cfg.FamilyExpansionClarityMax,
+		FamilyExpansionBlendWeight: cfg.FamilyExpansionBlendWeight,
+		DisableBigrams:             cfg.DisableBigrams,
+		DisableCharNGram:           cfg.DisableCharNGram,
 		BM25Overrides: &database.BM25Overrides{
 			K1:     &k1,
 			B:      &b,
@@ -516,13 +599,18 @@ func buildSweepConfigs(
 										for _, minIDF := range minIDFValues {
 											for _, cap := range topTermsValues {
 												configs = append(configs, bm25EvalConfig{
-													K1:               k1,
-													B:                database.BM25FieldValues{Cmd: bCmd, Desc: bDesc, Keys: bKeys, Tags: bTags},
-													W:                database.BM25FieldValues{Cmd: wCmd, Desc: wDesc, Keys: wKeys, Tags: wTags},
-													MinIDF:           minIDF,
-													TopTermsCap:      cap,
-													DisableBigrams:   base.DisableBigrams,
-													DisableCharNGram: base.DisableCharNGram,
+													K1:                         k1,
+													B:                          database.BM25FieldValues{Cmd: bCmd, Desc: bDesc, Keys: bKeys, Tags: bTags},
+													W:                          database.BM25FieldValues{Cmd: wCmd, Desc: wDesc, Keys: wKeys, Tags: wTags},
+													MinIDF:                     minIDF,
+													TopTermsCap:                cap,
+													EnableFamilyExpansion:      base.EnableFamilyExpansion,
+													FamilyExpansionMaxBases:    base.FamilyExpansionMaxBases,
+													FamilyExpansionMaxTerms:    base.FamilyExpansionMaxTerms,
+													FamilyExpansionClarityMax:  base.FamilyExpansionClarityMax,
+													FamilyExpansionBlendWeight: base.FamilyExpansionBlendWeight,
+													DisableBigrams:             base.DisableBigrams,
+													DisableCharNGram:           base.DisableCharNGram,
 												})
 											}
 										}

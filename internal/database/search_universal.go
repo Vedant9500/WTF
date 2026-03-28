@@ -72,6 +72,7 @@ type bm25fParams struct {
 
 type learnedFamilyIndex struct {
 	tokenToBases map[string]map[string]int
+	baseToTokens map[string]map[string]int
 	baseDocFreq  map[string]int
 	cmdBaseByDoc []string
 	totalDocs    int
@@ -405,6 +406,7 @@ func (db *Database) BuildUniversalIndex() {
 func (db *Database) buildLearnedFamilyIndex() {
 	idx := &learnedFamilyIndex{
 		tokenToBases: make(map[string]map[string]int),
+		baseToTokens: make(map[string]map[string]int),
 		baseDocFreq:  make(map[string]int),
 		cmdBaseByDoc: make([]string, len(db.Commands)),
 		totalDocs:    len(db.Commands),
@@ -417,12 +419,19 @@ func (db *Database) buildLearnedFamilyIndex() {
 		idx.baseDocFreq[base]++
 
 		tokens := make(map[string]bool)
+		expansionTokens := make(map[string]bool)
+
+		for _, t := range normalizeAndTokenize(cmd.CommandLower) {
+			tokens[t] = true
+			expansionTokens[t] = true
+		}
 
 		for _, t := range normalizeAndTokenize(cmd.DescriptionLower) {
 			tokens[t] = true
 		}
 		for _, t := range normalizeAndTokenize(strings.Join(cmd.KeywordsLower, " ")) {
 			tokens[t] = true
+			expansionTokens[t] = true
 		}
 		for _, t := range normalizeAndTokenize(strings.Join(cmd.TagsLower, " ")) {
 			tokens[t] = true
@@ -433,6 +442,13 @@ func (db *Database) buildLearnedFamilyIndex() {
 				idx.tokenToBases[tok] = make(map[string]int)
 			}
 			idx.tokenToBases[tok][base]++
+		}
+
+		if idx.baseToTokens[base] == nil {
+			idx.baseToTokens[base] = make(map[string]int)
+		}
+		for tok := range expansionTokens {
+			idx.baseToTokens[base][tok]++
 		}
 	}
 
@@ -496,6 +512,7 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 
 	// Calculate initial scores using BM25F
 	scores := db.calculateInitialScores(terms, pq, options)
+	db.mergeFamilyExpansionCandidates(scores, terms, pq, options)
 	db.mergeHybridCandidates(scores, query, options)
 
 	// If no BM25F results, try fuzzy search as fallback for typos
@@ -523,7 +540,88 @@ func normalizeSearchOptions(options SearchOptions) SearchOptions {
 	if options.Limit <= 0 {
 		options.Limit = 10
 	}
+	if options.FamilyExpansionClarityMax <= 0 {
+		options.FamilyExpansionClarityMax = constants.FamilyExpansionClarityMaxDefault
+	}
+	if options.FamilyExpansionBlendWeight <= 0 {
+		options.FamilyExpansionBlendWeight = constants.FamilyExpansionBlendWeightDefault
+	}
 	return options
+}
+
+func familyQueryClarity(baseScores map[string]float64) float64 {
+	if len(baseScores) == 0 {
+		return 1.0
+	}
+
+	total := 0.0
+	for _, score := range baseScores {
+		if score > 0 {
+			total += score
+		}
+	}
+	if total <= 0 {
+		return 1.0
+	}
+	if len(baseScores) == 1 {
+		return 1.0
+	}
+
+	entropy := 0.0
+	for _, score := range baseScores {
+		if score <= 0 {
+			continue
+		}
+		p := score / total
+		entropy -= p * math.Log(p)
+	}
+
+	maxEntropy := math.Log(float64(len(baseScores)))
+	if maxEntropy <= 0 {
+		return 1.0
+	}
+	normalizedEntropy := entropy / maxEntropy
+	if normalizedEntropy < 0 {
+		normalizedEntropy = 0
+	}
+	if normalizedEntropy > 1 {
+		normalizedEntropy = 1
+	}
+
+	return 1.0 - normalizedEntropy
+}
+
+func topFamilyBases(baseScores map[string]float64, maxBases int) []string {
+	type familyScore struct {
+		base  string
+		score float64
+	}
+	list := make([]familyScore, 0, len(baseScores))
+	for base, score := range baseScores {
+		if score <= 0 {
+			continue
+		}
+		list = append(list, familyScore{base: base, score: score})
+	}
+	if len(list) == 0 {
+		return nil
+	}
+
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].score == list[j].score {
+			return list[i].base < list[j].base
+		}
+		return list[i].score > list[j].score
+	})
+
+	if maxBases > 0 && len(list) > maxBases {
+		list = list[:maxBases]
+	}
+	out := make([]string, 0, len(list))
+	for _, item := range list {
+		out = append(out, item.base)
+	}
+	return out
 }
 
 func (db *Database) handleNoTermsFallback(query string, options SearchOptions) []SearchResult {
@@ -538,6 +636,98 @@ func resolveTopTermsCap(options SearchOptions) int {
 		return options.TopTermsCap
 	}
 	return 10
+}
+
+func (db *Database) mergeFamilyExpansionCandidates(scores map[int]float64, terms []string, pq *nlp.ProcessedQuery, options SearchOptions) {
+	allowed := db.resolveFamilyExpansionAllowedBases(terms, pq, options)
+	if len(allowed) == 0 {
+		return
+	}
+
+	blend := resolveFamilyExpansionBlendWeight(options)
+	currentPlatform := getCurrentPlatform()
+	for docID := range db.Commands {
+		baseScore, include := db.familyExpansionBaseScore(docID, allowed)
+		if !include {
+			continue
+		}
+
+		cmd := &db.Commands[docID]
+		if !shouldIncludeFamilyExpansionCommand(cmd, options, currentPlatform) {
+			continue
+		}
+
+		bonus := familyExpansionBonus(baseScore, blend)
+		scores[docID] += bonus
+	}
+}
+
+func (db *Database) resolveFamilyExpansionAllowedBases(terms []string, pq *nlp.ProcessedQuery, options SearchOptions) map[string]float64 {
+	if !options.EnableFamilyExpansion || db.familyPriorIndex == nil || len(terms) == 0 {
+		return nil
+	}
+	if len(terms) < constants.LongQueryNormalizationThreshold {
+		return nil
+	}
+
+	baseScores := db.estimateQueryFamilyScores(terms, pq)
+	if len(baseScores) == 0 {
+		return nil
+	}
+	if familyQueryClarity(baseScores) > options.FamilyExpansionClarityMax {
+		return nil
+	}
+
+	maxBases := options.FamilyExpansionMaxBases
+	if maxBases <= 0 {
+		maxBases = constants.FamilyExpansionTopBasesDefault
+	}
+
+	topBases := topFamilyBases(baseScores, maxBases)
+	if len(topBases) == 0 {
+		return nil
+	}
+
+	allowed := make(map[string]float64, len(topBases))
+	for _, base := range topBases {
+		allowed[base] = baseScores[base]
+	}
+	return allowed
+}
+
+func resolveFamilyExpansionBlendWeight(options SearchOptions) float64 {
+	blend := options.FamilyExpansionBlendWeight
+	if blend <= 0 {
+		return constants.FamilyExpansionBlendWeightDefault
+	}
+	return blend
+}
+
+func (db *Database) familyExpansionBaseScore(docID int, allowed map[string]float64) (float64, bool) {
+	base := db.familyPriorIndex.cmdBaseByDoc[docID]
+	baseScore, ok := allowed[base]
+	if !ok || baseScore <= 0 {
+		return 0, false
+	}
+	return baseScore, true
+}
+
+func shouldIncludeFamilyExpansionCommand(cmd *Command, options SearchOptions, currentPlatform string) bool {
+	if !matchesPlatformOptions(cmd, options, currentPlatform) {
+		return false
+	}
+	if options.PipelineOnly && !isPipelineCommand(cmd) {
+		return false
+	}
+	return true
+}
+
+func familyExpansionBonus(baseScore, blend float64) float64 {
+	bonus := constants.FamilyExpansionMaxContribution * baseScore * blend
+	if bonus > constants.FamilyExpansionMaxContribution {
+		return constants.FamilyExpansionMaxContribution
+	}
+	return bonus
 }
 
 func (db *Database) mergeHybridCandidates(scores map[int]float64, query string, options SearchOptions) {

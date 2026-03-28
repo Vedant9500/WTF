@@ -33,16 +33,21 @@ func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options Searc
 
 	// Convert SearchOptions to cache.SearchOptions
 	cacheOptions := cache.SearchOptions{
-		Limit:            options.Limit,
-		ContextBoosts:    options.ContextBoosts,
-		PipelineOnly:     options.PipelineOnly,
-		PipelineBoost:    options.PipelineBoost,
-		UseFuzzy:         options.UseFuzzy,
-		FuzzyThreshold:   options.FuzzyThreshold,
-		UseNLP:           options.UseNLP,
-		DisableBigrams:   options.DisableBigrams,
-		DisableCharNGram: options.DisableCharNGram,
-		DisableProximity: options.DisableProximity,
+		Limit:                      options.Limit,
+		ContextBoosts:              options.ContextBoosts,
+		PipelineOnly:               options.PipelineOnly,
+		PipelineBoost:              options.PipelineBoost,
+		UseFuzzy:                   options.UseFuzzy,
+		FuzzyThreshold:             options.FuzzyThreshold,
+		UseNLP:                     options.UseNLP,
+		EnableFamilyExpansion:      options.EnableFamilyExpansion,
+		FamilyExpansionMaxBases:    options.FamilyExpansionMaxBases,
+		FamilyExpansionMaxTerms:    options.FamilyExpansionMaxTerms,
+		FamilyExpansionClarityMax:  options.FamilyExpansionClarityMax,
+		FamilyExpansionBlendWeight: options.FamilyExpansionBlendWeight,
+		DisableBigrams:             options.DisableBigrams,
+		DisableCharNGram:           options.DisableCharNGram,
+		DisableProximity:           options.DisableProximity,
 	}
 	if options.BM25Overrides != nil {
 		cacheOptions.BM25K1 = options.BM25Overrides.K1

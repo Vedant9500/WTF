@@ -18,20 +18,25 @@ type SearchResult struct {
 
 // SearchOptions represents search options for cache key generation
 type SearchOptions struct {
-	Limit            int                `json:"limit"`
-	ContextBoosts    map[string]float64 `json:"context_boosts,omitempty"`
-	PipelineOnly     bool               `json:"pipeline_only,omitempty"`
-	PipelineBoost    float64            `json:"pipeline_boost,omitempty"`
-	UseFuzzy         bool               `json:"use_fuzzy,omitempty"`
-	FuzzyThreshold   int                `json:"fuzzy_threshold,omitempty"`
-	UseNLP           bool               `json:"use_nlp,omitempty"`
-	DisableBigrams   bool               `json:"disable_bigrams,omitempty"`
-	DisableCharNGram bool               `json:"disable_char_ngram,omitempty"`
-	DisableProximity bool               `json:"disable_proximity,omitempty"`
-	BM25K1           *float64           `json:"bm25_k1,omitempty"`
-	BM25B            map[string]float64 `json:"bm25_b,omitempty"`
-	BM25W            map[string]float64 `json:"bm25_w,omitempty"`
-	BM25MinIDF       *float64           `json:"bm25_min_idf,omitempty"`
+	Limit                      int                `json:"limit"`
+	ContextBoosts              map[string]float64 `json:"context_boosts,omitempty"`
+	PipelineOnly               bool               `json:"pipeline_only,omitempty"`
+	PipelineBoost              float64            `json:"pipeline_boost,omitempty"`
+	UseFuzzy                   bool               `json:"use_fuzzy,omitempty"`
+	FuzzyThreshold             int                `json:"fuzzy_threshold,omitempty"`
+	UseNLP                     bool               `json:"use_nlp,omitempty"`
+	EnableFamilyExpansion      bool               `json:"enable_family_expansion,omitempty"`
+	FamilyExpansionMaxBases    int                `json:"family_expansion_max_bases,omitempty"`
+	FamilyExpansionMaxTerms    int                `json:"family_expansion_max_terms,omitempty"`
+	FamilyExpansionClarityMax  float64            `json:"family_expansion_clarity_max,omitempty"`
+	FamilyExpansionBlendWeight float64            `json:"family_expansion_blend_weight,omitempty"`
+	DisableBigrams             bool               `json:"disable_bigrams,omitempty"`
+	DisableCharNGram           bool               `json:"disable_char_ngram,omitempty"`
+	DisableProximity           bool               `json:"disable_proximity,omitempty"`
+	BM25K1                     *float64           `json:"bm25_k1,omitempty"`
+	BM25B                      map[string]float64 `json:"bm25_b,omitempty"`
+	BM25W                      map[string]float64 `json:"bm25_w,omitempty"`
+	BM25MinIDF                 *float64           `json:"bm25_min_idf,omitempty"`
 }
 
 // SearchCache provides caching for search results

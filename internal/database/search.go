@@ -39,21 +39,26 @@ type BM25Overrides struct {
 
 // SearchOptions holds options for search behavior
 type SearchOptions struct {
-	Limit            int
-	ContextBoosts    map[string]float64
-	PipelineOnly     bool           // Focus only on pipeline commands
-	PipelineBoost    float64        // Boost factor for pipeline commands
-	UseFuzzy         bool           // Enable fuzzy search for typos
-	FuzzyThreshold   int            // Minimum fuzzy score threshold
-	UseNLP           bool           // Enable natural language processing
-	TopTermsCap      int            // Cap for top-IDF term selection in universal search (0 = default)
-	AllPlatforms     bool           // Show commands for all platforms (disable filtering)
-	Platforms        []string       // Filter to specific platforms
-	NoCrossPlatform  bool           // Exclude cross-platform tools
-	DisableBigrams   bool           // Disable command/keyword phrase bigrams in BM25F scoring
-	DisableCharNGram bool           // Disable character n-gram lexical candidate channel
-	DisableProximity bool           // Disable description-field proximity boost
-	BM25Overrides    *BM25Overrides // Optional BM25F runtime overrides for parameter sweeps
+	Limit                      int
+	ContextBoosts              map[string]float64
+	PipelineOnly               bool           // Focus only on pipeline commands
+	PipelineBoost              float64        // Boost factor for pipeline commands
+	UseFuzzy                   bool           // Enable fuzzy search for typos
+	FuzzyThreshold             int            // Minimum fuzzy score threshold
+	UseNLP                     bool           // Enable natural language processing
+	TopTermsCap                int            // Cap for top-IDF term selection in universal search (0 = default)
+	EnableFamilyExpansion      bool           // Enable Phase 2 corpus-native family expansion (default false)
+	FamilyExpansionMaxBases    int            // Max learned command bases considered for expansion
+	FamilyExpansionMaxTerms    int            // Max expansion terms appended
+	FamilyExpansionClarityMax  float64        // Expand only when family clarity/confidence <= threshold
+	FamilyExpansionBlendWeight float64        // Additive blend weight for expansion channel
+	AllPlatforms               bool           // Show commands for all platforms (disable filtering)
+	Platforms                  []string       // Filter to specific platforms
+	NoCrossPlatform            bool           // Exclude cross-platform tools
+	DisableBigrams             bool           // Disable command/keyword phrase bigrams in BM25F scoring
+	DisableCharNGram           bool           // Disable character n-gram lexical candidate channel
+	DisableProximity           bool           // Disable description-field proximity boost
+	BM25Overrides              *BM25Overrides // Optional BM25F runtime overrides for parameter sweeps
 }
 
 // Search performs a basic keyword-based search
