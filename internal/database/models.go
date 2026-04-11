@@ -86,8 +86,14 @@ type Database struct {
 	cmdIndex map[*Command]int `yaml:"-"`
 	// embeddingIndex holds word vectors and command embeddings for semantic search
 	embeddingIndex *embedding.Index `yaml:"-"`
+	// enhancedEmbeddingIndex holds field-aware enhanced embeddings for improved search
+	enhancedEmbeddingIndex *embedding.EnhancedIndex `yaml:"-"`
+	// embeddingSearcher provides embedding-based search functionality
+	embeddingSearcher *embeddingSearcher `yaml:"-"`
 	// familyPriorIndex holds corpus-learned token->command-base associations
 	familyPriorIndex *learnedFamilyIndex `yaml:"-"`
+	// nlpProcessor provides NLP query processing
+	nlpProcessor *nlp.QueryProcessor `yaml:"-"`
 }
 
 // (imports are declared at the top)

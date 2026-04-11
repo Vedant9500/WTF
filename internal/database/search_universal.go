@@ -486,6 +486,105 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 
 	options = normalizeSearchOptions(options)
 
+	// Try embedding-based search first if enabled and available
+	if options.UseEmbedding && db.enhancedEmbeddingIndex != nil && db.embeddingSearcher != nil {
+		if results := db.tryEmbeddingSearch(query, options); len(results) > 0 {
+			return results
+		}
+	}
+
+	// Fall back to BM25F search
+	return db.searchUniversalBM25F(query, options)
+}
+
+// tryEmbeddingSearch attempts embedding-based search and returns results if successful.
+func (db *Database) tryEmbeddingSearch(query string, options SearchOptions) []SearchResult {
+	if db.embeddingSearcher == nil {
+		return nil
+	}
+
+	// Perform embedding search
+	embeddingResults := db.embeddingSearcher.Search(query, options.Limit*2)
+	if len(embeddingResults) == 0 {
+		return nil
+	}
+
+	// Convert to standard search results
+	results := make([]SearchResult, 0, len(embeddingResults))
+	for _, er := range embeddingResults {
+		if er.CommandIndex < len(db.Commands) {
+			cmd := db.Commands[er.CommandIndex]
+			
+			// Apply platform/pipeline filters if needed
+			if !db.matchesSearchOptions(&cmd, options) {
+				continue
+			}
+			
+			results = append(results, SearchResult{
+				Command: &cmd,
+				Score:   er.Score,
+			})
+		}
+	}
+
+	// If we also have BM25F, fuse the results
+	if db.uIndex != nil && len(results) > 0 {
+		bm25Results := db.searchUniversalBM25F(query, options)
+		if len(bm25Results) > 0 {
+			return db.hybridFuseResults(embeddingResults, bm25Results, options.Limit)
+		}
+	}
+
+	// Sort and limit
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Score > results[j].Score
+	})
+
+	if len(results) > options.Limit {
+		results = results[:options.Limit]
+	}
+
+	return results
+}
+
+// matchesSearchOptions checks if a command matches the search options (platform/pipeline filters).
+func (db *Database) matchesSearchOptions(cmd *Command, options SearchOptions) bool {
+	// Check pipeline filter
+	if options.PipelineOnly && !cmd.Pipeline {
+		return false
+	}
+
+	// Check platform filter
+	if !options.AllPlatforms && len(options.Platforms) > 0 {
+		matches := false
+		for _, platform := range options.Platforms {
+			for _, cmdPlatform := range cmd.Platform {
+				if strings.EqualFold(platform, cmdPlatform) {
+					matches = true
+					break
+				}
+			}
+			if matches {
+				break
+			}
+		}
+		if !matches {
+			return false
+		}
+	}
+
+	return true
+}
+
+// searchUniversalBM25F performs the original BM25F search.
+func (db *Database) searchUniversalBM25F(query string, options SearchOptions) []SearchResult {
+	if db.uIndex == nil || db.uIndex.N != len(db.Commands) {
+		// (Re)build lazily if needed
+		db.BuildUniversalIndex()
+	}
+
+	options = normalizeSearchOptions(options)
+
 	terms := normalizeAndTokenize(query)
 	var pq *nlp.ProcessedQuery
 

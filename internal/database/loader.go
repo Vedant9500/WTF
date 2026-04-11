@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Vedant9500/WTF/internal/errors"
+	"github.com/Vedant9500/WTF/internal/nlp"
 
 	"gopkg.in/yaml.v3"
 )
@@ -79,6 +80,8 @@ func newDatabase(commands []Command) *Database {
 	db.BuildUniversalIndex()
 	// Build TF-IDF searcher and command index for hybrid NLP reranking
 	db.buildTFIDFSearcher()
+	// Initialize NLP processor for enhanced query processing
+	db.nlpProcessor = nlp.NewQueryProcessor()
 	return db
 }
 

@@ -46,6 +46,7 @@ type SearchOptions struct {
 	UseFuzzy                   bool           // Enable fuzzy search for typos
 	FuzzyThreshold             int            // Minimum fuzzy score threshold
 	UseNLP                     bool           // Enable natural language processing
+	UseEmbedding               bool           // Enable embedding-based search (default: true if available)
 	TopTermsCap                int            // Cap for top-IDF term selection in universal search (0 = default)
 	EnableFamilyExpansion      bool           // Enable Phase 2 corpus-native family expansion (default false)
 	FamilyExpansionMaxBases    int            // Max learned command bases considered for expansion

@@ -45,6 +45,7 @@ func FindAssetPath(filename string) string {
 func (db *Database) LoadEmbeddings() error {
 	gloveFile := FindAssetPath("glove.bin")
 	cmdEmbedFile := FindAssetPath("cmd_embeddings.bin")
+	enhancedEmbedFile := FindAssetPath("enhanced_cmd_embeddings.bin")
 
 	// If GloVe file doesn't exist, embeddings are optional
 	if gloveFile == "" {
@@ -73,6 +74,33 @@ func (db *Database) LoadEmbeddings() error {
 	log.Printf("Loaded semantic search: %d words, %d command embeddings",
 		idx.VocabSize(), idx.NumCommands())
 
+	// Load enhanced embeddings if available
+	if enhancedEmbedFile != "" {
+		if err := db.loadEnhancedEmbeddings(enhancedEmbedFile); err != nil {
+			log.Printf("Note: enhanced embeddings not loaded: %v", err)
+			// Continue with basic embeddings
+		} else {
+			db.initializeEmbeddingSearcher()
+			log.Printf("Loaded enhanced embedding search with ANN indexing")
+		}
+	}
+
+	return nil
+}
+
+// loadEnhancedEmbeddings loads enhanced field-aware embeddings.
+func (db *Database) loadEnhancedEmbeddings(filepath string) error {
+	enhancedIdx := &embedding.EnhancedIndex{
+		Dimension:   100, // Same as GloVe dimension
+		WordVectors: db.embeddingIndex.WordVectors,
+		WordRanks:   db.embeddingIndex.WordRanks,
+	}
+
+	if err := enhancedIdx.LoadEnhancedEmbeddings(filepath); err != nil {
+		return err
+	}
+
+	db.enhancedEmbeddingIndex = enhancedIdx
 	return nil
 }
 
