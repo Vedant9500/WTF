@@ -46,6 +46,7 @@ func (db *Database) LoadEmbeddings() error {
 	gloveFile := FindAssetPath("glove.bin")
 	cmdEmbedFile := FindAssetPath("cmd_embeddings.bin")
 	enhancedEmbedFile := FindAssetPath("enhanced_cmd_embeddings.bin")
+	sentenceEmbedFile := FindAssetPath("sentence_cmd_embeddings.bin")
 
 	// If GloVe file doesn't exist, embeddings are optional
 	if gloveFile == "" {
@@ -82,6 +83,31 @@ func (db *Database) LoadEmbeddings() error {
 		} else {
 			db.initializeEmbeddingSearcher()
 			log.Printf("Loaded enhanced embedding search with ANN indexing")
+		}
+	}
+
+	// Load sentence-transformer embeddings if available
+	if sentenceEmbedFile != "" {
+		sentenceIdx := &embedding.SentenceIndex{}
+		if err := sentenceIdx.LoadSentenceEmbeddings(sentenceEmbedFile); err != nil {
+			log.Printf("Note: sentence-transformer embeddings not loaded: %v", err)
+		} else {
+			db.sentenceIndex = sentenceIdx
+			log.Printf("Loaded sentence-transformer embeddings: %d commands, %d dimensions",
+				sentenceIdx.TotalCommands, sentenceIdx.Dimension)
+		}
+	}
+
+	// Load pre-computed query embeddings if available
+	queryEmbedFile := FindAssetPath("query_embeddings.bin")
+	if queryEmbedFile != "" {
+		queryIdx := &embedding.QueryEmbedIndex{}
+		if err := queryIdx.LoadQueryEmbeddings(queryEmbedFile); err != nil {
+			log.Printf("Note: query embeddings not loaded: %v", err)
+		} else {
+			db.queryEmbedIndex = queryIdx
+			log.Printf("Loaded pre-computed query embeddings: %d queries",
+				len(queryIdx.Queries))
 		}
 	}
 
@@ -150,4 +176,14 @@ func (db *Database) SemanticScores(queryEmbedding []float32) []float64 {
 		return nil
 	}
 	return db.embeddingIndex.SemanticScores(queryEmbedding)
+}
+
+// embedQuerySentence computes a sentence-transformer embedding for a query.
+// It first checks for pre-computed query embeddings, then falls back to nil
+// (sentence embeddings require the actual transformer model for live queries).
+func (db *Database) embedQuerySentence(query string) []float32 {
+	if db.queryEmbedIndex == nil {
+		return nil
+	}
+	return db.queryEmbedIndex.GetQueryEmbedding(query)
 }

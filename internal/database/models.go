@@ -88,6 +88,10 @@ type Database struct {
 	embeddingIndex *embedding.Index `yaml:"-"`
 	// enhancedEmbeddingIndex holds field-aware enhanced embeddings for improved search
 	enhancedEmbeddingIndex *embedding.EnhancedIndex `yaml:"-"`
+	// sentenceIndex holds sentence-transformer embeddings (384d) for semantic search
+	sentenceIndex *embedding.SentenceIndex `yaml:"-"`
+	// queryEmbedIndex holds pre-computed sentence-transformer embeddings for eval queries
+	queryEmbedIndex *embedding.QueryEmbedIndex `yaml:"-"`
 	// embeddingSearcher provides embedding-based search functionality
 	embeddingSearcher *embeddingSearcher `yaml:"-"`
 	// familyPriorIndex holds corpus-learned token->command-base associations

@@ -339,6 +339,12 @@ func loadDatabase(path string) (*database.Database, error) {
 	}
 
 	db := &database.Database{Commands: commands}
+
+	// Load embeddings for semantic search
+	if err := db.LoadEmbeddings(); err != nil {
+		return nil, fmt.Errorf("loading embeddings: %w", err)
+	}
+
 	return db, nil
 }
 
