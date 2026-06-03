@@ -252,3 +252,75 @@ func TestLoadCommandEmbeddings_MetadataFormat(t *testing.T) {
 		t.Fatalf("expected 2 embeddings, got %d", len(idx.CmdEmbeddings))
 	}
 }
+
+func TestEnhancedSearchANNUsesRawCosineScale(t *testing.T) {
+	idx := &EnhancedIndex{
+		Dimension:     2,
+		TotalCommands: 120,
+		CmdEmbeddings: make([][]float32, 120),
+	}
+	for i := range idx.CmdEmbeddings {
+		vec := []float32{1, 0}
+		if i%2 == 1 {
+			vec = []float32{0, 1}
+		}
+		idx.CmdEmbeddings[i] = vec
+	}
+	idx.BuildANNIndex()
+
+	results := idx.EnhancedSearch([]float32{1, 0}, 10, true)
+	if len(results) == 0 {
+		t.Fatalf("expected ANN results")
+	}
+	for _, result := range results {
+		if result.Score > 1.0 {
+			t.Fatalf("ANN score = %f, expected raw cosine scale <= 1", result.Score)
+		}
+	}
+}
+
+func TestLoadWordVectorsRejectsOversizedVocabulary(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "glove.bin")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("failed to create file: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint32(maxEmbeddingVocabEntries+1)); err != nil {
+		t.Fatalf("failed to write vocab size: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("failed to close file: %v", err)
+	}
+
+	if _, err := LoadWordVectors(path); err == nil {
+		t.Fatalf("expected oversized vocabulary to be rejected")
+	}
+}
+
+func TestLoadQueryEmbeddingsRejectsOversizedDimension(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "query_embeddings.bin")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("failed to create file: %v", err)
+	}
+	if _, err := f.WriteString("WTQE"); err != nil {
+		t.Fatalf("failed to write magic: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint16(1)); err != nil {
+		t.Fatalf("failed to write version: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint32(1)); err != nil {
+		t.Fatalf("failed to write count: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint32(maxEmbeddingDimension+1)); err != nil {
+		t.Fatalf("failed to write dimension: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("failed to close file: %v", err)
+	}
+
+	idx := &QueryEmbedIndex{}
+	if err := idx.LoadQueryEmbeddings(path); err == nil {
+		t.Fatalf("expected oversized dimension to be rejected")
+	}
+}

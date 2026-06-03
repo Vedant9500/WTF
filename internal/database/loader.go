@@ -1,14 +1,22 @@
 package database
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/Vedant9500/WTF/internal/errors"
 	"github.com/Vedant9500/WTF/internal/nlp"
 
 	"gopkg.in/yaml.v3"
 )
+
+var dbLoadCache = struct {
+	sync.RWMutex
+	items map[string]*Database
+}{items: make(map[string]*Database)}
 
 // LoadDatabase loads commands from a YAML file and returns a populated Database.
 //
@@ -30,6 +38,10 @@ import (
 //   - YAML parsing errors
 //   - Invalid command structure errors
 func LoadDatabase(filename string) (*Database, error) {
+	if db, ok := getCachedDatabase(filename, ""); ok {
+		return db, nil
+	}
+
 	commands, err := loadCommandsFromFile(filename)
 	if err != nil {
 		return nil, err
@@ -40,6 +52,7 @@ func LoadDatabase(filename string) (*Database, error) {
 		return nil, err
 	}
 
+	setCachedDatabase(filename, "", db)
 	return db, nil
 }
 
@@ -78,8 +91,8 @@ func newDatabase(commands []Command) *Database {
 	db := &Database{Commands: commands}
 	// Build universal index for scalable search
 	db.BuildUniversalIndex()
-	// Build TF-IDF searcher and command index for hybrid NLP reranking
-	db.buildTFIDFSearcher()
+	// Build command index for fast pointer lookups; TF-IDF is built lazily when NLP reranking is requested.
+	db.buildCommandIndex()
 	// Initialize NLP processor for enhanced query processing
 	db.nlpProcessor = nlp.NewQueryProcessor()
 	return db
@@ -105,6 +118,10 @@ func newDatabase(commands []Command) *Database {
 //   - Personal database parsing errors are reported
 //   - Commands from personal database are appended to main database commands
 func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, error) {
+	if db, ok := getCachedDatabase(mainDBPath, personalDBPath); ok {
+		return db, nil
+	}
+
 	// Load main database
 	mainCommands, err := loadCommandsFromFile(mainDBPath)
 	if err != nil {
@@ -120,6 +137,7 @@ func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, err
 			if e := db.LoadEmbeddings(); e != nil {
 				return nil, e
 			}
+			setCachedDatabase(mainDBPath, personalDBPath, db)
 			return db, nil
 		}
 		// Check if it's a DatabaseError wrapping IsNotExist
@@ -129,6 +147,7 @@ func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, err
 				if e := db.LoadEmbeddings(); e != nil {
 					return nil, e
 				}
+				setCachedDatabase(mainDBPath, personalDBPath, db)
 				return db, nil
 			}
 		}
@@ -139,6 +158,7 @@ func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, err
 				if e := db.LoadEmbeddings(); e != nil {
 					return nil, e
 				}
+				setCachedDatabase(mainDBPath, personalDBPath, db)
 				return db, nil
 			}
 		}
@@ -155,7 +175,75 @@ func LoadDatabaseWithPersonal(mainDBPath, personalDBPath string) (*Database, err
 	if err := db.LoadEmbeddings(); err != nil {
 		return nil, err
 	}
+	setCachedDatabase(mainDBPath, personalDBPath, db)
 	return db, nil
+}
+
+func getCachedDatabase(mainPath, personalPath string) (*Database, bool) {
+	key, ok := databaseCacheKey(mainPath, personalPath)
+	if !ok {
+		return nil, false
+	}
+	dbLoadCache.RLock()
+	defer dbLoadCache.RUnlock()
+	db, ok := dbLoadCache.items[key]
+	if !ok {
+		return nil, false
+	}
+	return db.cloneForCacheHit(), true
+}
+
+func setCachedDatabase(mainPath, personalPath string, db *Database) {
+	key, ok := databaseCacheKey(mainPath, personalPath)
+	if !ok || db == nil {
+		return
+	}
+	dbLoadCache.Lock()
+	defer dbLoadCache.Unlock()
+	dbLoadCache.items[key] = db
+}
+
+func databaseCacheKey(mainPath, personalPath string) (string, bool) {
+	mainKey, ok := fileIdentity(mainPath, false)
+	if !ok {
+		return "", false
+	}
+	personalKey, ok := fileIdentity(personalPath, true)
+	if !ok {
+		return "", false
+	}
+	return mainKey + "|" + personalKey, true
+}
+
+func fileIdentity(path string, optional bool) (string, bool) {
+	if path == "" {
+		if optional {
+			return "<none>", true
+		}
+		return "", false
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", false
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		if optional && os.IsNotExist(err) {
+			return abs + ":missing", true
+		}
+		return "", false
+	}
+	return fmt.Sprintf("%s:%s:%d", abs, info.ModTime().UTC().Format("20060102150405.000000000"), info.Size()), true
+}
+
+func (db *Database) cloneForCacheHit() *Database {
+	if db == nil {
+		return nil
+	}
+	clone := *db
+	clone.Commands = append([]Command(nil), db.Commands...)
+	clone.buildCommandIndex()
+	return &clone
 }
 
 // Size returns the total number of commands in the database.

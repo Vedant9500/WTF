@@ -242,6 +242,26 @@ func TestSearchCache_KeyGeneration(t *testing.T) {
 	}
 }
 
+func TestSearchCache_KeyIncludesPlatformAndEmbeddingOptions(t *testing.T) {
+	searchCache := NewSearchCache(10, 0)
+	query := "status"
+	results := []SearchResult{{Command: "git status", Score: 1.0}}
+
+	windowsOptions := SearchOptions{Limit: 5, Platforms: []string{"windows"}}
+	linuxOptions := SearchOptions{Limit: 5, Platforms: []string{"linux"}}
+	searchCache.Put(query, windowsOptions, results)
+	if _, found := searchCache.Get(query, linuxOptions); found {
+		t.Fatal("expected platform-specific cache keys to differ")
+	}
+
+	embeddingOptions := SearchOptions{Limit: 5, UseEmbedding: true}
+	noEmbeddingOptions := SearchOptions{Limit: 5, DisableEmbedding: true}
+	searchCache.Put(query, embeddingOptions, results)
+	if _, found := searchCache.Get(query, noEmbeddingOptions); found {
+		t.Fatal("expected embedding-specific cache keys to differ")
+	}
+}
+
 func TestSearchCache_Invalidation(t *testing.T) {
 	searchCache := NewSearchCache(10, 0)
 

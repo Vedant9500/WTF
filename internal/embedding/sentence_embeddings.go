@@ -13,11 +13,11 @@ import (
 
 // SentenceIndex holds sentence-transformer embeddings for commands.
 type SentenceIndex struct {
-	Dimension     int
-	CmdEmbeddings [][]float32 // sentence-transformer embeddings (384d for MiniLM)
+	Dimension        int
+	CmdEmbeddings    [][]float32 // sentence-transformer embeddings (384d for MiniLM)
 	CmdEmbeddingHash string
-	FormatVersion uint16
-	TotalCommands int
+	FormatVersion    uint16
+	TotalCommands    int
 }
 
 // LoadSentenceEmbeddings loads sentence-transformer embeddings from binary file.
@@ -58,11 +58,20 @@ func (idx *SentenceIndex) LoadSentenceEmbeddings(filepath string) error {
 	if err := binary.Read(reader, binary.LittleEndian, &dimension); err != nil {
 		return fmt.Errorf("failed to read dimension: %w", err)
 	}
+	if err := validateCount("sentence command count", numCommands, maxEmbeddingCommands); err != nil {
+		return err
+	}
+	if err := validateDimension(dimension, 0); err != nil {
+		return err
+	}
 
 	// Read command hash
 	var hashLen uint16
 	if err := binary.Read(reader, binary.LittleEndian, &hashLen); err != nil {
 		return fmt.Errorf("failed to read hash length: %w", err)
+	}
+	if err := validateTextLength("command hash", hashLen); err != nil {
+		return err
 	}
 
 	if hashLen > 0 {
@@ -124,9 +133,9 @@ func (idx *SentenceIndex) Search(queryEmbedding []float32, topK int) []SearchRes
 // QueryEmbedIndex holds pre-computed sentence-transformer embeddings for queries.
 type QueryEmbedIndex struct {
 	Dimension  int
-	Queries    []string          // query texts in order
-	Embeddings [][]float32       // pre-computed query embeddings
-	queryMap   map[string]int    // query text -> index
+	Queries    []string       // query texts in order
+	Embeddings [][]float32    // pre-computed query embeddings
+	queryMap   map[string]int // query text -> index
 }
 
 // LoadQueryEmbeddings loads pre-computed query embeddings from binary file.
@@ -166,6 +175,12 @@ func (idx *QueryEmbedIndex) LoadQueryEmbeddings(filepath string) error {
 	if err := binary.Read(reader, binary.LittleEndian, &dimension); err != nil {
 		return fmt.Errorf("failed to read dimension: %w", err)
 	}
+	if err := validateCount("query embedding count", numQueries, maxQueryEmbeddings); err != nil {
+		return err
+	}
+	if err := validateDimension(dimension, 0); err != nil {
+		return err
+	}
 
 	idx.Dimension = int(dimension)
 	idx.Queries = make([]string, numQueries)
@@ -177,6 +192,9 @@ func (idx *QueryEmbedIndex) LoadQueryEmbeddings(filepath string) error {
 		var queryLen uint16
 		if err := binary.Read(reader, binary.LittleEndian, &queryLen); err != nil {
 			return fmt.Errorf("failed to read query length %d: %w", i, err)
+		}
+		if err := validateTextLength("query text", queryLen); err != nil {
+			return fmt.Errorf("invalid query length %d: %w", i, err)
 		}
 
 		queryBytes := make([]byte, queryLen)

@@ -26,12 +26,10 @@ Examples:
 	Run: func(cmd *cobra.Command, args []string) {
 		query := strings.Join(args, " ")
 
-		// Get flags
 		limit, _ := cmd.Flags().GetInt("limit")
 		verbose, _ := cmd.Flags().GetBool("verbose")
 		dbPath, _ := cmd.Flags().GetString("database")
 
-		// Load configuration
 		cfg := config.DefaultConfig()
 		if limit > 0 {
 			cfg.MaxResults = limit
@@ -40,14 +38,12 @@ Examples:
 			cfg.DatabasePath = dbPath
 		}
 
-		// Analyze current directory context
 		analyzer := context.NewAnalyzer()
 		projectContext, err := analyzer.AnalyzeCurrentDirectory()
 		if err != nil && verbose {
 			fmt.Printf("Warning: Could not analyze directory context: %v\n", err)
 		}
 
-		// Load database (main + personal)
 		dbFilePath := cfg.GetDatabasePath()
 		personalDBPath := cfg.GetPersonalDatabasePath()
 		db, err := database.LoadDatabaseWithPersonal(dbFilePath, personalDBPath)
@@ -63,53 +59,51 @@ Examples:
 				fmt.Printf("Context detected: %s\n", projectContext.GetContextDescription())
 			}
 		}
-		fmt.Printf("🔍 Searching for pipelines: %s\n\n", query)
 
-		// Prepare search options with context boosts and pipeline focus
+		symbols := pipelineSymbols()
+		fmt.Printf("%s Searching for pipelines: %s\n\n", symbols.search, query)
+
 		searchOptions := database.SearchOptions{
 			Limit:         cfg.MaxResults,
-			PipelineOnly:  true, // New option to focus on pipelines
-			PipelineBoost: 2.0,  // Boost pipeline commands
+			PipelineOnly:  true,
+			PipelineBoost: 2.0,
 		}
 		if projectContext != nil {
 			searchOptions.ContextBoosts = projectContext.GetContextBoosts()
 		}
 
-		// Perform pipeline-focused search
 		results := db.SearchWithPipelineOptions(query, searchOptions)
 
 		if len(results) == 0 {
 			fmt.Println("No pipeline commands found matching your query.")
-			fmt.Println("\n💡 Try broader terms like:")
-			fmt.Println("   • 'text processing'")
-			fmt.Println("   • 'file manipulation'")
-			fmt.Println("   • 'data extraction'")
-			fmt.Println("   • 'log analysis'")
+			fmt.Println("\nTip: Try broader terms like:")
+			fmt.Println("   - 'text processing'")
+			fmt.Println("   - 'file manipulation'")
+			fmt.Println("   - 'data extraction'")
+			fmt.Println("   - 'log analysis'")
 			return
 		}
 
-		// Display pipeline results with enhanced formatting
-		fmt.Printf("📋 Found %d pipeline command(s):\n\n", len(results))
+		fmt.Printf("%s Found %d pipeline command(s):\n\n", symbols.list, len(results))
 		for i, result := range results {
 			fmt.Printf("%d. %s\n", i+1, formatPipelineCommand(result.Command.Command))
-			fmt.Printf("   📝 %s\n", result.Command.Description)
+			fmt.Printf("   %s %s\n", symbols.note, result.Command.Description)
 
 			if len(result.Command.Keywords) > 0 && verbose {
-				fmt.Printf("   🏷️  Keywords: %s\n", strings.Join(result.Command.Keywords, ", "))
+				fmt.Printf("   %s Keywords: %s\n", symbols.tag, strings.Join(result.Command.Keywords, ", "))
 			}
 			if result.Command.Niche != "" {
-				fmt.Printf("   📂 Category: %s\n", result.Command.Niche)
+				fmt.Printf("   %s Category: %s\n", symbols.category, result.Command.Niche)
 			}
 			if len(result.Command.Platform) > 0 && verbose {
-				fmt.Printf("   💻 Platforms: %s\n", strings.Join(result.Command.Platform, ", "))
+				fmt.Printf("   %s Platforms: %s\n", symbols.platform, strings.Join(result.Command.Platform, ", "))
 			}
 			if verbose {
-				fmt.Printf("   ⭐ Relevance Score: %.1f\n", result.Score)
+				fmt.Printf("   %s Relevance Score: %.1f\n", symbols.score, result.Score)
 			}
 
-			// Show pipeline breakdown
 			if strings.Contains(result.Command.Command, "|") {
-				fmt.Printf("   🔗 Pipeline steps:\n")
+				fmt.Printf("   %s Pipeline steps:\n", symbols.pipeline)
 				steps := strings.Split(result.Command.Command, "|")
 				for j, step := range steps {
 					fmt.Printf("      %d. %s\n", j+1, strings.TrimSpace(step))
@@ -119,13 +113,12 @@ Examples:
 			fmt.Println()
 		}
 
-		// Show pipeline tips
 		if verbose {
-			fmt.Println("💡 Pipeline Tips:")
-			fmt.Println("   • Use | to connect commands")
-			fmt.Println("   • Each command processes output from the previous")
-			fmt.Println("   • Test each step individually first")
-			fmt.Println("   • Use 'tee' to save intermediate results")
+			fmt.Println("Pipeline Tips:")
+			fmt.Println("   - Use | to connect commands")
+			fmt.Println("   - Each command processes output from the previous")
+			fmt.Println("   - Test each step individually first")
+			fmt.Println("   - Use 'tee' to save intermediate results")
 		}
 	},
 }
@@ -145,22 +138,18 @@ Examples:
 		name := args[0]
 		command := args[1]
 
-		// Get flags
 		keywords, _ := cmd.Flags().GetStringSlice("keywords")
 		niche, _ := cmd.Flags().GetString("category")
 		platforms, _ := cmd.Flags().GetStringSlice("platforms")
 
-		// Auto-detect pipeline characteristics
 		pipelineSteps := strings.Split(command, "|")
 		stepCount := len(pipelineSteps)
 
-		// Auto-generate description if not provided
 		description := fmt.Sprintf("%s - %d-step pipeline", name, stepCount)
 		if desc, _ := cmd.Flags().GetString("description"); desc != "" {
 			description = desc
 		}
 
-		// Auto-generate keywords based on pipeline
 		autoKeywords := []string{"pipeline", "workflow"}
 		if strings.Contains(command, "grep") {
 			autoKeywords = append(autoKeywords, "search", "filter")
@@ -175,24 +164,20 @@ Examples:
 			autoKeywords = append(autoKeywords, "find", "search")
 		}
 
-		// Merge user keywords with auto-detected ones
 		allKeywords := append(autoKeywords, keywords...)
 
-		// Create command entry
 		entry := database.Command{
 			Command:     command,
 			Description: description,
 			Keywords:    allKeywords,
 			Niche:       niche,
 			Platform:    platforms,
-			Pipeline:    true, // Mark as pipeline
+			Pipeline:    true,
 		}
 
-		// Get personal database path
 		cfg := config.DefaultConfig()
 		personalDBPath := cfg.GetPersonalDatabasePath()
 
-		// Save to personal database using existing save functionality
 		err := saveToPersonalDatabase(personalDBPath, entry)
 		if err != nil {
 			fmt.Printf("Error saving pipeline: %v\n", err)
@@ -221,7 +206,6 @@ Examples:
 }
 
 func init() {
-	// Add flags to save-pipeline command
 	savePipelineCmd.Flags().StringSliceP("keywords", "k", nil, "Keywords for the pipeline (comma-separated)")
 	savePipelineCmd.Flags().StringP("category", "c", "", "Category/niche for the pipeline")
 	savePipelineCmd.Flags().StringSliceP("platforms", "p", nil, "Supported platforms (comma-separated)")
@@ -229,12 +213,49 @@ func init() {
 }
 
 func formatPipelineCommand(command string) string {
-	// Add visual formatting to make pipeline commands more readable
 	if !strings.Contains(command, "|") {
 		return command
 	}
 
-	// Add colored pipe symbols and better spacing
-	formatted := strings.ReplaceAll(command, "|", " │ ")
-	return formatted
+	pipe := " | "
+	if shouldUseUnicodeSymbols() {
+		pipe = " │ "
+	}
+	return strings.ReplaceAll(command, "|", pipe)
+}
+
+type pipelineSymbolSet struct {
+	search   string
+	list     string
+	note     string
+	tag      string
+	category string
+	platform string
+	score    string
+	pipeline string
+}
+
+func pipelineSymbols() pipelineSymbolSet {
+	if !shouldUseUnicodeSymbols() {
+		return pipelineSymbolSet{
+			search:   ">",
+			list:     "-",
+			note:     "-",
+			tag:      "-",
+			category: "-",
+			platform: "-",
+			score:    "-",
+			pipeline: "-",
+		}
+	}
+	return pipelineSymbolSet{
+		search:   "🔍",
+		list:     "📋",
+		note:     "📝",
+		tag:      "🏷️",
+		category: "📂",
+		platform: "💻",
+		score:    "⭐",
+		pipeline: "🔗",
+	}
 }

@@ -10,18 +10,8 @@ import (
 
 // FindAssetPath searches for an asset file in common locations.
 func FindAssetPath(filename string) string {
-	// Check in current directory
-	if _, err := os.Stat(filename); err == nil {
-		return filename
-	}
-
-	// Check in assets/ subdirectory
-	assetsPath := filepath.Join("assets", filename)
-	if _, err := os.Stat(assetsPath); err == nil {
-		return assetsPath
-	}
-
-	// Check relative to executable
+	// Check relative to executable first so bundled assets are not shadowed by
+	// files in an arbitrary working directory.
 	exe, err := os.Executable()
 	if err == nil {
 		exeDir := filepath.Dir(exe)
@@ -34,6 +24,17 @@ func FindAssetPath(filename string) string {
 		if _, err := os.Stat(exeFile); err == nil {
 			return exeFile
 		}
+	}
+
+	// Check local development assets after installed assets.
+	assetsPath := filepath.Join("assets", filename)
+	if _, err := os.Stat(assetsPath); err == nil {
+		return assetsPath
+	}
+
+	// Last-resort development fallback for explicitly placed local assets.
+	if _, err := os.Stat(filename); err == nil {
+		return filename
 	}
 
 	return ""

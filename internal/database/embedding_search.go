@@ -12,20 +12,20 @@ import (
 
 // embeddingSearcher implements embedding-based search with ANN indexing.
 type embeddingSearcher struct {
-	index      *embedding.EnhancedIndex
-	nlpProc    *nlp.QueryProcessor
-	useANN     bool
-	topK       int
-	minScore   float64
+	index    *embedding.EnhancedIndex
+	nlpProc  *nlp.QueryProcessor
+	useANN   bool
+	topK     int
+	minScore float64
 }
 
 // newEmbeddingSearcher creates a new embedding-based searcher.
 func newEmbeddingSearcher(enhancedIdx *embedding.EnhancedIndex, nlpProcessor *nlp.QueryProcessor) *embeddingSearcher {
 	return &embeddingSearcher{
 		index:    enhancedIdx,
-		nlpProc: nlpProcessor,
+		nlpProc:  nlpProcessor,
 		useANN:   true,
-		topK:     50, // Return top 50 candidates for further ranking
+		topK:     50,   // Return top 50 candidates for further ranking
 		minScore: 0.01, // Minimum cosine similarity threshold (raw scale: -1 to 1)
 	}
 }
@@ -317,9 +317,10 @@ func (db *Database) embeddingSearch(query string, limit int) []EmbeddingSearchRe
 // searchBM25F performs BM25F-based search (wrapper for existing implementation).
 func (db *Database) searchBM25F(query string, limit int, useNLP bool) []SearchResult {
 	opts := SearchOptions{
-		Limit:   limit,
-		UseNLP:  useNLP,
-		UseFuzzy: true,
+		Limit:            limit,
+		UseNLP:           useNLP,
+		UseFuzzy:         true,
+		DisableEmbedding: true,
 	}
 	return db.SearchUniversal(query, opts)
 }
@@ -357,10 +358,10 @@ func (db *Database) hybridFuseResults(
 
 	// Convert back to results sorted by RRF score
 	type scoredResult struct {
-		cmdIdx     int
-		rrfScore   float64
-		embedRank  int
-		bm25Rank   int
+		cmdIdx    int
+		rrfScore  float64
+		embedRank int
+		bm25Rank  int
 	}
 
 	fused := make([]scoredResult, 0, len(scoreMap))

@@ -13,6 +13,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	personalDBDirMode  = 0700
+	personalDBFileMode = 0600
+)
+
 var saveCmd = &cobra.Command{
 	Use:   "save <command> <description>",
 	Short: "Save a custom command to your personal notebook",
@@ -84,7 +89,7 @@ func init() {
 func saveToPersonalDatabase(dbPath string, entry database.Command) error {
 	// Ensure the directory exists
 	dir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, personalDBDirMode); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -122,7 +127,7 @@ func writePersonalDatabase(dbPath string, commands []database.Command) error {
 		return fmt.Errorf("failed to marshal commands: %w", err)
 	}
 
-	err = os.WriteFile(dbPath, data, 0644)
+	err = os.WriteFile(dbPath, data, personalDBFileMode)
 	if err != nil {
 		return fmt.Errorf("failed to write personal database: %w", err)
 	}

@@ -206,7 +206,8 @@ func runFindWizard() {
 	if location == "" {
 		location = "."
 	}
-	command.WriteString(location)
+	quotedLocation := shellQuote(location)
+	command.WriteString(quotedLocation)
 
 	// Search criteria options available
 	fmt.Println("\nBuilding your find command step by step...")
@@ -230,10 +231,15 @@ func runFindWizard() {
 	// Limit search depth
 	if readYesNo("\nLimit search depth?") {
 		depth := readInput("Enter maximum depth: ")
-		// Insert maxdepth at the beginning (after find location)
-		finalCommand := strings.Replace(command.String(), location, location+" -maxdepth "+depth, 1)
-		command.Reset()
-		command.WriteString(finalCommand)
+		cleanDepth, ok := sanitizeUnsignedInt(depth)
+		if !ok {
+			fmt.Println("Invalid depth; skipping max depth filter.")
+		} else {
+			// Insert maxdepth at the beginning (after find location)
+			finalCommand := strings.Replace(command.String(), quotedLocation, quotedLocation+" -maxdepth "+cleanDepth, 1)
+			command.Reset()
+			command.WriteString(finalCommand)
+		}
 	}
 
 	// Final command
@@ -259,9 +265,9 @@ func runFindWizard() {
 
 func buildFindNamePattern(sb *strings.Builder, pattern string) {
 	if strings.Contains(pattern, "*") || strings.Contains(pattern, "?") {
-		sb.WriteString(" -name '" + pattern + "'")
+		sb.WriteString(" -name " + shellQuotePattern(pattern))
 	} else {
-		sb.WriteString(" -name '*" + pattern + "*'")
+		sb.WriteString(" -name " + shellQuotePattern("*"+pattern+"*"))
 	}
 }
 
@@ -294,13 +300,18 @@ func buildFindSizeFilter(sb *strings.Builder) {
 	sizeOps := []string{"Larger than", "Smaller than", "Exactly"}
 	sizeOp := readChoice("Size comparison:", sizeOps)
 	size := readInput("Enter size (e.g., 100k, 1M, 2G): ")
+	cleanSize, ok := sanitizeFindSize(size)
+	if !ok {
+		fmt.Println("Invalid size; skipping size filter.")
+		return
+	}
 	switch sizeOp {
 	case 0:
-		sb.WriteString(" -size +" + size)
+		sb.WriteString(" -size +" + cleanSize)
 	case 1:
-		sb.WriteString(" -size -" + size)
+		sb.WriteString(" -size -" + cleanSize)
 	case 2:
-		sb.WriteString(" -size " + size)
+		sb.WriteString(" -size " + cleanSize)
 	}
 }
 
@@ -315,13 +326,18 @@ func buildFindTimeFilter(sb *strings.Builder) {
 	}
 	timeOp := readChoice("Time comparison:", timeOps)
 	days := readInput("Enter number of days: ")
+	cleanDays, ok := sanitizeUnsignedInt(days)
+	if !ok {
+		fmt.Println("Invalid day count; skipping modification time filter.")
+		return
+	}
 	switch timeOp {
 	case 0:
-		sb.WriteString(" -mtime -" + days)
+		sb.WriteString(" -mtime -" + cleanDays)
 	case 1:
-		sb.WriteString(" -mtime +" + days)
+		sb.WriteString(" -mtime +" + cleanDays)
 	case 2:
-		sb.WriteString(" -mtime " + days)
+		sb.WriteString(" -mtime " + cleanDays)
 	}
 }
 
@@ -335,7 +351,7 @@ func runFFmpegWizard() {
 
 	// Input file
 	inputFile := readInput("Enter input file name: ")
-	command.WriteString(" -i " + inputFile)
+	command.WriteString(" -i " + shellQuote(inputFile))
 
 	// Operation type
 	operations := []string{
@@ -363,7 +379,7 @@ func runFFmpegWizard() {
 
 	// Output file
 	outputFile := readInput("\nEnter output file name: ")
-	command.WriteString(" " + outputFile)
+	command.WriteString(" " + shellQuote(outputFile))
 
 	// Overwrite option
 	if readYesNo("\nOverwrite output file if exists?") {

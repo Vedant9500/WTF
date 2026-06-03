@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+var (
+	nonWordQueryChars = regexp.MustCompile(`[^\w\s\-.]`)
+	whitespaceChars   = regexp.MustCompile(`\s+`)
+)
+
 // QueryProcessor handles natural language query preprocessing
 type QueryProcessor struct {
 	stopWords   map[string]bool
@@ -177,12 +182,10 @@ func (qp *QueryProcessor) appendKeywordsAndSynonyms(pq *ProcessedQuery, word, no
 // cleanQuery removes unnecessary characters and normalizes the text
 func (qp *QueryProcessor) cleanQuery(query string) string {
 	// Remove special characters but keep spaces and common punctuation
-	re := regexp.MustCompile(`[^\w\s\-.]`)
-	cleaned := re.ReplaceAllString(query, " ")
+	cleaned := nonWordQueryChars.ReplaceAllString(query, " ")
 
 	// Normalize multiple spaces
-	re = regexp.MustCompile(`\s+`)
-	cleaned = re.ReplaceAllString(cleaned, " ")
+	cleaned = whitespaceChars.ReplaceAllString(cleaned, " ")
 
 	return strings.TrimSpace(cleaned)
 }
@@ -190,10 +193,8 @@ func (qp *QueryProcessor) cleanQuery(query string) string {
 // NormalizeText applies the same cleanup used in the NLP query processor.
 // It removes special characters (keeping spaces, hyphens, and dots) and collapses whitespace.
 func NormalizeText(s string) string {
-	re := regexp.MustCompile(`[^\w\s\-.]`)
-	cleaned := re.ReplaceAllString(s, " ")
-	re = regexp.MustCompile(`\s+`)
-	cleaned = re.ReplaceAllString(cleaned, " ")
+	cleaned := nonWordQueryChars.ReplaceAllString(s, " ")
+	cleaned = whitespaceChars.ReplaceAllString(cleaned, " ")
 	return strings.TrimSpace(cleaned)
 }
 

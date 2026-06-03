@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -398,6 +399,27 @@ func TestLoadInvalidJSON(t *testing.T) {
 	err = history.Load()
 	if err == nil {
 		t.Error("Expected error loading invalid JSON file")
+	}
+}
+
+func TestSearchHistorySaveUsesPrivatePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not reliably expose POSIX permission bits")
+	}
+
+	path := filepath.Join(t.TempDir(), "history", "search_history.json")
+	history := NewSearchHistory(path, 10)
+	history.AddEntry("secret query", 1, "", time.Millisecond)
+	if err := history.Save(); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat failed: %v", err)
+	}
+	if got := info.Mode().Perm(); got != historyFileMode {
+		t.Fatalf("history mode = %v, want %v", got, os.FileMode(historyFileMode))
 	}
 }
 

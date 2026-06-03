@@ -45,6 +45,10 @@ This automatically handles all the complexity of setting up aliases for your sys
 }
 
 func quickSetup(aliasName string) error {
+	if err := validateAliasName(aliasName); err != nil {
+		return err
+	}
+
 	execPath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("couldn't find WTF executable: %v", err)
@@ -57,6 +61,10 @@ func quickSetup(aliasName string) error {
 }
 
 func setupWindows(aliasName, execPath string) error {
+	if err := validateAliasName(aliasName); err != nil {
+		return err
+	}
+
 	// Create batch file in current directory (simplest approach)
 	batchContent := fmt.Sprintf("@echo off\n%q %%*\n", execPath)
 	batchPath := aliasName + ".bat"
@@ -78,6 +86,10 @@ func setupWindows(aliasName, execPath string) error {
 }
 
 func setupUnix(aliasName, execPath string) error {
+	if err := validateAliasName(aliasName); err != nil {
+		return err
+	}
+
 	homeDir, _ := os.UserHomeDir()
 
 	// Try to add to shell rc files
@@ -86,7 +98,7 @@ func setupUnix(aliasName, execPath string) error {
 		filepath.Join(homeDir, ".zshrc"),
 	}
 
-	aliasLine := fmt.Sprintf("alias %s='%s'", aliasName, execPath)
+	aliasLine := fmt.Sprintf("alias %s=%s", aliasName, shellQuote(execPath))
 
 	for _, shellFile := range shellFiles {
 		if _, err := os.Stat(shellFile); err == nil {

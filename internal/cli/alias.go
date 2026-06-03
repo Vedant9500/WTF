@@ -74,6 +74,10 @@ var removeAliasCmd = &cobra.Command{
 }
 
 func addAlias(name string) error {
+	if err := validateAliasName(name); err != nil {
+		return err
+	}
+
 	// Get the current executable path
 	execPath, err := os.Executable()
 	if err != nil {
@@ -82,7 +86,7 @@ func addAlias(name string) error {
 
 	// Get directory where we'll place the alias
 	aliasDir := getAliasDir()
-	if err := os.MkdirAll(aliasDir, 0755); err != nil {
+	if err := os.MkdirAll(aliasDir, 0700); err != nil {
 		return err
 	}
 
@@ -93,8 +97,15 @@ func addAlias(name string) error {
 }
 
 func addWindowsAlias(name, execPath, aliasDir string) error {
+	if err := validateAliasName(name); err != nil {
+		return err
+	}
+
 	// Create a batch file
 	batchPath := filepath.Join(aliasDir, name+".bat")
+	if err := validatePathWithinDir(aliasDir, batchPath); err != nil {
+		return err
+	}
 	content := fmt.Sprintf("@echo off\n%q %%*\n", execPath)
 
 	if err := os.WriteFile(batchPath, []byte(content), 0755); err != nil {
@@ -111,8 +122,15 @@ func addWindowsAlias(name, execPath, aliasDir string) error {
 }
 
 func addUnixAlias(name, execPath, aliasDir string) error {
+	if err := validateAliasName(name); err != nil {
+		return err
+	}
+
 	// Create a shell script
 	scriptPath := filepath.Join(aliasDir, name)
+	if err := validatePathWithinDir(aliasDir, scriptPath); err != nil {
+		return err
+	}
 	content := fmt.Sprintf("#!/bin/bash\n%q \"$@\"\n", execPath)
 
 	if err := os.WriteFile(scriptPath, []byte(content), 0755); err != nil {
@@ -157,6 +175,10 @@ func listAliases() []string {
 }
 
 func removeAlias(name string) error {
+	if err := validateAliasName(name); err != nil {
+		return err
+	}
+
 	aliasDir := getAliasDir()
 
 	var filePath string

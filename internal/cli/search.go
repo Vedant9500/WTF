@@ -220,16 +220,11 @@ Examples:
 		format, _ := cmd.Flags().GetString("format")
 		noColor, _ := cmd.Flags().GetBool("no-color")
 
-		// Detect NO_COLOR env if flag not set
-		if !noColor {
-			if _, ok := os.LookupEnv("NO_COLOR"); ok {
-				noColor = true
-			}
-		}
+		useColor := shouldUseColor(noColor)
 
 		// ANSI color helpers
 		color := func(code string) string {
-			if noColor {
+			if !useColor {
 				return ""
 			}
 			return code
@@ -285,13 +280,9 @@ Examples:
 					score = ""
 				}
 				cmdStr := r.Command.Command
-				if len(cmdStr) > 48 {
-					cmdStr = cmdStr[:45] + "..."
-				}
+				cmdStr = truncateRunes(cmdStr, 48)
 				cat := r.Command.Niche
-				if len(cat) > 24 {
-					cat = cat[:21] + "..."
-				}
+				cat = truncateRunes(cat, 24)
 				fmt.Printf("%-3d %-48s %-24s %-10s\n", i+1, cmdStr, cat, score)
 			}
 

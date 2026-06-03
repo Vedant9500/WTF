@@ -25,6 +25,9 @@ type SearchOptions struct {
 	UseFuzzy                   bool               `json:"use_fuzzy,omitempty"`
 	FuzzyThreshold             int                `json:"fuzzy_threshold,omitempty"`
 	UseNLP                     bool               `json:"use_nlp,omitempty"`
+	UseEmbedding               bool               `json:"use_embedding,omitempty"`
+	DisableEmbedding           bool               `json:"disable_embedding,omitempty"`
+	TopTermsCap                int                `json:"top_terms_cap,omitempty"`
 	EnableFamilyExpansion      bool               `json:"enable_family_expansion,omitempty"`
 	FamilyExpansionMaxBases    int                `json:"family_expansion_max_bases,omitempty"`
 	FamilyExpansionMaxTerms    int                `json:"family_expansion_max_terms,omitempty"`
@@ -33,6 +36,9 @@ type SearchOptions struct {
 	DisableBigrams             bool               `json:"disable_bigrams,omitempty"`
 	DisableCharNGram           bool               `json:"disable_char_ngram,omitempty"`
 	DisableProximity           bool               `json:"disable_proximity,omitempty"`
+	AllPlatforms               bool               `json:"all_platforms,omitempty"`
+	Platforms                  []string           `json:"platforms,omitempty"`
+	NoCrossPlatform            bool               `json:"no_cross_platform,omitempty"`
 	BM25K1                     *float64           `json:"bm25_k1,omitempty"`
 	BM25B                      map[string]float64 `json:"bm25_b,omitempty"`
 	BM25W                      map[string]float64 `json:"bm25_w,omitempty"`

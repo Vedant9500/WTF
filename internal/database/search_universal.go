@@ -472,6 +472,14 @@ func (db *Database) buildTFIDFSearcher() {
 		}
 	}
 	db.tfidf = nlp.NewTFIDFSearcher(cmds)
+	db.buildCommandIndex()
+}
+
+func (db *Database) buildCommandIndex() {
+	if len(db.Commands) == 0 {
+		db.cmdIndex = nil
+		return
+	}
 	db.cmdIndex = make(map[*Command]int, len(db.Commands))
 	for i := range db.Commands {
 		db.cmdIndex[&db.Commands[i]] = i
@@ -484,8 +492,14 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 		// (Re)build lazily if needed
 		db.BuildUniversalIndex()
 	}
+	if db.cmdIndex == nil || len(db.cmdIndex) != len(db.Commands) {
+		db.buildCommandIndex()
+	}
 
 	options = normalizeSearchOptions(options)
+	if options.UseNLP && db.tfidf == nil {
+		db.buildTFIDFSearcher()
+	}
 
 	// Try pure sentence-transformer search first (matches Python eval behavior)
 	if db.sentenceIndex != nil {
@@ -518,8 +532,8 @@ func (db *Database) trySentenceSearch(query string, options SearchOptions) []Sea
 
 	// Compute cosine similarity for all commands
 	type cand struct {
-		idx  int
-		sim  float64
+		idx int
+		sim float64
 	}
 	candidates := make([]cand, 0, len(db.sentenceIndex.CmdEmbeddings))
 
@@ -544,9 +558,12 @@ func (db *Database) trySentenceSearch(query string, options SearchOptions) []Sea
 		if len(results) >= options.Limit {
 			break
 		}
-		cmd := db.Commands[c.idx]
+		cmd := &db.Commands[c.idx]
+		if !db.matchesSearchOptions(cmd, options) {
+			continue
+		}
 		results = append(results, SearchResult{
-			Command: &cmd,
+			Command: cmd,
 			Score:   c.sim * 100.0, // Scale to 0-100 range
 		})
 	}
@@ -574,15 +591,15 @@ func (db *Database) tryEmbeddingSearch(query string, options SearchOptions) []Se
 	results := make([]SearchResult, 0, len(embeddingResults))
 	for _, er := range embeddingResults {
 		if er.CommandIndex < len(db.Commands) {
-			cmd := db.Commands[er.CommandIndex]
-			
+			cmd := &db.Commands[er.CommandIndex]
+
 			// Apply platform/pipeline filters if needed
-			if !db.matchesSearchOptions(&cmd, options) {
+			if !db.matchesSearchOptions(cmd, options) {
 				continue
 			}
-			
+
 			results = append(results, SearchResult{
-				Command: &cmd,
+				Command: cmd,
 				Score:   er.Score,
 			})
 		}
@@ -610,28 +627,14 @@ func (db *Database) tryEmbeddingSearch(query string, options SearchOptions) []Se
 
 // matchesSearchOptions checks if a command matches the search options (platform/pipeline filters).
 func (db *Database) matchesSearchOptions(cmd *Command, options SearchOptions) bool {
-	// Check pipeline filter
-	if options.PipelineOnly && !cmd.Pipeline {
+	currentPlatform := getCurrentPlatform()
+	if !matchesPlatformOptions(cmd, options, currentPlatform) {
 		return false
 	}
 
-	// Check platform filter
-	if !options.AllPlatforms && len(options.Platforms) > 0 {
-		matches := false
-		for _, platform := range options.Platforms {
-			for _, cmdPlatform := range cmd.Platform {
-				if strings.EqualFold(platform, cmdPlatform) {
-					matches = true
-					break
-				}
-			}
-			if matches {
-				break
-			}
-		}
-		if !matches {
-			return false
-		}
+	// Check pipeline filter
+	if options.PipelineOnly && !isPipelineCommand(cmd) {
+		return false
 	}
 
 	return true
@@ -699,6 +702,11 @@ func (db *Database) searchUniversalBM25F(query string, options SearchOptions) []
 func normalizeSearchOptions(options SearchOptions) SearchOptions {
 	if options.Limit <= 0 {
 		options.Limit = 10
+	}
+	if options.DisableEmbedding {
+		options.UseEmbedding = false
+	} else {
+		options.UseEmbedding = true
 	}
 	if options.FamilyExpansionClarityMax <= 0 {
 		options.FamilyExpansionClarityMax = constants.FamilyExpansionClarityMaxDefault

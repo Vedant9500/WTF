@@ -18,6 +18,11 @@ import (
 	"time"
 )
 
+const (
+	historyDirMode  = 0700
+	historyFileMode = 0600
+)
+
 // SearchEntry represents a single search in the history
 type SearchEntry struct {
 	Query        string    `json:"query"`
@@ -87,7 +92,7 @@ func (sh *SearchHistory) Load() error {
 func (sh *SearchHistory) Save() error {
 	// Ensure directory exists
 	dir := filepath.Dir(sh.FilePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, historyDirMode); err != nil {
 		return fmt.Errorf("failed to create history directory: %w", err)
 	}
 
@@ -96,7 +101,7 @@ func (sh *SearchHistory) Save() error {
 		return fmt.Errorf("failed to marshal history: %w", err)
 	}
 
-	err = os.WriteFile(sh.FilePath, data, 0644)
+	err = os.WriteFile(sh.FilePath, data, historyFileMode)
 	if err != nil {
 		return fmt.Errorf("failed to write history file: %w", err)
 	}

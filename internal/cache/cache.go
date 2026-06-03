@@ -20,6 +20,7 @@ type Cache struct {
 	cleanupTicker *time.Ticker
 	stopCleanup   chan struct{}
 	wg            sync.WaitGroup
+	stopOnce      sync.Once
 }
 
 // NewCache creates a new cache with the specified TTL
@@ -66,8 +67,10 @@ func (c *Cache) autoCleanup() {
 // This should be called when the cache is no longer needed.
 func (c *Cache) Stop() {
 	if c.stopCleanup != nil {
-		close(c.stopCleanup)
-		c.wg.Wait()
+		c.stopOnce.Do(func() {
+			close(c.stopCleanup)
+			c.wg.Wait()
+		})
 	}
 }
 

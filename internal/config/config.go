@@ -145,6 +145,6 @@ func (c *Config) EnsureConfigDir() error {
 	// Use secure directory creation from validation package
 	// Import would be: "github.com/Vedant9500/WTF/internal/validation"
 	// For now, use secure permissions directly
-	const secureDirectoryMode = 0755
+	const secureDirectoryMode = 0700
 	return os.MkdirAll(c.ConfigDir, secureDirectoryMode)
 }

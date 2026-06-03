@@ -1,8 +1,13 @@
 package database
 
 import (
+	"encoding/binary"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Vedant9500/WTF/internal/embedding"
 )
 
 func buildPlatformStatusDB() *Database {
@@ -269,6 +274,58 @@ func TestSearchUniversalNoCrossPlatformExcludesCrossPlatformResults(t *testing.T
 
 	if !seenWindows {
 		t.Fatalf("expected windows command in results")
+	}
+}
+
+func TestNormalizeSearchOptionsEnablesEmbeddingByDefault(t *testing.T) {
+	options := normalizeSearchOptions(SearchOptions{Limit: 5})
+	if !options.UseEmbedding {
+		t.Fatalf("expected embedding search to be enabled by default")
+	}
+
+	options = normalizeSearchOptions(SearchOptions{Limit: 5, DisableEmbedding: true})
+	if options.UseEmbedding {
+		t.Fatalf("expected DisableEmbedding to override default embedding search")
+	}
+}
+
+func TestSentenceSearchHonorsPlatformFilters(t *testing.T) {
+	db := buildPlatformStatusDB()
+	db.BuildUniversalIndex()
+	db.buildCommandIndex()
+	db.sentenceIndex = &embedding.SentenceIndex{
+		Dimension:     2,
+		TotalCommands: 3,
+		CmdEmbeddings: [][]float32{
+			{1, 0}, // linux result would be best without filtering
+			{0, 1},
+			{0.5, 0.5},
+		},
+	}
+
+	queryPath := filepath.Join(t.TempDir(), "query_embeddings.bin")
+	writeQueryEmbeddingsForTest(t, queryPath, "status", []float32{1, 0})
+	queryIndex := &embedding.QueryEmbedIndex{}
+	if err := queryIndex.LoadQueryEmbeddings(queryPath); err != nil {
+		t.Fatalf("LoadQueryEmbeddings failed: %v", err)
+	}
+	db.queryEmbedIndex = queryIndex
+
+	results := db.SearchUniversal("status", SearchOptions{
+		Limit:           5,
+		Platforms:       []string{"windows"},
+		NoCrossPlatform: true,
+	})
+	if len(results) == 0 {
+		t.Fatalf("expected filtered sentence-search results")
+	}
+	for _, result := range results {
+		if result.Command.Command == "systemctl status nginx" {
+			t.Fatalf("linux-only sentence result bypassed windows filter")
+		}
+	}
+	if results[0].Command.Command != "Get-Service -Name nginx" {
+		t.Fatalf("expected windows command after filtering, got %q", results[0].Command.Command)
 	}
 }
 
@@ -591,6 +648,38 @@ func utilsMin(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func writeQueryEmbeddingsForTest(t *testing.T, path, query string, vector []float32) {
+	t.Helper()
+
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("failed to create query embedding file: %v", err)
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString("WTQE"); err != nil {
+		t.Fatalf("failed to write magic: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint16(1)); err != nil {
+		t.Fatalf("failed to write version: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint32(1)); err != nil {
+		t.Fatalf("failed to write query count: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint32(len(vector))); err != nil {
+		t.Fatalf("failed to write dimension: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint16(len(query))); err != nil {
+		t.Fatalf("failed to write query length: %v", err)
+	}
+	if _, err := f.WriteString(query); err != nil {
+		t.Fatalf("failed to write query: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, vector); err != nil {
+		t.Fatalf("failed to write vector: %v", err)
+	}
 }
 
 func TestCalculateScore(t *testing.T) {

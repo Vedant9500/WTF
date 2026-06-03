@@ -35,21 +35,21 @@ const (
 	PoolingTemperature = 0.5
 
 	// ANN index parameters
-	ANNNumPartitions   = 100
-	ANNPointsPerLeaf   = 50
+	ANNNumPartitions = 100
+	ANNPointsPerLeaf = 50
 )
 
 // EnhancedIndex provides embedding-based search with ANN indexing.
 type EnhancedIndex struct {
-	Dimension     int
-	WordVectors   map[string][]float32
-	WordRanks     map[string]uint32
-	WordFreqs     map[string]float64 // IDF-like frequency weighting
+	Dimension   int
+	WordVectors map[string][]float32
+	WordRanks   map[string]uint32
+	WordFreqs   map[string]float64 // IDF-like frequency weighting
 
 	// Command embeddings with field-aware structure
-	CmdEmbeddings    [][]float32 // pooled command embeddings
-	CmdFieldEmbeds   []FieldEmbeddings
-	CmdMetadata      []CmdMeta // lightweight metadata for debugging/ranking
+	CmdEmbeddings  [][]float32 // pooled command embeddings
+	CmdFieldEmbeds []FieldEmbeddings
+	CmdMetadata    []CmdMeta // lightweight metadata for debugging/ranking
 
 	// ANN index for fast retrieval
 	ANNIndex *ANNIndex
@@ -72,18 +72,18 @@ type FieldEmbeddings struct {
 
 // CmdMeta stores lightweight metadata for each command
 type CmdMeta struct {
-	Command   string
-	Platform  []string
-	Niche     string
+	Command    string
+	Platform   []string
+	Niche      string
 	IsPipeline bool
 }
 
 // ANNIndex provides approximate nearest neighbor search
 type ANNIndex struct {
-	Dimension  int
-	Partitions [][]int       // cluster ID -> command indices
-	Centroids  [][]float32   // cluster centroids
-	Points     [][]float32   // all command embeddings (reference)
+	Dimension     int
+	Partitions    [][]int     // cluster ID -> command indices
+	Centroids     [][]float32 // cluster centroids
+	Points        [][]float32 // all command embeddings (reference)
 	PointsPerLeaf int
 }
 
@@ -133,8 +133,11 @@ func (idx *EnhancedIndex) LoadEnhancedEmbeddings(filepath string) error {
 		return fmt.Errorf("failed to read dimension: %w", err)
 	}
 
-	if int(dimension) != idx.Dimension {
-		return fmt.Errorf("dimension mismatch: expected %d, got %d", idx.Dimension, dimension)
+	if err := validateCount("enhanced command count", numCommands, maxEmbeddingCommands); err != nil {
+		return err
+	}
+	if err := validateDimension(dimension, idx.Dimension); err != nil {
+		return err
 	}
 
 	// Read embeddings
@@ -262,6 +265,9 @@ func readCmdMeta(reader *bufio.Reader) (CmdMeta, error) {
 	if err := binary.Read(reader, binary.LittleEndian, &cmdLen); err != nil {
 		return meta, err
 	}
+	if err := validateTextLength("command metadata", cmdLen); err != nil {
+		return meta, err
+	}
 	cmdBytes := make([]byte, cmdLen)
 	if _, err := io.ReadFull(reader, cmdBytes); err != nil {
 		return meta, err
@@ -279,6 +285,9 @@ func readCmdMeta(reader *bufio.Reader) (CmdMeta, error) {
 		if err := binary.Read(reader, binary.LittleEndian, &platLen); err != nil {
 			return meta, err
 		}
+		if err := validateTextLength("platform metadata", uint16(platLen)); err != nil {
+			return meta, err
+		}
 		platBytes := make([]byte, platLen)
 		if _, err := io.ReadFull(reader, platBytes); err != nil {
 			return meta, err
@@ -289,6 +298,9 @@ func readCmdMeta(reader *bufio.Reader) (CmdMeta, error) {
 	// Read niche
 	var nicheLen uint16
 	if err := binary.Read(reader, binary.LittleEndian, &nicheLen); err != nil {
+		return meta, err
+	}
+	if err := validateTextLength("niche metadata", nicheLen); err != nil {
 		return meta, err
 	}
 	nicheBytes := make([]byte, nicheLen)
@@ -623,7 +635,7 @@ func (idx *EnhancedIndex) ANNNNearestNeighbors(queryEmbedding []float32, topK in
 			results = append(results, SearchResult{
 				CommandIndex: cmdIdx,
 				Similarity:   sim,
-				Score:        sim * 100.0,
+				Score:        sim,
 			})
 		}
 	}

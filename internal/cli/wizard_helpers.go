@@ -23,7 +23,12 @@ func buildFFmpegConvertVideo(sb *strings.Builder) {
 			sb.WriteString(" -crf 28")
 		case 3:
 			crf := readInput("Enter CRF value (18-28, lower = better): ")
-			sb.WriteString(" -crf " + crf)
+			if cleanCRF, ok := sanitizeUnsignedInt(crf); ok {
+				sb.WriteString(" -crf " + cleanCRF)
+			} else {
+				fmt.Println("Invalid CRF; using default 23.")
+				sb.WriteString(" -crf 23")
+			}
 		}
 		sb.WriteString(" -c:a aac")
 	case 1: // AVI
@@ -48,7 +53,7 @@ func buildFFmpegExtractAudio(sb *strings.Builder) {
 		if bitrate == "" {
 			bitrate = "192k"
 		}
-		sb.WriteString(" -b:a " + bitrate)
+		sb.WriteString(" -b:a " + shellQuote(bitrate))
 	case 1: // AAC
 		sb.WriteString(" -vn -c:a aac")
 	case 2: // WAV
@@ -74,22 +79,49 @@ func buildFFmpegResizeVideo(sb *strings.Builder) {
 	case 4:
 		width := readInput("Enter width: ")
 		height := readInput("Enter height: ")
-		sb.WriteString(" -vf scale=" + width + ":" + height)
+		cleanWidth, widthOK := sanitizeUnsignedInt(width)
+		cleanHeight, heightOK := sanitizeUnsignedInt(height)
+		if widthOK && heightOK {
+			sb.WriteString(" -vf " + shellQuote("scale="+cleanWidth+":"+cleanHeight))
+		} else {
+			fmt.Println("Invalid resolution; skipping scale filter.")
+		}
 	case 5:
 		factor := readInput("Enter scale factor (e.g., 0.5 for half size): ")
-		sb.WriteString(" -vf scale=iw*" + factor + ":ih*" + factor)
+		if cleanFactor, ok := sanitizeTimeValue(factor); ok {
+			sb.WriteString(" -vf " + shellQuote("scale=iw*"+cleanFactor+":ih*"+cleanFactor))
+		} else {
+			fmt.Println("Invalid scale factor; skipping scale filter.")
+		}
 	}
 }
 
 func buildFFmpegTrimVideo(sb *strings.Builder) {
 	fmt.Println("\nTrim options:")
 	startTime := readInput("Enter start time (HH:MM:SS or seconds): ")
+	cleanStart, ok := sanitizeTimeValue(startTime)
+	if !ok {
+		fmt.Println("Invalid start time; using 0.")
+		cleanStart = "0"
+	}
 	if readYesNo("Specify duration?") {
 		duration := readInput("Enter duration (HH:MM:SS or seconds): ")
-		sb.WriteString(" -ss " + startTime + " -t " + duration)
+		cleanDuration, ok := sanitizeTimeValue(duration)
+		if !ok {
+			fmt.Println("Invalid duration; skipping duration.")
+			sb.WriteString(" -ss " + cleanStart)
+		} else {
+			sb.WriteString(" -ss " + cleanStart + " -t " + cleanDuration)
+		}
 	} else {
 		endTime := readInput("Enter end time (HH:MM:SS or seconds): ")
-		sb.WriteString(" -ss " + startTime + " -to " + endTime)
+		cleanEnd, ok := sanitizeTimeValue(endTime)
+		if !ok {
+			fmt.Println("Invalid end time; skipping end time.")
+			sb.WriteString(" -ss " + cleanStart)
+		} else {
+			sb.WriteString(" -ss " + cleanStart + " -to " + cleanEnd)
+		}
 	}
 	sb.WriteString(" -c copy")
 }
@@ -120,20 +152,20 @@ func buildTarCreate(sb *strings.Builder) {
 	if archiveName == "" {
 		archiveName = getDefaultArchiveName(compression)
 	}
-	sb.WriteString(" " + archiveName)
+	sb.WriteString(" " + shellQuote(archiveName))
 
 	// Source files/directories
 	source := readInput("Enter files/directories to archive (default: current directory): ")
 	if source == "" {
 		source = "."
 	}
-	sb.WriteString(" " + source)
+	sb.WriteString(" " + shellQuote(source))
 
 	// Exclude patterns
 	if readYesNo("\nExclude any files/patterns?") {
 		exclude := readInput("Enter exclude pattern (e.g., '*.tmp'): ")
 		if exclude != "" {
-			sb.WriteString(" --exclude='" + exclude + "'")
+			sb.WriteString(" --exclude=" + shellQuote(exclude))
 		}
 	}
 }
@@ -171,12 +203,12 @@ func buildTarExtract(sb *strings.Builder) {
 
 	// Archive name
 	archiveName := readInput("\nEnter archive file name: ")
-	sb.WriteString(" " + archiveName)
+	sb.WriteString(" " + shellQuote(archiveName))
 
 	// Extract directory
 	if readYesNo("\nExtract to specific directory?") {
 		extractDir := readInput("Enter directory: ")
-		sb.WriteString(" -C " + extractDir)
+		sb.WriteString(" -C " + shellQuote(extractDir))
 	}
 }
 
@@ -192,7 +224,7 @@ func buildTarList(sb *strings.Builder) {
 
 	// Archive name
 	archiveName := readInput("\nEnter archive file name: ")
-	sb.WriteString(" " + archiveName)
+	sb.WriteString(" " + shellQuote(archiveName))
 }
 
 func buildTarAdd(sb *strings.Builder) {
@@ -200,11 +232,11 @@ func buildTarAdd(sb *strings.Builder) {
 
 	// Archive name
 	archiveName := readInput("\nEnter existing archive name: ")
-	sb.WriteString("f " + archiveName)
+	sb.WriteString("f " + shellQuote(archiveName))
 
 	// Files to add
 	files := readInput("Enter files to add: ")
-	sb.WriteString(" " + files)
+	sb.WriteString(" " + shellQuote(files))
 }
 
 func buildFindActions(sb *strings.Builder) {
@@ -228,13 +260,17 @@ func buildFindActions(sb *strings.Builder) {
 			}
 		case 2:
 			destDir := readInput("Enter destination directory: ")
-			sb.WriteString(" -exec cp {} " + destDir + " \\;")
+			sb.WriteString(" -exec cp {} " + shellQuote(destDir) + " \\;")
 		case 3:
 			destDir := readInput("Enter destination directory: ")
-			sb.WriteString(" -exec mv {} " + destDir + " \\;")
+			sb.WriteString(" -exec mv {} " + shellQuote(destDir) + " \\;")
 		case 4:
 			execCmd := readInput("Enter command to execute (use {} for filename): ")
-			sb.WriteString(" -exec " + execCmd + " \\;")
+			if isSafeFindExecCommand(execCmd) {
+				sb.WriteString(" -exec " + execCmd + " \\;")
+			} else {
+				fmt.Println("Unsafe command syntax; skipping custom exec action.")
+			}
 		case 5:
 			sb.WriteString(" -ls")
 		}

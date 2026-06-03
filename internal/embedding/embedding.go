@@ -46,6 +46,9 @@ func LoadWordVectors(filepath string) (*Index, error) {
 	if err := binary.Read(reader, binary.LittleEndian, &vocabSize); err != nil {
 		return nil, fmt.Errorf("failed to read vocab size: %w", err)
 	}
+	if err := validateCount("vocabulary size", vocabSize, maxEmbeddingVocabEntries); err != nil {
+		return nil, err
+	}
 
 	idx := &Index{
 		Dimension:   100, // GloVe 100d
@@ -59,6 +62,9 @@ func LoadWordVectors(filepath string) (*Index, error) {
 		var wordLen uint16
 		if err := binary.Read(reader, binary.LittleEndian, &wordLen); err != nil {
 			return nil, fmt.Errorf("failed to read word length at %d: %w", i, err)
+		}
+		if err := validateTokenLength("word", wordLen); err != nil {
+			return nil, fmt.Errorf("invalid word length at %d: %w", i, err)
 		}
 
 		// Read word
@@ -101,8 +107,11 @@ func (idx *Index) LoadCommandEmbeddings(filepath string) error {
 		return err
 	}
 
-	if int(dimension) != idx.Dimension {
-		return fmt.Errorf("dimension mismatch: expected %d, got %d", idx.Dimension, dimension)
+	if err := validateCount("command embedding count", numCommands, maxEmbeddingCommands); err != nil {
+		return err
+	}
+	if err := validateDimension(dimension, idx.Dimension); err != nil {
+		return err
 	}
 
 	// Read embeddings
@@ -162,6 +171,9 @@ func readCommandEmbeddingsHeader(
 	var hashLen uint16
 	if err = binary.Read(reader, binary.LittleEndian, &hashLen); err != nil {
 		return 0, 0, 0, "", fmt.Errorf("failed to read command hash length: %w", err)
+	}
+	if err = validateTextLength("command hash", hashLen); err != nil {
+		return 0, 0, 0, "", err
 	}
 
 	hash = ""

@@ -26,6 +26,7 @@ func (cdb *CachedDatabase) SearchWithCache(query string, limit int) []SearchResu
 // SearchWithOptionsAndCache performs search with options and caching
 func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options SearchOptions) []SearchResult {
 	searchCache := cdb.cacheManager.GetSearchCache()
+	options = normalizeSearchOptions(options)
 	if !cdb.cacheManager.IsEnabled() {
 		// Cache disabled, use universal search
 		return cdb.SearchUniversal(query, options)
@@ -40,6 +41,9 @@ func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options Searc
 		UseFuzzy:                   options.UseFuzzy,
 		FuzzyThreshold:             options.FuzzyThreshold,
 		UseNLP:                     options.UseNLP,
+		UseEmbedding:               options.UseEmbedding,
+		DisableEmbedding:           options.DisableEmbedding,
+		TopTermsCap:                options.TopTermsCap,
 		EnableFamilyExpansion:      options.EnableFamilyExpansion,
 		FamilyExpansionMaxBases:    options.FamilyExpansionMaxBases,
 		FamilyExpansionMaxTerms:    options.FamilyExpansionMaxTerms,
@@ -48,6 +52,9 @@ func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options Searc
 		DisableBigrams:             options.DisableBigrams,
 		DisableCharNGram:           options.DisableCharNGram,
 		DisableProximity:           options.DisableProximity,
+		AllPlatforms:               options.AllPlatforms,
+		Platforms:                  append([]string(nil), options.Platforms...),
+		NoCrossPlatform:            options.NoCrossPlatform,
 	}
 	if options.BM25Overrides != nil {
 		cacheOptions.BM25K1 = options.BM25Overrides.K1
@@ -101,7 +108,9 @@ func (cdb *CachedDatabase) CleanupExpiredCache() map[string]int {
 func (cdb *CachedDatabase) UpdateDatabase(commands []Command) {
 	cdb.Database.Commands = commands
 	cdb.Database.BuildUniversalIndex() // Rebuild universal index
-	cdb.InvalidateCache()              // Invalidate cache when database is updated
+	cdb.Database.buildCommandIndex()
+	cdb.Database.tfidf = nil
+	cdb.InvalidateCache() // Invalidate cache when database is updated
 }
 
 // SearchWithPipelineOptionsAndCache performs pipeline search with caching
