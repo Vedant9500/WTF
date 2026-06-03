@@ -282,14 +282,48 @@ func TestNormalizeSearchOptionsEnablesEmbeddingByDefault(t *testing.T) {
 	if !options.UseEmbedding {
 		t.Fatalf("expected embedding search to be enabled by default")
 	}
+	if options.UseSentenceEmbeddings {
+		t.Fatalf("expected sentence-transformer search to require explicit opt-in")
+	}
 
-	options = normalizeSearchOptions(SearchOptions{Limit: 5, DisableEmbedding: true})
+	options = normalizeSearchOptions(SearchOptions{Limit: 5, DisableEmbedding: true, UseSentenceEmbeddings: true})
 	if options.UseEmbedding {
 		t.Fatalf("expected DisableEmbedding to override default embedding search")
 	}
 }
 
-func TestSentenceSearchHonorsPlatformFilters(t *testing.T) {
+func TestSentenceSearchRequiresExplicitOptIn(t *testing.T) {
+	db := buildPlatformStatusDB()
+	db.BuildUniversalIndex()
+	db.buildCommandIndex()
+	db.sentenceIndex = &embedding.SentenceIndex{
+		Dimension:     2,
+		TotalCommands: 3,
+		CmdEmbeddings: [][]float32{
+			{1, 0},
+			{0, 1},
+			{0.5, 0.5},
+		},
+	}
+
+	queryPath := filepath.Join(t.TempDir(), "query_embeddings.bin")
+	writeQueryEmbeddingsForTest(t, queryPath, "status", []float32{1, 0})
+	queryIndex := &embedding.QueryEmbedIndex{}
+	if err := queryIndex.LoadQueryEmbeddings(queryPath); err != nil {
+		t.Fatalf("LoadQueryEmbeddings failed: %v", err)
+	}
+	db.queryEmbedIndex = queryIndex
+
+	results := db.SearchUniversal("status", SearchOptions{Limit: 5})
+	if len(results) == 0 {
+		t.Fatalf("expected BM25F fallback results")
+	}
+	if results[0].Command.Command == "systemctl status nginx" && results[0].Score == 100.0 {
+		t.Fatalf("sentence-transformer search ran without explicit opt-in")
+	}
+}
+
+func TestSentenceSearchHonorsPlatformFiltersWhenOptedIn(t *testing.T) {
 	db := buildPlatformStatusDB()
 	db.BuildUniversalIndex()
 	db.buildCommandIndex()
@@ -312,9 +346,10 @@ func TestSentenceSearchHonorsPlatformFilters(t *testing.T) {
 	db.queryEmbedIndex = queryIndex
 
 	results := db.SearchUniversal("status", SearchOptions{
-		Limit:           5,
-		Platforms:       []string{"windows"},
-		NoCrossPlatform: true,
+		Limit:                 5,
+		Platforms:             []string{"windows"},
+		NoCrossPlatform:       true,
+		UseSentenceEmbeddings: true,
 	})
 	if len(results) == 0 {
 		t.Fatalf("expected filtered sentence-search results")

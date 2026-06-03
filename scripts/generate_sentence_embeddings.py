@@ -75,16 +75,11 @@ def command_snapshot_hash(commands: list) -> str:
         description = normalize_text(cmd.get("description", ""))
         keywords = cmd.get("keywords") or []
         keyword_text = "\x1e".join(normalize_text(k) for k in keywords)
-        tags = cmd.get("tags") or []
-        tag_text = "\x1e".join(normalize_text(t) for t in tags)
-
         hasher.update(command.encode("utf-8"))
         hasher.update(b"\x1f")
         hasher.update(description.encode("utf-8"))
         hasher.update(b"\x1f")
         hasher.update(keyword_text.encode("utf-8"))
-        hasher.update(b"\x1f")
-        hasher.update(tag_text.encode("utf-8"))
         hasher.update(b"\x1d")
 
     return hasher.hexdigest()

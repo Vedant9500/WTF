@@ -11,9 +11,9 @@ const (
 	maxEmbeddingTextBytes    = 4096
 )
 
-func validateCount(name string, count, max uint32) error {
-	if count > uint32(max) {
-		return fmt.Errorf("%s too large: %d exceeds maximum %d", name, count, max)
+func validateCount(name string, count, maxAllowed uint32) error {
+	if count > maxAllowed {
+		return fmt.Errorf("%s too large: %d exceeds maximum %d", name, count, maxAllowed)
 	}
 	return nil
 }

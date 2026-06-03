@@ -43,6 +43,7 @@ func (cdb *CachedDatabase) SearchWithOptionsAndCache(query string, options Searc
 		UseNLP:                     options.UseNLP,
 		UseEmbedding:               options.UseEmbedding,
 		DisableEmbedding:           options.DisableEmbedding,
+		UseSentenceEmbeddings:      options.UseSentenceEmbeddings,
 		TopTermsCap:                options.TopTermsCap,
 		EnableFamilyExpansion:      options.EnableFamilyExpansion,
 		FamilyExpansionMaxBases:    options.FamilyExpansionMaxBases,

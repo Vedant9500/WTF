@@ -12,6 +12,8 @@
 package database
 
 import (
+	"sync"
+
 	"github.com/Vedant9500/WTF/internal/embedding"
 	"github.com/Vedant9500/WTF/internal/nlp"
 )
@@ -98,6 +100,8 @@ type Database struct {
 	familyPriorIndex *learnedFamilyIndex `yaml:"-"`
 	// nlpProcessor provides NLP query processing
 	nlpProcessor *nlp.QueryProcessor `yaml:"-"`
+	// searchIndexMu protects lazy search index construction for concurrent searches
+	searchIndexMu sync.Mutex `yaml:"-"`
 }
 
 // (imports are declared at the top)

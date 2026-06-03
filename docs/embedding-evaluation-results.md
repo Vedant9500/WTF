@@ -12,7 +12,7 @@
 
 ### ✅ What's Working
 1. **Embedding generation**: Successfully creates field-aware embeddings for 6,619 commands
-2. **ANN indexing**: Fast retrieval working (O(log n) search)
+2. **Candidate retrieval**: Exhaustive vector scoring is preferred for the current corpus size because it preserves recall; the ANN index is available but not the default live path
 3. **Query encoding**: Intent-aware embeddings generated successfully
 4. **Infrastructure**: Full pipeline integrated with database
 

@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -83,7 +84,7 @@ func (db *Database) LoadEmbeddings() error {
 			// Continue with basic embeddings
 		} else {
 			db.initializeEmbeddingSearcher()
-			log.Printf("Loaded enhanced embedding search with ANN indexing")
+			log.Printf("Loaded enhanced embedding search")
 		}
 	}
 
@@ -92,6 +93,8 @@ func (db *Database) LoadEmbeddings() error {
 		sentenceIdx := &embedding.SentenceIndex{}
 		if err := sentenceIdx.LoadSentenceEmbeddings(sentenceEmbedFile); err != nil {
 			log.Printf("Note: sentence-transformer embeddings not loaded: %v", err)
+		} else if !db.validateSentenceEmbeddings(sentenceIdx) {
+			log.Printf("Note: sentence-transformer embeddings not loaded due to command alignment mismatch")
 		} else {
 			db.sentenceIndex = sentenceIdx
 			log.Printf("Loaded sentence-transformer embeddings: %d commands, %d dimensions",
@@ -126,6 +129,9 @@ func (db *Database) loadEnhancedEmbeddings(filepath string) error {
 	if err := enhancedIdx.LoadEnhancedEmbeddings(filepath); err != nil {
 		return err
 	}
+	if !db.validateEnhancedEmbeddings(enhancedIdx) {
+		return fmt.Errorf("command alignment validation failed")
+	}
 
 	db.enhancedEmbeddingIndex = enhancedIdx
 	return nil
@@ -156,6 +162,54 @@ func (db *Database) validateCommandEmbeddings(idx *embedding.Index) {
 		idx.CmdEmbeddings = nil
 		return
 	}
+}
+
+func (db *Database) validateEnhancedEmbeddings(idx *embedding.EnhancedIndex) bool {
+	if idx == nil || len(idx.CmdEmbeddings) == 0 {
+		return false
+	}
+	return db.validateEmbeddingAlignment(
+		len(idx.CmdEmbeddings),
+		idx.CmdEmbeddingHash,
+		"enhanced command embeddings",
+		"enhanced search",
+		"enhanced_cmd_embeddings.bin has no command hash metadata (legacy format); alignment safety checks are limited",
+	)
+}
+
+func (db *Database) validateSentenceEmbeddings(idx *embedding.SentenceIndex) bool {
+	if idx == nil || len(idx.CmdEmbeddings) == 0 {
+		return false
+	}
+	return db.validateEmbeddingAlignment(
+		len(idx.CmdEmbeddings),
+		idx.CmdEmbeddingHash,
+		"sentence-transformer embeddings",
+		"sentence search",
+		"sentence_cmd_embeddings.bin has no command hash metadata; alignment safety checks are limited",
+	)
+}
+
+func (db *Database) validateEmbeddingAlignment(count int, hash, countLabel, disabledFeature, missingHashWarning string) bool {
+	if count > len(db.Commands) {
+		log.Printf("Warning: %s count (%d) exceeds loaded commands (%d); %s disabled",
+			countLabel, count, len(db.Commands), disabledFeature)
+		return false
+	}
+
+	if hash == "" {
+		log.Printf("Warning: %s", missingHashWarning)
+		return true
+	}
+
+	expectedHash := db.commandSnapshotHash(count)
+	if expectedHash == "" || expectedHash != hash {
+		log.Printf("Warning: %s hash mismatch; %s disabled (expected %s, got %s)",
+			countLabel, disabledFeature, expectedHash, hash)
+		return false
+	}
+
+	return true
 }
 
 // HasEmbeddings returns true if semantic search embeddings are loaded.

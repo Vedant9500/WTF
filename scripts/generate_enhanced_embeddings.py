@@ -32,7 +32,7 @@ COMMANDS_YAML = "assets/commands.yml"
 OUTPUT_FILE = "assets/enhanced_cmd_embeddings.bin"
 VECTOR_DIM = 100
 EMBED_MAGIC = b"WTFS"  # WTF Search enhanced
-EMBED_VERSION = 2
+EMBED_VERSION = 3
 
 FIELD_WEIGHTS = {
     "command": 3.0,
@@ -119,16 +119,11 @@ def command_snapshot_hash(commands: list) -> str:
         description = normalize_text(cmd.get("description", ""))
         keywords = cmd.get("keywords") or []
         keyword_text = "\x1e".join(normalize_text(k) for k in keywords)
-        tags = cmd.get("tags") or []
-        tag_text = "\x1e".join(normalize_text(t) for t in tags)
-
         hasher.update(command.encode("utf-8"))
         hasher.update(b"\x1f")
         hasher.update(description.encode("utf-8"))
         hasher.update(b"\x1f")
         hasher.update(keyword_text.encode("utf-8"))
-        hasher.update(b"\x1f")
-        hasher.update(tag_text.encode("utf-8"))
         hasher.update(b"\x1d")
 
     return hasher.hexdigest()
@@ -297,6 +292,9 @@ def save_enhanced_embeddings(commands: list, embeddings: list, field_embeddings:
         f.write(struct.pack('<H', EMBED_VERSION))
         f.write(struct.pack('<I', len(embeddings)))
         f.write(struct.pack('<I', VECTOR_DIM))
+        hash_bytes = command_hash.encode('utf-8')
+        f.write(struct.pack('<H', len(hash_bytes)))
+        f.write(hash_bytes)
 
         # Write each command's embeddings
         for i, (cmd, pooled, field_embeds) in enumerate(zip(commands, embeddings, field_embeddings)):
@@ -370,8 +368,14 @@ def verify_enhanced_embeddings(filepath: str, num_samples: int = 5):
         version = struct.unpack('<H', f.read(2))[0]
         num_commands = struct.unpack('<I', f.read(4))[0]
         dimension = struct.unpack('<I', f.read(4))[0]
+        command_hash = ""
+        if version >= 3:
+            hash_len = struct.unpack('<H', f.read(2))[0]
+            command_hash = f.read(hash_len).decode('utf-8') if hash_len > 0 else ""
 
         print(f"  Format: enhanced v{version}, Commands: {num_commands:,}, Dimension: {dimension}")
+        if command_hash:
+            print(f"  Command hash: {command_hash[:16]}...")
 
         # Read first few embeddings
         for i in range(min(num_samples, num_commands)):

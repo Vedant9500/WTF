@@ -21,6 +21,8 @@ type SentenceIndex struct {
 }
 
 // LoadSentenceEmbeddings loads sentence-transformer embeddings from binary file.
+//
+//nolint:gocyclo // Binary format validation is intentionally linear and explicit.
 func (idx *SentenceIndex) LoadSentenceEmbeddings(filepath string) error {
 	f, err := os.Open(filepath)
 	if err != nil {
@@ -230,7 +232,7 @@ func (idx *QueryEmbedIndex) GetQueryEmbedding(query string) []float32 {
 	// Try case-insensitive match
 	queryLower := strings.ToLower(query)
 	for q, i := range idx.queryMap {
-		if strings.ToLower(q) == queryLower {
+		if strings.EqualFold(q, queryLower) {
 			return idx.Embeddings[i]
 		}
 	}
@@ -248,7 +250,7 @@ func (idx *QueryEmbedIndex) HasQueryEmbedding(query string) bool {
 	}
 	queryLower := strings.ToLower(query)
 	for q := range idx.queryMap {
-		if strings.ToLower(q) == queryLower {
+		if strings.EqualFold(q, queryLower) {
 			return true
 		}
 	}

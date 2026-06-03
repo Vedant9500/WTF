@@ -240,10 +240,20 @@ func (db *Database) cloneForCacheHit() *Database {
 	if db == nil {
 		return nil
 	}
-	clone := *db
-	clone.Commands = append([]Command(nil), db.Commands...)
+	clone := &Database{
+		Commands:               append([]Command(nil), db.Commands...),
+		uIndex:                 db.uIndex,
+		tfidf:                  db.tfidf,
+		embeddingIndex:         db.embeddingIndex,
+		enhancedEmbeddingIndex: db.enhancedEmbeddingIndex,
+		sentenceIndex:          db.sentenceIndex,
+		queryEmbedIndex:        db.queryEmbedIndex,
+		embeddingSearcher:      db.embeddingSearcher,
+		familyPriorIndex:       db.familyPriorIndex,
+		nlpProcessor:           db.nlpProcessor,
+	}
 	clone.buildCommandIndex()
-	return &clone
+	return clone
 }
 
 // Size returns the total number of commands in the database.

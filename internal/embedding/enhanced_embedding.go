@@ -1,4 +1,4 @@
-// Package embedding provides enhanced embedding search with contextual pooling and ANN indexing.
+// Package embedding provides enhanced embedding search with contextual pooling and optional ANN indexing.
 package embedding
 
 import (
@@ -13,8 +13,10 @@ import (
 )
 
 const (
-	// Enhanced embedding format version
-	EnhancedEmbeddingVersion = uint16(2)
+	// Enhanced embedding format version. Version 2 is legacy and has no command
+	// snapshot hash; version 3 adds hash metadata for alignment checks.
+	EnhancedEmbeddingLegacyVersion = uint16(2)
+	EnhancedEmbeddingVersion       = uint16(3)
 
 	// Field weights for contextual pooling
 	FieldWeightCommand = 3.0
@@ -39,7 +41,7 @@ const (
 	ANNPointsPerLeaf = 50
 )
 
-// EnhancedIndex provides embedding-based search with ANN indexing.
+// EnhancedIndex provides embedding-based search with optional ANN indexing.
 type EnhancedIndex struct {
 	Dimension   int
 	WordVectors map[string][]float32
@@ -58,8 +60,10 @@ type EnhancedIndex struct {
 	dominantComponent []float32
 
 	// Vocabulary statistics
-	TotalCommands int
-	VocabSize     int
+	TotalCommands    int
+	VocabSize        int
+	CmdEmbeddingHash string
+	CmdFormatVersion uint16
 }
 
 // FieldEmbeddings stores separate embeddings for each field
@@ -95,6 +99,8 @@ type SearchResult struct {
 }
 
 // LoadEnhancedEmbeddings loads enhanced command embeddings with field-aware structure.
+//
+//nolint:gocyclo,funlen // Binary format validation is intentionally linear and explicit.
 func (idx *EnhancedIndex) LoadEnhancedEmbeddings(filepath string) error {
 	f, err := os.Open(filepath)
 	if err != nil {
@@ -119,8 +125,9 @@ func (idx *EnhancedIndex) LoadEnhancedEmbeddings(filepath string) error {
 		return fmt.Errorf("failed to read version: %w", err)
 	}
 
-	if version != EnhancedEmbeddingVersion {
-		return fmt.Errorf("unsupported version: expected %d, got %d", EnhancedEmbeddingVersion, version)
+	if version != EnhancedEmbeddingVersion && version != EnhancedEmbeddingLegacyVersion {
+		return fmt.Errorf("unsupported version: expected %d or %d, got %d",
+			EnhancedEmbeddingVersion, EnhancedEmbeddingLegacyVersion, version)
 	}
 
 	// Read header fields
@@ -140,6 +147,24 @@ func (idx *EnhancedIndex) LoadEnhancedEmbeddings(filepath string) error {
 		return err
 	}
 
+	var hash string
+	if version >= EnhancedEmbeddingVersion {
+		var hashLen uint16
+		if err := binary.Read(reader, binary.LittleEndian, &hashLen); err != nil {
+			return fmt.Errorf("failed to read command hash length: %w", err)
+		}
+		if err := validateTextLength("command hash", hashLen); err != nil {
+			return err
+		}
+		if hashLen > 0 {
+			hashBytes := make([]byte, hashLen)
+			if _, err := io.ReadFull(reader, hashBytes); err != nil {
+				return fmt.Errorf("failed to read command hash: %w", err)
+			}
+			hash = string(hashBytes)
+		}
+	}
+
 	// Read embeddings
 	idx.CmdEmbeddings = make([][]float32, numCommands)
 	idx.CmdFieldEmbeds = make([]FieldEmbeddings, numCommands)
@@ -147,23 +172,23 @@ func (idx *EnhancedIndex) LoadEnhancedEmbeddings(filepath string) error {
 
 	for i := uint32(0); i < numCommands; i++ {
 		// Read metadata
-		meta, err := readCmdMeta(reader)
-		if err != nil {
-			return fmt.Errorf("failed to read metadata for command %d: %w", i, err)
+		meta, readErr := readCmdMeta(reader)
+		if readErr != nil {
+			return fmt.Errorf("failed to read metadata for command %d: %w", i, readErr)
 		}
 		idx.CmdMetadata[i] = meta
 
 		// Read pooled embedding
 		pooled := make([]float32, dimension)
-		if err := binary.Read(reader, binary.LittleEndian, pooled); err != nil {
-			return fmt.Errorf("failed to read pooled embedding %d: %w", i, err)
+		if pooledErr := binary.Read(reader, binary.LittleEndian, pooled); pooledErr != nil {
+			return fmt.Errorf("failed to read pooled embedding %d: %w", i, pooledErr)
 		}
 		normalizeVector(pooled)
 		idx.CmdEmbeddings[i] = pooled
 
 		// Read field embeddings (optional, for enhanced ranking)
-		fieldEmbeds, err := readFieldEmbeddings(reader, int(dimension))
-		if err != nil {
+		fieldEmbeds, readErr := readFieldEmbeddings(reader, int(dimension))
+		if readErr != nil {
 			// Field embeddings are optional
 			fieldEmbeds = FieldEmbeddings{}
 		}
@@ -171,6 +196,8 @@ func (idx *EnhancedIndex) LoadEnhancedEmbeddings(filepath string) error {
 	}
 
 	idx.TotalCommands = int(numCommands)
+	idx.CmdFormatVersion = version
+	idx.CmdEmbeddingHash = hash
 
 	// Remove dominant component and build ANN index
 	idx.enhancedFitAndRemoveDominantComponent()
@@ -423,7 +450,7 @@ const (
 )
 
 // classifyTokens identifies token types based on vocabulary patterns
-func classifyTokens(tokens []string, idx *EnhancedIndex) map[string]TokenType {
+func classifyTokens(tokens []string, _ *EnhancedIndex) map[string]TokenType {
 	// Simple heuristic: check if token appears in common action/target vocab
 	actions := map[string]bool{
 		"find": true, "search": true, "locate": true, "list": true,
@@ -692,7 +719,7 @@ func (idx *EnhancedIndex) ComputeFieldAwareScore(queryEmbedding []float32, cmdId
 }
 
 // Helper: lookup with weighting
-func (idx *EnhancedIndex) lookupWeightedVector(token string) ([]float32, float64, bool) {
+func (idx *EnhancedIndex) lookupWeightedVector(token string) (vector []float32, weight float64, ok bool) {
 	for _, candidate := range tokenVariants(token) {
 		if vec, ok := idx.WordVectors[candidate]; ok {
 			return vec, idx.tokenWeight(candidate), true
@@ -744,15 +771,4 @@ func tokenizeEnhanced(text string) []string {
 	}
 
 	return tokens
-}
-
-// generateSubwordFeatures generates character n-gram features for OOV recovery
-func generateSubwordFeatures(token string) []string {
-	var features []string
-	for n := MinNGramLength; n <= MaxNGramLength && n <= len(token); n++ {
-		for i := 0; i <= len(token)-n; i++ {
-			features = append(features, token[i:i+n])
-		}
-	}
-	return features
 }

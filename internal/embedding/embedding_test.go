@@ -253,6 +253,74 @@ func TestLoadCommandEmbeddings_MetadataFormat(t *testing.T) {
 	}
 }
 
+func TestLoadEnhancedEmbeddingsReadsHashMetadata(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "enhanced_cmd_embeddings.bin")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("failed to create embeddings file: %v", err)
+	}
+
+	if _, err := f.WriteString("WTFS"); err != nil {
+		t.Fatalf("failed to write magic: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, EnhancedEmbeddingVersion); err != nil {
+		t.Fatalf("failed to write version: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint32(2)); err != nil {
+		t.Fatalf("failed to write count: %v", err)
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint32(3)); err != nil {
+		t.Fatalf("failed to write dimension: %v", err)
+	}
+	hash := "abc123"
+	if err := binary.Write(f, binary.LittleEndian, uint16(len(hash))); err != nil {
+		t.Fatalf("failed to write hash len: %v", err)
+	}
+	if _, err := f.WriteString(hash); err != nil {
+		t.Fatalf("failed to write hash: %v", err)
+	}
+
+	vecs := [][]float32{{1, 0, 0}, {0, 1, 0}}
+	for i, vec := range vecs {
+		cmdName := []byte{byte('a' + i)}
+		if err := binary.Write(f, binary.LittleEndian, uint16(len(cmdName))); err != nil {
+			t.Fatalf("failed to write command len: %v", err)
+		}
+		if _, err := f.Write(cmdName); err != nil {
+			t.Fatalf("failed to write command name: %v", err)
+		}
+		if err := binary.Write(f, binary.LittleEndian, uint8(0)); err != nil {
+			t.Fatalf("failed to write platform count: %v", err)
+		}
+		if err := binary.Write(f, binary.LittleEndian, uint16(0)); err != nil {
+			t.Fatalf("failed to write niche len: %v", err)
+		}
+		if err := binary.Write(f, binary.LittleEndian, false); err != nil {
+			t.Fatalf("failed to write pipeline flag: %v", err)
+		}
+		if err := binary.Write(f, binary.LittleEndian, vec); err != nil {
+			t.Fatalf("failed to write vector: %v", err)
+		}
+		if err := binary.Write(f, binary.LittleEndian, uint8(0)); err != nil {
+			t.Fatalf("failed to write field presence: %v", err)
+		}
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("failed to close file: %v", err)
+	}
+
+	idx := &EnhancedIndex{Dimension: 3}
+	if err := idx.LoadEnhancedEmbeddings(path); err != nil {
+		t.Fatalf("LoadEnhancedEmbeddings failed: %v", err)
+	}
+	if idx.CmdEmbeddingHash != hash {
+		t.Fatalf("expected hash %q, got %q", hash, idx.CmdEmbeddingHash)
+	}
+	if idx.CmdFormatVersion != EnhancedEmbeddingVersion {
+		t.Fatalf("expected format version %d, got %d", EnhancedEmbeddingVersion, idx.CmdFormatVersion)
+	}
+}
+
 func TestEnhancedSearchANNUsesRawCosineScale(t *testing.T) {
 	idx := &EnhancedIndex{
 		Dimension:     2,

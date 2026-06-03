@@ -1,237 +1,127 @@
-# Embedding-Based Search Implementation
+# Embedding-Based Search
 
 ## Overview
 
-This document describes the new embedding-based search system that supplements (and can replace) the existing BM25F/TF-IDF vocabulary-dependent search with a semantic, vocabulary-independent approach.
+WTF uses embeddings as an optional semantic layer on top of the normal BM25F/NLP search pipeline. The default runtime path is conservative: enhanced GloVe command embeddings produce semantic candidates, BM25F produces lexical candidates, and the two lists are fused with reciprocal-rank fusion.
 
-## Architecture
+Sentence-transformer command embeddings are supported only when a query embedding is available. Today the Go CLI does not run a transformer model at query time; `assets/query_embeddings.bin` is an offline/evaluation artifact. Because of that, sentence-transformer search is explicit opt-in and should not be treated as the default live CLI behavior.
 
-### Components
+## Runtime Search Flow
 
-1. **Enhanced Command Embeddings** (`internal/embedding/enhanced_embedding.go`)
-   - Field-aware embeddings (command name, description, keywords, tags)
-   - Attention-like pooling for better token weighting
-   - Subword features for OOV (Out-Of-Vocabulary) recovery
-   - ANN (Approximate Nearest Neighbor) indexing for fast retrieval
+```text
+User query
+  -> argument parsing / SearchOptions normalization
+  -> optional sentence-transformer search only when UseSentenceEmbeddings is true
+  -> enhanced GloVe embedding candidate retrieval when enhanced assets are loaded
+  -> BM25F lexical search with NLP, fuzzy, platform, and pipeline filters
+  -> reciprocal-rank fusion of filtered embedding and BM25F results
+  -> terminal rendering / preview / execution flow
+```
 
-2. **Embedding Generation Script** (`scripts/generate_enhanced_embeddings.py`)
-   - Generates field-aware embeddings from command database
-   - Uses GloVe word vectors as base
-   - Applies SIF-like weighting with attention pooling
-   - Stores metadata for enhanced ranking
+The enhanced embedding path is exhaustive by default. For the current local corpus size, scoring every command vector is cheap and avoids the recall loss caused by the older single-cluster ANN shortcut. The ANN index can still exist in memory, but the default `embeddingSearcher` does not use it.
 
-3. **Embedding Search Integration** (`internal/database/embedding_search.go`)
-   - Intent-aware query embedding
-   - Field-aware scoring
-   - Hybrid fusion with BM25F results
-   - Graceful fallback to BM25F if embeddings unavailable
+## Assets
 
-## How It Works
+`assets/glove.bin`
+: Word vectors used to embed live queries.
 
-### Command Embedding Generation
+`assets/cmd_embeddings.bin`
+: Legacy pooled command vectors used for semantic boosting. Newer files carry a command snapshot hash.
 
-```python
-# Generate enhanced embeddings
+`assets/enhanced_cmd_embeddings.bin`
+: Field-aware command vectors used by the enhanced hybrid search path. Format v3 includes a command snapshot hash. Legacy v2 files remain loadable, but alignment checks are limited.
+
+`assets/sentence_cmd_embeddings.bin`
+: Sentence-transformer command vectors. These are not enough for arbitrary live queries unless a matching query embedding source exists.
+
+`assets/query_embeddings.bin`
+: Pre-computed sentence-transformer embeddings for known evaluation queries. This is for evaluation/experimentation, not general CLI search.
+
+## Generating Enhanced Embeddings
+
+```bash
+python scripts/prepare_glove.py
 python scripts/generate_enhanced_embeddings.py
 ```
 
-This creates `assets/enhanced_cmd_embeddings.bin` with:
-- **Pooled embedding**: Weighted average of all field embeddings
-- **Field embeddings**: Separate embeddings for command, description, keywords, tags
-- **Metadata**: Command name, platform, niche, pipeline flag
+The generator writes:
 
-### Query Processing
+- pooled command embeddings
+- separate command, description, keyword, and tag field embeddings
+- command metadata used for ranking diagnostics
+- a command snapshot hash used by the Go loader to detect stale or misordered assets
 
-1. **NLP Enhancement**: Query is processed to extract actions, targets, keywords, and intent
-2. **Intent-Aware Embedding**: Query embedding is computed with intent-based token weighting
-3. **ANN Search**: Fast nearest neighbor retrieval using clustered index
-4. **Field-Aware Scoring**: Each field is scored separately and weighted differently
-5. **Post-Scoring Boosts**: Metadata-based boosts (exact matches, niche relevance, etc.)
+The hash signature matches the runtime loader: normalized command, description, and keywords for each command in order.
 
-### Search Flow
-
-```
-User Query
-    ↓
-NLP Processing (actions, targets, intent)
-    ↓
-Query Embedding (intent-aware)
-    ↓
-ANN Search (fast retrieval)
-    ↓
-Field-Aware Scoring
-    ↓
-Post-Scoring Boosts
-    ↓
-Hybrid Fusion with BM25F (if available)
-    ↓
-Final Results
-```
-
-## Benefits Over BM25F/TF-IDF
-
-### 1. **Vocabulary Independence**
-- BM25F: Requires exact word matches or manual synonyms
-- Embedding: Understands semantic similarity (e.g., "compress" ≈ "archive")
-
-### 2. **Natural Language Queries**
-- BM25F: Struggles with conversational queries
-- Embedding: Excels at understanding intent from verbose queries
-
-### 3. **Contextual Understanding**
-- BM25F: Treats all terms equally
-- Embedding: Weights terms by importance (actions > targets > keywords)
-
-### 4. **OOV Recovery**
-- BM25F: Fails on unseen words
-- Embedding: Subword features provide graceful degradation
-
-### 5. **Speed**
-- BM25F: Scores all documents
-- Embedding: ANN index provides O(log n) retrieval
-
-## Configuration
-
-### Search Options
+## Search Options
 
 ```go
-options := SearchOptions{
-    UseEmbedding: true,  // Enable embedding search (default: true)
-    UseNLP: true,        // Enable NLP processing
-    Limit: 5,            // Number of results
-}
-```
-
-### Embedding Parameters
-
-Constants in `internal/embedding/enhanced_embedding.go`:
-
-```go
-FieldWeightCommand = 3.0    // Command name weight
-FieldWeightKeyword = 2.0    // Keywords weight
-FieldWeightDesc    = 1.0    // Description weight
-FieldWeightTag     = 1.2    // Tags weight
-
-SIFSmoothingA     = 1e-3    // SIF smoothing parameter
-DigitBoost        = 1.20    // Boost for numeric tokens
-ShortTokenPenalty = 0.85    // Penalty for short tokens
-
-ANNNumPartitions   = 100    // ANN cluster count
-ANNPointsPerLeaf   = 50     // Points per leaf node
-```
-
-## Usage Examples
-
-### Basic Search
-
-```go
-db := &Database{}
-db.LoadFromFile("commands.yml")
-
-// Embedding search is automatic if enhanced embeddings are loaded
-results := db.SearchUniversal("how to compress files", SearchOptions{
-    Limit: 5,
+results := db.SearchUniversal("how to compress files", database.SearchOptions{
+    Limit:  5,
     UseNLP: true,
 })
 ```
 
-### Force BM25F Only
+Embedding search is enabled by default when assets are available. To force lexical BM25F/NLP search:
 
 ```go
-results := db.SearchUniversal("tar command", SearchOptions{
-    Limit: 5,
-    UseEmbedding: false, // Disable embedding search
+results := db.SearchUniversal("tar command", database.SearchOptions{
+    Limit:            5,
+    DisableEmbedding: true,
 })
 ```
 
-### Platform-Specific Search
+To explicitly evaluate pre-computed sentence-transformer query embeddings:
 
 ```go
-results := db.SearchUniversal("list processes", SearchOptions{
-    Limit: 5,
-    Platforms: []string{"linux"},
+results := db.SearchUniversal("git undo", database.SearchOptions{
+    Limit:                 5,
+    UseNLP:                true,
+    UseSentenceEmbeddings: true,
 })
 ```
 
-## Performance
+## Evaluation
 
-### Embedding Generation
-
-- **Time**: ~2-3 seconds for 10,000 commands
-- **Memory**: ~3-5 MB for embedding file
-- **Vocabulary**: 100k GloVe words (100d vectors)
-
-### Search Speed
-
-- **ANN Search**: O(log n) average case
-- **Exhaustive Search**: O(n) but vectorized
-- **Typical Latency**: < 10ms for 10k commands
-
-### Memory Usage
-
-- **Word Vectors**: ~40 MB (100k words × 100d)
-- **Command Embeddings**: ~5 MB (10k commands × 100d × 4 bytes)
-- **ANN Index**: ~1 MB overhead
-
-## Testing
-
-### Generate Embeddings
+The focused embedding evaluator can compare the live hybrid path, lexical-only search, and pre-computed sentence-transformer mode:
 
 ```bash
-# Prerequisites: GloVe vectors
-python scripts/prepare_glove.py
-
-# Generate enhanced embeddings
-python scripts/generate_enhanced_embeddings.py
+go run ./cmd/eval_embedding -mode hybrid
+go run ./cmd/eval_embedding -mode bm25
+go run ./cmd/eval_embedding -mode sentence
 ```
 
-### Run Search Tests
+`-mode sentence` only works for queries present in `assets/query_embeddings.bin`. Unknown queries fall back through the normal search pipeline.
+
+The broader evaluator remains:
 
 ```bash
-# Build the project
-go build ./cmd/wtf
-
-# Test search
-./wtf search "how to compress a directory into a tar file"
-
-# Evaluation (if available)
-go run cmd/eval/main.go
+go run ./cmd/eval -set all -limit 5
 ```
+
+Prefer the stricter evaluator metrics when judging real search quality. Loose first-token matching can hide failures for command families such as `git reset` versus `git revert`.
+
+## Performance Notes
+
+- Enhanced GloVe search is O(n) over command vectors by default. With thousands or low tens of thousands of commands this is usually faster than the user-visible CLI overhead and improves recall.
+- BM25F index construction is lazy and cached per database snapshot.
+- Loading word vectors dominates memory use. A 100k x 100d float32 GloVe asset is roughly 40 MB before map overhead.
+- Sentence-transformer search needs either a runtime embedding backend or pre-computed query vectors. Without that, arbitrary live query quality cannot match Python offline evaluation.
 
 ## Troubleshooting
 
-### Embeddings Not Loading
+If embeddings do not load, check logs for:
 
-Check logs for messages like:
-- `Note: enhanced embeddings not loaded: ...`
-- `Warning: failed to load command embeddings: ...`
+- `glove.bin not found`
+- `enhanced embeddings not loaded`
+- `command embedding hash mismatch`
+- `sentence-transformer embedding hash mismatch`
 
-Ensure `assets/enhanced_cmd_embeddings.bin` exists.
+Hash mismatch means the embedding asset was generated from a different command ordering or content snapshot. Regenerate the asset from the current `assets/commands.yml`.
 
-### Poor Search Results
+If results are underwhelming:
 
-1. **Check embedding quality**: Verify with `scripts/generate_enhanced_embeddings.py`
-2. **Adjust field weights**: Modify `FieldWeight*` constants
-3. **Tune ANN index**: Adjust `ANNNumPartitions` for speed/accuracy tradeoff
-4. **Enable hybrid fusion**: Ensure BM25F index is also built
-
-### Performance Issues
-
-1. **Disable ANN**: Set `useANN: false` in `embeddingSearcher`
-2. **Reduce topK**: Lower `topK` in `embeddingSearcher` (default: 50)
-3. **Min score threshold**: Increase `minScore` to filter weak matches (default: 5.0)
-
-## Future Improvements
-
-1. **Dynamic Embedding Fine-Tuning**: Adapt embeddings based on user feedback
-2. **Contextual Embeddings**: Use transformer-based models for better context
-3. **Multi-Modal Search**: Combine embeddings with other signals (usage frequency, recency)
-4. **Incremental Updates**: Update embeddings without full regeneration
-5. **Quantization**: Reduce embedding size with product quantization
-
-## References
-
-- GloVe: Global Vectors for Word Representation (Stanford NLP)
-- SIF (Smooth Inverse Frequency) weighting for sentence embeddings
-- ANN (Approximate Nearest Neighbor) search algorithms
-- BM25F: BM25 for weighted fields
+- compare `go run ./cmd/eval_embedding -mode hybrid` with `-mode bm25`
+- verify `enhanced_cmd_embeddings.bin` is v3 and matches the current command snapshot
+- do not use `query_embeddings.bin` as evidence for arbitrary live query performance
+- inspect misses by slice with `go run ./cmd/eval -set all -limit 5`

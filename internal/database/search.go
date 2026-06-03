@@ -48,6 +48,7 @@ type SearchOptions struct {
 	UseNLP                     bool           // Enable natural language processing
 	UseEmbedding               bool           // Enable embedding-based search (default: true if available)
 	DisableEmbedding           bool           // Disable embedding-based search even when embeddings are available
+	UseSentenceEmbeddings      bool           // Use pre-computed sentence-transformer query embeddings (eval/experimental only)
 	TopTermsCap                int            // Cap for top-IDF term selection in universal search (0 = default)
 	EnableFamilyExpansion      bool           // Enable Phase 2 corpus-native family expansion (default false)
 	FamilyExpansionMaxBases    int            // Max learned command bases considered for expansion

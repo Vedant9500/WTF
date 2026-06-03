@@ -172,8 +172,8 @@ func readCommandEmbeddingsHeader(
 	if err = binary.Read(reader, binary.LittleEndian, &hashLen); err != nil {
 		return 0, 0, 0, "", fmt.Errorf("failed to read command hash length: %w", err)
 	}
-	if err = validateTextLength("command hash", hashLen); err != nil {
-		return 0, 0, 0, "", err
+	if textErr := validateTextLength("command hash", hashLen); textErr != nil {
+		return 0, 0, 0, "", textErr
 	}
 
 	hash = ""

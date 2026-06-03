@@ -488,21 +488,12 @@ func (db *Database) buildCommandIndex() {
 
 // SearchUniversal performs BM25F search over the index with optional platform/pipeline filters.
 func (db *Database) SearchUniversal(query string, options SearchOptions) []SearchResult {
-	if db.uIndex == nil || db.uIndex.N != len(db.Commands) {
-		// (Re)build lazily if needed
-		db.BuildUniversalIndex()
-	}
-	if db.cmdIndex == nil || len(db.cmdIndex) != len(db.Commands) {
-		db.buildCommandIndex()
-	}
-
 	options = normalizeSearchOptions(options)
-	if options.UseNLP && db.tfidf == nil {
-		db.buildTFIDFSearcher()
-	}
+	db.ensureSearchIndexes(options)
 
-	// Try pure sentence-transformer search first (matches Python eval behavior)
-	if db.sentenceIndex != nil {
+	// Sentence-transformer search requires pre-computed query embeddings today, so
+	// keep it explicit; otherwise offline eval vectors can change live CLI behavior.
+	if options.UseEmbedding && options.UseSentenceEmbeddings && db.sentenceIndex != nil {
 		if results := db.trySentenceSearch(query, options); len(results) > 0 {
 			return results
 		}
@@ -517,6 +508,33 @@ func (db *Database) SearchUniversal(query string, options SearchOptions) []Searc
 
 	// Fall back to BM25F search
 	return db.searchUniversalBM25F(query, options)
+}
+
+func (db *Database) ensureSearchIndexes(options SearchOptions) {
+	if !db.needsSearchIndexBuild(options) {
+		return
+	}
+
+	db.searchIndexMu.Lock()
+	defer db.searchIndexMu.Unlock()
+
+	if db.uIndex == nil || db.uIndex.N != len(db.Commands) {
+		db.BuildUniversalIndex()
+	}
+	if db.cmdIndex == nil || len(db.cmdIndex) != len(db.Commands) {
+		db.buildCommandIndex()
+	}
+	if options.UseNLP && db.tfidf == nil {
+		db.buildTFIDFSearcher()
+	}
+}
+
+func (db *Database) needsSearchIndexBuild(options SearchOptions) bool {
+	return db.uIndex == nil ||
+		db.uIndex.N != len(db.Commands) ||
+		db.cmdIndex == nil ||
+		len(db.cmdIndex) != len(db.Commands) ||
+		(options.UseNLP && db.tfidf == nil)
 }
 
 // trySentenceSearch attempts pure sentence-transformer search (matches Python eval).
@@ -589,6 +607,7 @@ func (db *Database) tryEmbeddingSearch(query string, options SearchOptions) []Se
 
 	// Convert to standard search results
 	results := make([]SearchResult, 0, len(embeddingResults))
+	filteredEmbeddingResults := make([]EmbeddingSearchResult, 0, len(embeddingResults))
 	for _, er := range embeddingResults {
 		if er.CommandIndex < len(db.Commands) {
 			cmd := &db.Commands[er.CommandIndex]
@@ -602,6 +621,7 @@ func (db *Database) tryEmbeddingSearch(query string, options SearchOptions) []Se
 				Command: cmd,
 				Score:   er.Score,
 			})
+			filteredEmbeddingResults = append(filteredEmbeddingResults, er)
 		}
 	}
 
@@ -609,7 +629,7 @@ func (db *Database) tryEmbeddingSearch(query string, options SearchOptions) []Se
 	if db.uIndex != nil && len(results) > 0 {
 		bm25Results := db.searchUniversalBM25F(query, options)
 		if len(bm25Results) > 0 {
-			return db.hybridFuseResults(embeddingResults, bm25Results, options.Limit)
+			return db.hybridFuseResults(filteredEmbeddingResults, bm25Results, options.Limit)
 		}
 	}
 
@@ -912,7 +932,7 @@ func (db *Database) mergeHybridCandidates(scores map[int]float64, query string, 
 
 	// Merge scalable semantic candidates (no command-specific hinting) to improve
 	// lexical miss recovery on natural language phrasing.
-	if options.UseNLP && db.HasEmbeddings() {
+	if options.UseNLP && options.UseEmbedding && db.HasEmbeddings() {
 		semanticScores := db.calculateSemanticCandidateScores(query, options)
 		for docID, semScore := range semanticScores {
 			if cur, ok := scores[docID]; ok {
@@ -1031,9 +1051,9 @@ func (db *Database) charNGramSimilarityForDoc(
 	return sim, true
 }
 
+//nolint:gocyclo // Candidate gating combines independent search filters in one hot path.
 func (db *Database) calculateSemanticCandidateScores(query string, options SearchOptions) map[int]float64 {
-	// Try sentence-transformer embeddings first (superior accuracy)
-	if db.sentenceIndex != nil {
+	if options.UseSentenceEmbeddings && db.sentenceIndex != nil {
 		if scores := db.calculateSentenceSemanticScores(query, options); len(scores) > 0 {
 			return scores
 		}
@@ -2277,9 +2297,8 @@ func containsAnyLocal(s string, words []string) bool {
 // applySemanticBoost blends embedding similarity into BM25F scores.
 // This uses pre-computed command embeddings and GloVe word vectors to add
 // semantic understanding to purely lexical search results.
-func (db *Database) applySemanticBoost(results []SearchResult, query string) []SearchResult {
-	// Try sentence-transformer embeddings first (superior accuracy)
-	if db.sentenceIndex != nil {
+func (db *Database) applySemanticBoost(results []SearchResult, query string, options SearchOptions) []SearchResult {
+	if options.UseSentenceEmbeddings && db.sentenceIndex != nil {
 		return db.applySentenceSemanticBoost(results, query)
 	}
 

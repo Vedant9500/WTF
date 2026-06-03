@@ -27,6 +27,7 @@ type SearchOptions struct {
 	UseNLP                     bool               `json:"use_nlp,omitempty"`
 	UseEmbedding               bool               `json:"use_embedding,omitempty"`
 	DisableEmbedding           bool               `json:"disable_embedding,omitempty"`
+	UseSentenceEmbeddings      bool               `json:"use_sentence_embeddings,omitempty"`
 	TopTermsCap                int                `json:"top_terms_cap,omitempty"`
 	EnableFamilyExpansion      bool               `json:"enable_family_expansion,omitempty"`
 	FamilyExpansionMaxBases    int                `json:"family_expansion_max_bases,omitempty"`

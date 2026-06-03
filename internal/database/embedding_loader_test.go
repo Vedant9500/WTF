@@ -61,3 +61,42 @@ func TestValidateCommandEmbeddings_PrefixHashWithPersonalCommands(t *testing.T) 
 		t.Fatalf("expected embeddings to remain enabled, got %d", len(idx.CmdEmbeddings))
 	}
 }
+
+func TestValidateEnhancedEmbeddings_HashMismatchDisablesEnhanced(t *testing.T) {
+	db := &Database{Commands: []Command{
+		{Command: "git commit", Description: "Commit changes", Keywords: []string{"git", "commit"}},
+		{Command: "tar", Description: "Create archives", Keywords: []string{"archive", "compress"}},
+	}}
+
+	idx := &embedding.EnhancedIndex{
+		Dimension:        3,
+		CmdEmbeddings:    [][]float32{{1, 0, 0}, {0, 1, 0}},
+		CmdEmbeddingHash: "deadbeef",
+		CmdFormatVersion: embedding.EnhancedEmbeddingVersion,
+	}
+
+	if db.validateEnhancedEmbeddings(idx) {
+		t.Fatalf("expected enhanced embeddings to be rejected on hash mismatch")
+	}
+}
+
+func TestValidateSentenceEmbeddings_PrefixHashWithPersonalCommands(t *testing.T) {
+	main := []Command{
+		{Command: "git commit", Description: "Commit changes", Keywords: []string{"git", "commit"}},
+		{Command: "tar", Description: "Create archives", Keywords: []string{"archive", "compress"}},
+	}
+	personal := Command{Command: "my custom", Description: "Custom helper", Keywords: []string{"custom"}}
+
+	db := &Database{Commands: append(append([]Command{}, main...), personal)}
+	mainDB := &Database{Commands: main}
+
+	idx := &embedding.SentenceIndex{
+		Dimension:        3,
+		CmdEmbeddings:    [][]float32{{1, 0, 0}, {0, 1, 0}},
+		CmdEmbeddingHash: mainDB.commandSnapshotHash(2),
+	}
+
+	if !db.validateSentenceEmbeddings(idx) {
+		t.Fatalf("expected sentence embeddings generated from main DB prefix to remain usable")
+	}
+}

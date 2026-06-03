@@ -10,7 +10,7 @@ import (
 	"github.com/Vedant9500/WTF/internal/queryexpansion"
 )
 
-// embeddingSearcher implements embedding-based search with ANN indexing.
+// embeddingSearcher implements embedding-based search over enhanced command embeddings.
 type embeddingSearcher struct {
 	index    *embedding.EnhancedIndex
 	nlpProc  *nlp.QueryProcessor
@@ -24,7 +24,7 @@ func newEmbeddingSearcher(enhancedIdx *embedding.EnhancedIndex, nlpProcessor *nl
 	return &embeddingSearcher{
 		index:    enhancedIdx,
 		nlpProc:  nlpProcessor,
-		useANN:   true,
+		useANN:   false,
 		topK:     50,   // Return top 50 candidates for further ranking
 		minScore: 0.01, // Minimum cosine similarity threshold (raw scale: -1 to 1)
 	}
@@ -120,6 +120,8 @@ func (es *embeddingSearcher) extractQueryTerms(pq *nlp.ProcessedQuery) []string 
 }
 
 // computeIntentWeights computes weights for each term based on intent.
+//
+//nolint:gocyclo // Intent weighting is clearer as a compact table of direct rules.
 func (es *embeddingSearcher) computeIntentWeights(pq *nlp.ProcessedQuery) map[string]float64 {
 	weights := make(map[string]float64)
 

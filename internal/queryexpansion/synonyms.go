@@ -10,32 +10,32 @@ import (
 // for command-line tools and development workflows.
 var DomainSynonyms = map[string][]string{
 	// Git operations
-	"undo":     {"reset", "revert", "rollback", "restore"},
-	"revert":   {"undo", "reset", "rollback"},
-	"commit":   {"commit", "stash"},
-	"branch":   {"branch", "checkout", "switch"},
-	"history":  {"log", "show", "history"},
-	"compare":  {"diff", "compare"},
-	"merge":    {"merge", "rebase"},
+	"undo":    {"reset", "revert", "rollback", "restore"},
+	"revert":  {"undo", "reset", "rollback"},
+	"commit":  {"commit", "stash"},
+	"branch":  {"branch", "checkout", "switch"},
+	"history": {"log", "show", "history"},
+	"compare": {"diff", "compare"},
+	"merge":   {"merge", "rebase"},
 
 	// File operations
-	"delete":   {"remove", "rm", "rmdir", "destroy"},
-	"remove":   {"delete", "rm", "rmdir"},
-	"create":   {"create", "make", "mkdir", "touch", "new"},
-	"make":     {"create", "make", "mkdir", "build"},
-	"list":     {"list", "ls", "show", "display", "dir"},
-	"show":     {"show", "list", "display", "view", "cat", "ls"},
-	"view":     {"view", "show", "display", "cat", "less", "more"},
-	"display":  {"display", "show", "list", "view"},
-	"copy":     {"copy", "cp", "duplicate"},
-	"move":     {"move", "mv", "rename"},
-	"rename":   {"rename", "mv", "move"},
+	"delete":  {"remove", "rm", "rmdir", "destroy"},
+	"remove":  {"delete", "rm", "rmdir"},
+	"create":  {"create", "make", "mkdir", "touch", "new"},
+	"make":    {"create", "make", "mkdir", "build"},
+	"list":    {"list", "ls", "show", "display", "dir"},
+	"show":    {"show", "list", "display", "view", "cat", "ls"},
+	"view":    {"view", "show", "display", "cat", "less", "more"},
+	"display": {"display", "show", "list", "view"},
+	"copy":    {"copy", "cp", "duplicate"},
+	"move":    {"move", "mv", "rename"},
+	"rename":  {"rename", "mv", "move"},
 
 	// Compression/Archive
-	"compress": {"compress", "archive", "zip", "tar", "gzip", "pack"},
-	"archive":  {"archive", "compress", "zip", "tar", "gzip"},
-	"extract":  {"extract", "unzip", "unpack", "decompress", "gunzip"},
-	"unzip":    {"unzip", "extract", "unpack"},
+	"compress":   {"compress", "archive", "zip", "tar", "gzip", "pack"},
+	"archive":    {"archive", "compress", "zip", "tar", "gzip"},
+	"extract":    {"extract", "unzip", "unpack", "decompress", "gunzip"},
+	"unzip":      {"unzip", "extract", "unpack"},
 	"decompress": {"decompress", "extract", "unzip", "unpack"},
 
 	// Docker
@@ -50,30 +50,30 @@ var DomainSynonyms = map[string][]string{
 	"network":  {"network", "ip", "ifconfig"},
 
 	// Search/Text processing
-	"search":   {"search", "grep", "find", "locate", "ripgrep"},
-	"find":     {"find", "search", "locate", "grep"},
-	"replace":  {"replace", "sed", "substitute", "perl"},
-	"sort":     {"sort", "order"},
-	"unique":   {"unique", "uniq", "distinct"},
+	"search":  {"search", "grep", "find", "locate", "ripgrep"},
+	"find":    {"find", "search", "locate", "grep"},
+	"replace": {"replace", "sed", "substitute", "perl"},
+	"sort":    {"sort", "order"},
+	"unique":  {"unique", "uniq", "distinct"},
 
 	// System/Process
-	"process":  {"process", "ps", "top", "task"},
-	"kill":     {"kill", "pkill", "killall", "terminate", "stop"},
-	"stop":     {"stop", "kill", "terminate", "pkill"},
-	"monitor":  {"monitor", "top", "htop", "watch"},
-	"service":  {"service", "systemctl", "daemon"},
+	"process": {"process", "ps", "top", "task"},
+	"kill":    {"kill", "pkill", "killall", "terminate", "stop"},
+	"stop":    {"stop", "kill", "terminate", "pkill"},
+	"monitor": {"monitor", "top", "htop", "watch"},
+	"service": {"service", "systemctl", "daemon"},
 
 	// Package management
-	"install":  {"install", "add", "pip", "apt", "npm", "brew"},
-	"update":   {"update", "upgrade"},
+	"install": {"install", "add", "pip", "apt", "npm", "brew"},
+	"update":  {"update", "upgrade"},
 
 	// Permissions
 	"permission": {"permission", "chmod", "access", "rights"},
 	"executable": {"executable", "chmod", "exec"},
 
 	// SSH/Remote
-	"remote":   {"remote", "ssh", "scp", "rsync"},
-	"connect":  {"connect", "ssh"},
+	"remote":  {"remote", "ssh", "scp", "rsync"},
+	"connect": {"connect", "ssh"},
 }
 
 // ExpandQuery expands a query with domain-specific synonyms to improve recall.
